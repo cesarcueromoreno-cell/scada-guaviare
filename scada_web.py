@@ -13,6 +13,52 @@ import re
 # ==========================================
 st.set_page_config(page_title="Central CV Ingeniería", page_icon="⚡", layout="centered")
 
+# --- NUEVO: INYECCIÓN DE INTERFAZ DE FONDO (GRANJA SOLAR) ---
+# Usamos CSS para colocar una imagen de fondo y asegurar legibilidad
+# Imagen de referencia profesional de una granja solar
+URL_FONDO_SOLAR = "https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=1920"
+
+st.markdown(
+    f"""
+    <style>
+    # Cambiamos el fondo de toda la aplicación
+    .stApp {{
+        background-image: url("{URL_FONDO_SOLAR}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    
+    # Añadimos un panel semitransparente sobre el fondo para garantizar la legibilidad del texto
+    .stApp::before {{
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.85); /* Capa blanca al 85% de opacidad */
+        z-index: -1;
+    }}
+    
+    # Ajustes opcionales para que los componentes se vean mejor sobre el fondo
+    .stMarkdown, .stButton, .stSelectbox, .stTextInput, .stForm, .stExpander {{
+        background-color: rgba(255, 255, 255, 0.9); /* Fondo ligero para elementos */
+        padding: 10px;
+        border-radius: 10px;
+    }}
+    
+    # Ajuste para la barra lateral
+    [data-testid="stSidebar"] {{
+        background-color: rgba(240, 242, 246, 0.95);
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+# -------------------------------------------------------------
+
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
@@ -119,7 +165,7 @@ if menu == "📊 Monitoreo":
     
     # TU GRÁFICA ORIGINAL (SVG NATIVO) - SIN CAMBIOS
     diagrama_svg = f"""
-    <div style="background: #fdfdfd; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
+    <div style="background: rgba(253, 253, 253, 0.95); padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
         <svg viewBox="0 0 400 350" width="100%">
             <path d="M 100 85 V 150 H 170" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
             <path d="M 300 85 V 150 H 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
