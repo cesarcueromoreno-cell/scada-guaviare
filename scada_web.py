@@ -7,7 +7,14 @@ import pandas as pd
 import requests
 import streamlit.components.v1 as components
 import re
-from pymodbus.client import ModbusTcpClient # NUEVO: Librería para hablar con Deye
+
+# --- NUEVO: IMPORTACIÓN A PRUEBA DE FALLOS ---
+try:
+    from pymodbus.client import ModbusTcpClient
+    MODBUS_DISPONIBLE = True
+except ImportError:
+    MODBUS_DISPONIBLE = False
+# ---------------------------------------------
 
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y FONDO SOLAR
@@ -83,7 +90,7 @@ def obtener_datos_reales(planta):
     marca = planta.get("inversores")
     ip_sn = planta.get("datalogger", "")
     
-    # 1. INTEGRACIÓN FRONIUS (API Web)
+    # 1. INTEGRACIÓN FRONIUS
     if marca == "Fronius" and "." in ip_sn:
         try:
             url = f"http://{ip_sn}/solar_api/v1/GetInverterRealtimeData.cgi?Scope=Device&DeviceId=1&DataCollection=CommonInverterData"
@@ -93,33 +100,28 @@ def obtener_datos_reales(planta):
         except:
             pass
 
-    # 2. NUEVO: INTEGRACIÓN DEYE (Modbus TCP)
-    if marca == "Deye" and "." in ip_sn:
+    # 2. INTEGRACIÓN DEYE (Solo funciona si Modbus se instaló bien)
+    if marca == "Deye" and "." in ip_sn and MODBUS_DISPONIBLE:
         try:
-            # Conecta al puerto estándar Modbus (puede ser 502 o el puerto del datalogger WiFi, ej. 8899)
             cliente = ModbusTcpClient(ip_sn, port=8899, timeout=2) 
             if cliente.connect():
-                # Deye: Registro 590 es usualmente el % de Batería (SOC)
                 rr_soc = cliente.read_holding_registers(address=590, count=1, slave=1)
-                # Deye: Registro 108/109 o similares para potencia FV total (Depende de si es monofásico o trifásico)
                 rr_pv = cliente.read_holding_registers(address=108, count=1, slave=1) 
-                
                 if not rr_soc.isError():
                     bateria_porcentaje = rr_soc.registers[0]
-                    potencia_paneles = rr_pv.registers[0] * 10 if not rr_pv.isError() else 0 # Multiplicador típico
-                    
+                    potencia_paneles = rr_pv.registers[0] * 10 if not rr_pv.isError() else 0 
                     cliente.close()
                     return {
                         "solar": int(potencia_paneles),
-                        "casa": 1500, # Valor quemado temporalmente hasta mapear el registro de carga
+                        "casa": 1500,
                         "soc": int(bateria_porcentaje),
                         "status": "Online (Modbus)"
                     }
             cliente.close()
-        except Exception as e:
-            pass # Si falla o el equipo está apagado, pasa al simulador
+        except Exception:
+            pass 
 
-    # 3. SIMULADOR INTELIGENTE (Si no hay red o es otra marca)
+    # 3. SIMULADOR INTELIGENTE (Respaldo)
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
     
@@ -129,11 +131,13 @@ def obtener_datos_reales(planta):
     except:
         cap_val = 5000 
 
+    estado = "Simulado" if MODBUS_DISPONIBLE else "Falta librería Modbus"
+
     return {
         "solar": int(cap_val * random.uniform(0.1, 0.8)),
         "casa": 1750 + random.randint(-40, 40),
         "soc": random.randint(50, 99),
-        "status": "Simulado"
+        "status": estado
     }
 
 plantas_guardadas = cargar_plantas()
@@ -158,7 +162,6 @@ if menu == "📊 Monitoreo":
     planta_sel = st.selectbox("Seleccione Planta:", [p["nombre"] for p in plantas_guardadas])
     d = next(p for p in plantas_guardadas if p["nombre"] == planta_sel)
     
-    # Datos desde el motor
     datos_act = obtener_datos_reales(d)
     pot_solar = datos_act["solar"]
     pot_casa = datos_act["casa"]
@@ -172,7 +175,6 @@ if menu == "📊 Monitoreo":
 
     st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
     
-    # TU GRÁFICA ORIGINAL (SVG NATIVO) SIN CAMBIOS
     diagrama_svg = f"""
     <div style="background: transparent; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
         <svg viewBox="0 0 400 350" width="100%">
