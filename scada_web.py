@@ -7,14 +7,14 @@ import pandas as pd
 import requests
 import streamlit.components.v1 as components
 import re
+import hashlib
+import time
 
-# --- NUEVO: IMPORTACIÓN A PRUEBA DE FALLOS ---
 try:
     from pymodbus.client import ModbusTcpClient
     MODBUS_DISPONIBLE = True
 except ImportError:
     MODBUS_DISPONIBLE = False
-# ---------------------------------------------
 
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y FONDO SOLAR
@@ -24,20 +24,15 @@ st.set_page_config(page_title="Central CV Ingeniería", page_icon="⚡", layout=
 st.markdown(
     """
     <style>
-    /* Fondo de granja solar */
     [data-testid="stAppViewContainer"] {
         background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
     }
-    
-    /* Barra superior transparente */
     [data-testid="stHeader"] {
         background: rgba(0,0,0,0);
     }
-    
-    /* Cuadro blanco semitransparente para que se lea tu interfaz */
     [data-testid="stAppViewBlockContainer"] {
         background-color: rgba(255, 255, 255, 0.92);
         border-radius: 15px;
@@ -86,6 +81,31 @@ def guardar_planta(nueva):
     plantas.append(nueva)
     with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
+# --- NUEVA FUNCIÓN PARA BORRAR (SIN CAMBIAR NADA MÁS) ---
+def eliminar_planta(nombre_planta):
+    plantas = cargar_plantas()
+    # Filtramos la lista para quedarnos con todas menos la que queremos borrar
+    plantas_restantes = [p for p in plantas if p["nombre"] != nombre_planta]
+    with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas_restantes, f)
+# --------------------------------------------------------
+
+# --- CREDENCIALES SOLARMAN API (DEYE) ---
+SOLARMAN_APP_ID = "TU_APP_ID_AQUI"
+SOLARMAN_APP_SECRET = "TU_APP_SECRET_AQUI"
+SOLARMAN_EMAIL = "tu_correo@cvingenieria.com"
+SOLARMAN_PASSWORD = "tu_password"
+
+def obtener_token_solarman():
+    try:
+        url = "https://api.solarmanpv.com/account/v1.0/token"
+        pwd_hash = hashlib.sha256(SOLARMAN_PASSWORD.encode()).hexdigest()
+        payload = {"appId": SOLARMAN_APP_ID, "password": pwd_hash, "email": SOLARMAN_EMAIL}
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(url, json=payload, headers=headers, timeout=5)
+        if response.status_code == 200: return response.json().get('access_token')
+        return None
+    except: return None
+
 def obtener_datos_reales(planta):
     marca = planta.get("inversores")
     ip_sn = planta.get("datalogger", "")
@@ -97,41 +117,37 @@ def obtener_datos_reales(planta):
             r = requests.get(url, timeout=1.2).json()
             pot_sol = r['Body']['Data'].get('PAC', {}).get('Value', 0)
             return {"solar": int(pot_sol) if pot_sol else 0, "casa": 1400, "soc": 100, "status": "Online"}
-        except:
-            pass
+        except: pass
 
-    # 2. INTEGRACIÓN DEYE (Solo funciona si Modbus se instaló bien)
-    if marca == "Deye" and "." in ip_sn and MODBUS_DISPONIBLE:
-        try:
-            cliente = ModbusTcpClient(ip_sn, port=8899, timeout=2) 
-            if cliente.connect():
-                rr_soc = cliente.read_holding_registers(address=590, count=1, slave=1)
-                rr_pv = cliente.read_holding_registers(address=108, count=1, slave=1) 
-                if not rr_soc.isError():
-                    bateria_porcentaje = rr_soc.registers[0]
-                    potencia_paneles = rr_pv.registers[0] * 10 if not rr_pv.isError() else 0 
-                    cliente.close()
-                    return {
-                        "solar": int(potencia_paneles),
-                        "casa": 1500,
-                        "soc": int(bateria_porcentaje),
-                        "status": "Online (Modbus)"
-                    }
-            cliente.close()
-        except Exception:
-            pass 
+    # 2. INTEGRACIÓN DEYE (API Solarman)
+    if marca == "Deye" and "TU_APP_ID" not in SOLARMAN_APP_ID and len(ip_sn) > 6 and "." not in ip_sn:
+        token = obtener_token_solarman()
+        if token:
+            try:
+                url_device = f"https://api.solarmanpv.com/device/v1.0/currentData?appId={SOLARMAN_APP_ID}&language=en"
+                headers = {"Authorization": f"bearer {token}", "Content-Type": "application/json"}
+                payload = {"deviceSn": ip_sn}
+                res = requests.post(url_device, json=payload, headers=headers, timeout=5)
+                
+                if res.status_code == 200:
+                    datos_api = res.json()
+                    if datos_api.get("success"):
+                        parametros = datos_api.get("dataList", [])
+                        pot_fv, soc_bat, pot_carga = 0, 100, 1500
+                        for param in parametros:
+                            if param.get("key") == "DC_P": pot_fv = float(param.get("value", 0))
+                            elif param.get("key") == "B_SOC": soc_bat = int(float(param.get("value", 0)))
+                            elif param.get("key") == "L_P": pot_carga = float(param.get("value", 0))
+                        return {"solar": int(pot_fv), "casa": int(pot_carga), "soc": int(soc_bat), "status": "Online (Nube)"}
+            except: pass 
 
-    # 3. SIMULADOR INTELIGENTE (Respaldo)
+    # 3. SIMULADOR INTELIGENTE
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
-    
-    try:
-        cap_num = float(solo_numeros[0]) if solo_numeros else 5.0
-        cap_val = cap_num * 1000
-    except:
-        cap_val = 5000 
+    try: cap_val = float(solo_numeros[0]) * 1000 if solo_numeros else 5000 
+    except: cap_val = 5000 
 
-    estado = "Simulado" if MODBUS_DISPONIBLE else "Falta librería Modbus"
+    estado = "Simulado (Falta configurar API Solarman)" if marca == "Deye" else "Simulado"
 
     return {
         "solar": int(cap_val * random.uniform(0.1, 0.8)),
@@ -143,7 +159,7 @@ def obtener_datos_reales(planta):
 plantas_guardadas = cargar_plantas()
 
 # ==========================================
-# 3. NAVEGACIÓN
+# 3. NAVEGACIÓN Y RESTO DEL CÓDIGO
 # ==========================================
 st.sidebar.title("Navegación CV")
 menu = st.sidebar.radio("Ir a:", ["📊 Monitoreo", "🏢 Gestión"])
@@ -152,82 +168,79 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.rerun()
 st.sidebar.info("**CV INGENIERIA SAS**")
 
-# ==========================================
-# VENTANA 1: MONITOREO
-# ==========================================
 if menu == "📊 Monitoreo":
     st.title("⚡ CENTRAL GESTIÓN DE PLANTAS")
     st.markdown("**CV INGENIERIA SAS**")
     
-    planta_sel = st.selectbox("Seleccione Planta:", [p["nombre"] for p in plantas_guardadas])
-    d = next(p for p in plantas_guardadas if p["nombre"] == planta_sel)
-    
-    datos_act = obtener_datos_reales(d)
-    pot_solar = datos_act["solar"]
-    pot_casa = datos_act["casa"]
-    pot_bat = pot_solar - pot_casa
-    soc = datos_act["soc"]
-    color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
+    if not plantas_guardadas:
+        st.warning("No hay plantas registradas. Por favor, ve a Gestión para crear una.")
+    else:
+        planta_sel = st.selectbox("Seleccione Planta:", [p["nombre"] for p in plantas_guardadas])
+        d = next(p for p in plantas_guardadas if p["nombre"] == planta_sel)
+        
+        datos_act = obtener_datos_reales(d)
+        pot_solar = datos_act["solar"]
+        pot_casa = datos_act["casa"]
+        pot_bat = pot_solar - pot_casa
+        soc = datos_act["soc"]
+        color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
 
-    st.write(f"📍 {d['ubicacion']} | ⚡ {d['capacidad']} | 📡 Estado: `{datos_act['status']}`")
-    st.write(f"🔋 **Batería:** {d.get('bat_marca','N/A')} ({d.get('bat_tipo','N/A')})")
-    st.markdown("---")
+        st.write(f"📍 {d['ubicacion']} | ⚡ {d['capacidad']} | 📡 Estado: `{datos_act['status']}`")
+        st.write(f"🔋 **Batería:** {d.get('bat_marca','N/A')} ({d.get('bat_tipo','N/A')})")
+        st.markdown("---")
 
-    st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
-    
-    diagrama_svg = f"""
-    <div style="background: transparent; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
-        <svg viewBox="0 0 400 350" width="100%">
-            <path d="M 100 85 V 150 H 170" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
-            <path d="M 300 85 V 150 H 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
-            <path d="M 170 150 H 100 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
-            <path d="M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
-            
-            <circle r="6" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
-            <circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>
-            <circle r="6" fill="#e67e22"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>
-            
-            <rect x="165" y="115" width="70" height="70" rx="12" fill="#ffffff" stroke="#3498db" stroke-width="3"/>
-            <rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/> <text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text>
-            <text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">Híbrido</text>
+        st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
+        
+        diagrama_svg = f"""
+        <div style="background: transparent; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
+            <svg viewBox="0 0 400 350" width="100%">
+                <path d="M 100 85 V 150 H 170" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
+                <path d="M 300 85 V 150 H 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
+                <path d="M 170 150 H 100 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
+                <path d="M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
+                
+                <circle r="6" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
+                <circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>
+                <circle r="6" fill="#e67e22"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>
+                
+                <rect x="165" y="115" width="70" height="70" rx="12" fill="#ffffff" stroke="#3498db" stroke-width="3"/>
+                <rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/> <text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text>
+                <text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">Híbrido</text>
 
-            <g transform="translate(30,20)">
-                <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
-                <rect x="10" y="10" width="45" height="65" fill="#1a237e" rx="2"/> <path d="M 10 25 H 55 M 10 40 H 55 M 10 55 H 55 M 21 10 V 75 M 32 10 V 75 M 43 10 V 75" stroke="#f1c40f" stroke-width="0.5"/>
-                <text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">FV TOTAL</text>
-                <text x="65" y="65" font-size="18" font-weight="bold" fill="#2d3436">{pot_solar} W</text>
-            </g>
-            
-            <g transform="translate(230,20)">
-                <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
-                <path d="M 35 75 L 25 15 L 45 15 L 35 75 Z M 20 25 H 50 M 15 45 H 55" fill="none" stroke="#b2bec3" stroke-width="2.5"/> <text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">RED ELÉC.</text>
-                <text x="65" y="65" font-size="18" font-weight="bold" fill="#d63031">0 W</text>
-            </g>
+                <g transform="translate(30,20)">
+                    <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
+                    <rect x="10" y="10" width="45" height="65" fill="#1a237e" rx="2"/> <path d="M 10 25 H 55 M 10 40 H 55 M 10 55 H 55 M 21 10 V 75 M 32 10 V 75 M 43 10 V 75" stroke="#f1c40f" stroke-width="0.5"/>
+                    <text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">FV TOTAL</text>
+                    <text x="65" y="65" font-size="18" font-weight="bold" fill="#2d3436">{pot_solar} W</text>
+                </g>
+                
+                <g transform="translate(230,20)">
+                    <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
+                    <path d="M 35 75 L 25 15 L 45 15 L 35 75 Z M 20 25 H 50 M 15 45 H 55" fill="none" stroke="#b2bec3" stroke-width="2.5"/> <text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">RED ELÉC.</text>
+                    <text x="65" y="65" font-size="18" font-weight="bold" fill="#d63031">0 W</text>
+                </g>
 
-            <g transform="translate(30,230)">
-                <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
-                <rect x="10" y="10" width="45" height="65" rx="4" fill="#636e72"/> <rect x="15" y="15" width="35" height="8" rx="1" fill="#2d3436"/>
-                <rect x="15" y="30" width="35" height="8" rx="1" fill="#2d3436"/>
-                <rect x="15" y="55" width="35" height="15" rx="1" fill="white"/> <text x="32" y="67" text-anchor="middle" font-size="10" font-weight="bold" fill="{color_bat}">{soc}%</text>
-                <text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">BATERÍA</text>
-                <text x="65" y="65" font-size="18" font-weight="bold" fill="#27ae60">{pot_bat} W</text>
-            </g>
-            
-            <g transform="translate(230,230)">
-                <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
-                <path d="M 35 15 L 10 35 V 75 H 60 V 35 Z" fill="#dfe6e9"/> <path d="M 35 10 L 5 35 H 65 Z" fill="#636e72"/> <rect x="28" y="55" width="14" height="20" fill="#a1887f"/> <text x="75" y="35" font-size="11" fill="#636e72" font-weight="bold">CARGA</text>
-                <text x="75" y="65" font-size="18" font-weight="bold" fill="#e67e22">{pot_casa} W</text>
-            </g>
-        </svg>
-    </div>
-    """
-    
-    components.html(diagrama_svg, height=520) 
-    if st.button("🔄 Actualizar Datos"): st.rerun()
+                <g transform="translate(30,230)">
+                    <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
+                    <rect x="10" y="10" width="45" height="65" rx="4" fill="#636e72"/> <rect x="15" y="15" width="35" height="8" rx="1" fill="#2d3436"/>
+                    <rect x="15" y="30" width="35" height="8" rx="1" fill="#2d3436"/>
+                    <rect x="15" y="55" width="35" height="15" rx="1" fill="white"/> <text x="32" y="67" text-anchor="middle" font-size="10" font-weight="bold" fill="{color_bat}">{soc}%</text>
+                    <text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">BATERÍA</text>
+                    <text x="65" y="65" font-size="18" font-weight="bold" fill="#27ae60">{pot_bat} W</text>
+                </g>
+                
+                <g transform="translate(230,230)">
+                    <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
+                    <path d="M 35 15 L 10 35 V 75 H 60 V 35 Z" fill="#dfe6e9"/> <path d="M 35 10 L 5 35 H 65 Z" fill="#636e72"/> <rect x="28" y="55" width="14" height="20" fill="#a1887f"/> <text x="75" y="35" font-size="11" fill="#636e72" font-weight="bold">CARGA</text>
+                    <text x="75" y="65" font-size="18" font-weight="bold" fill="#e67e22">{pot_casa} W</text>
+                </g>
+            </svg>
+        </div>
+        """
+        
+        components.html(diagrama_svg, height=520) 
+        if st.button("🔄 Actualizar Datos"): st.rerun()
 
-# ==========================================
-# VENTANA 2: GESTIÓN DE PORTAFOLIO
-# ==========================================
 else:
     st.title("🏢 GESTIÓN DE PORTAFOLIO")
     st.markdown("**CV INGENIERIA SAS**")
@@ -251,5 +264,13 @@ else:
                     st.rerun()
 
     st.markdown("### 📋 Directorio de Plantas")
+    
+    # --- AQUÍ INYECTAMOS EL BOTÓN DE BORRAR ---
     for pl in plantas_guardadas:
-        st.info(f"**{pl['nombre']}** | {pl['ubicacion']} | 🔋 {pl.get('bat_marca','N/A')}")
+        col_info, col_btn = st.columns([5, 1]) # Dividimos el espacio para que el botón no dañe el diseño
+        with col_info:
+            st.info(f"**{pl['nombre']}** | {pl['ubicacion']} | 🔋 {pl.get('bat_marca','N/A')}")
+        with col_btn:
+            # Botón único para cada planta
+            if st.button("🗑️", key=f"del_{pl['nombre']}", help="Borrar planta"):
+                eliminar_planta(pl['nombre'])
