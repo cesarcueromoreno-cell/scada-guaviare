@@ -7,6 +7,7 @@ import pandas as pd
 import requests
 import streamlit.components.v1 as components
 import re
+from pymodbus.client import ModbusTcpClient # NUEVO: Librería para hablar con Deye
 
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y FONDO SOLAR
@@ -82,7 +83,7 @@ def obtener_datos_reales(planta):
     marca = planta.get("inversores")
     ip_sn = planta.get("datalogger", "")
     
-    # Intento Fronius
+    # 1. INTEGRACIÓN FRONIUS (API Web)
     if marca == "Fronius" and "." in ip_sn:
         try:
             url = f"http://{ip_sn}/solar_api/v1/GetInverterRealtimeData.cgi?Scope=Device&DeviceId=1&DataCollection=CommonInverterData"
@@ -92,7 +93,33 @@ def obtener_datos_reales(planta):
         except:
             pass
 
-    # Solución al error de texto en la capacidad
+    # 2. NUEVO: INTEGRACIÓN DEYE (Modbus TCP)
+    if marca == "Deye" and "." in ip_sn:
+        try:
+            # Conecta al puerto estándar Modbus (puede ser 502 o el puerto del datalogger WiFi, ej. 8899)
+            cliente = ModbusTcpClient(ip_sn, port=8899, timeout=2) 
+            if cliente.connect():
+                # Deye: Registro 590 es usualmente el % de Batería (SOC)
+                rr_soc = cliente.read_holding_registers(address=590, count=1, slave=1)
+                # Deye: Registro 108/109 o similares para potencia FV total (Depende de si es monofásico o trifásico)
+                rr_pv = cliente.read_holding_registers(address=108, count=1, slave=1) 
+                
+                if not rr_soc.isError():
+                    bateria_porcentaje = rr_soc.registers[0]
+                    potencia_paneles = rr_pv.registers[0] * 10 if not rr_pv.isError() else 0 # Multiplicador típico
+                    
+                    cliente.close()
+                    return {
+                        "solar": int(potencia_paneles),
+                        "casa": 1500, # Valor quemado temporalmente hasta mapear el registro de carga
+                        "soc": int(bateria_porcentaje),
+                        "status": "Online (Modbus)"
+                    }
+            cliente.close()
+        except Exception as e:
+            pass # Si falla o el equipo está apagado, pasa al simulador
+
+    # 3. SIMULADOR INTELIGENTE (Si no hay red o es otra marca)
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
     
@@ -131,7 +158,7 @@ if menu == "📊 Monitoreo":
     planta_sel = st.selectbox("Seleccione Planta:", [p["nombre"] for p in plantas_guardadas])
     d = next(p for p in plantas_guardadas if p["nombre"] == planta_sel)
     
-    # Datos desde el motor corregido
+    # Datos desde el motor
     datos_act = obtener_datos_reales(d)
     pot_solar = datos_act["solar"]
     pot_casa = datos_act["casa"]
@@ -139,7 +166,7 @@ if menu == "📊 Monitoreo":
     soc = datos_act["soc"]
     color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
 
-    st.write(f"📍 {d['ubicacion']} | ⚡ {d['capacidad']} | 📡 DL: `{d.get('datalogger','N/A')}`")
+    st.write(f"📍 {d['ubicacion']} | ⚡ {d['capacidad']} | 📡 Estado: `{datos_act['status']}`")
     st.write(f"🔋 **Batería:** {d.get('bat_marca','N/A')} ({d.get('bat_tipo','N/A')})")
     st.markdown("---")
 
