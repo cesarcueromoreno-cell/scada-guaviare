@@ -81,13 +81,13 @@ def guardar_planta(nueva):
     plantas.append(nueva)
     with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
-# --- NUEVA FUNCIÓN PARA BORRAR (SIN CAMBIAR NADA MÁS) ---
-def eliminar_planta(nombre_planta):
+# --- FUNCIÓN PARA BORRAR CORREGIDA (Usa el número de orden, no el nombre) ---
+def eliminar_planta(indice):
     plantas = cargar_plantas()
-    # Filtramos la lista para quedarnos con todas menos la que queremos borrar
-    plantas_restantes = [p for p in plantas if p["nombre"] != nombre_planta]
-    with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas_restantes, f)
-# --------------------------------------------------------
+    if 0 <= indice < len(plantas):
+        plantas.pop(indice)
+        with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
+# ----------------------------------------------------------------------------
 
 # --- CREDENCIALES SOLARMAN API (DEYE) ---
 SOLARMAN_APP_ID = "TU_APP_ID_AQUI"
@@ -110,7 +110,6 @@ def obtener_datos_reales(planta):
     marca = planta.get("inversores")
     ip_sn = planta.get("datalogger", "")
     
-    # 1. INTEGRACIÓN FRONIUS
     if marca == "Fronius" and "." in ip_sn:
         try:
             url = f"http://{ip_sn}/solar_api/v1/GetInverterRealtimeData.cgi?Scope=Device&DeviceId=1&DataCollection=CommonInverterData"
@@ -119,7 +118,6 @@ def obtener_datos_reales(planta):
             return {"solar": int(pot_sol) if pot_sol else 0, "casa": 1400, "soc": 100, "status": "Online"}
         except: pass
 
-    # 2. INTEGRACIÓN DEYE (API Solarman)
     if marca == "Deye" and "TU_APP_ID" not in SOLARMAN_APP_ID and len(ip_sn) > 6 and "." not in ip_sn:
         token = obtener_token_solarman()
         if token:
@@ -141,7 +139,6 @@ def obtener_datos_reales(planta):
                         return {"solar": int(pot_fv), "casa": int(pot_carga), "soc": int(soc_bat), "status": "Online (Nube)"}
             except: pass 
 
-    # 3. SIMULADOR INTELIGENTE
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
     try: cap_val = float(solo_numeros[0]) * 1000 if solo_numeros else 5000 
@@ -265,12 +262,13 @@ else:
 
     st.markdown("### 📋 Directorio de Plantas")
     
-    # --- AQUÍ INYECTAMOS EL BOTÓN DE BORRAR ---
-    for pl in plantas_guardadas:
-        col_info, col_btn = st.columns([5, 1]) # Dividimos el espacio para que el botón no dañe el diseño
+    # --- AQUÍ INYECTAMOS EL BOTÓN DE BORRAR (CORREGIDO PARA NOMBRES DUPLICADOS) ---
+    for i, pl in enumerate(plantas_guardadas):
+        col_info, col_btn = st.columns([5, 1]) 
         with col_info:
             st.info(f"**{pl['nombre']}** | {pl['ubicacion']} | 🔋 {pl.get('bat_marca','N/A')}")
         with col_btn:
-            # Botón único para cada planta
-            if st.button("🗑️", key=f"del_{pl['nombre']}", help="Borrar planta"):
-                eliminar_planta(pl['nombre'])
+            # Usamos el índice "i" para que el botón sea único, sin importar el nombre
+            if st.button("🗑️", key=f"del_btn_{i}", help="Borrar planta"):
+                eliminar_planta(i)
+                st.rerun()
