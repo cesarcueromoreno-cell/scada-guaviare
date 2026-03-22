@@ -77,7 +77,7 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
 st.sidebar.info("Plataforma Oficial \n**CV INGENIERIA SAS**")
 
 # ==========================================
-# VENTANA 1: MONITOREO (INTERFAZ DEYE MANTENIDA)
+# VENTANA 1: MONITOREO (DISEÑO DE INTERFAZ ORIGINAL)
 # ==========================================
 if menu == "📊 Monitoreo en Vivo":
     st.title("⚡ CENTRAL GESTION DE PLANTAS")
@@ -90,4 +90,25 @@ if menu == "📊 Monitoreo en Vivo":
     st.markdown(f"🔋 **Batería:** {det.get('bat_marca','N/A')} ({det.get('bat_tipo','N/A')})")
     st.markdown("---")
 
-    st
+    st.markdown("### 📈 Curva de Generación Diaria")
+    datos_h = generar_curva_solar(planta_sel)
+    st.area_chart(datos_h, color="#f1c40f")
+
+    # Cálculos para diagrama en tiempo real
+    pot_solar = max(0, datos_h.iloc[-1]["Generación (W)"] + random.randint(-100, 100))
+    pot_load = 1800 + random.randint(-50, 50)
+    pot_bat = pot_solar - pot_load
+    soc = random.randint(40, 100)
+
+    st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
+    diagrama_svg = f"""
+    <div style="background-color: #f9f9f9; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
+        <svg viewBox="0 0 400 330" width="100%" height="100%">
+            <path d="M 100 80 H 170" fill="none" stroke="#ddd" stroke-width="3"/>
+            <path d="M 230 150 H 300 V 80" fill="none" stroke="#ddd" stroke-width="3"/>
+            <path d="M 170 150 H 100 V 220" fill="none" stroke="#ddd" stroke-width="3"/>
+            <path d="M 230 150 H 300 V 220" fill="none" stroke="#ddd" stroke-width="3"/>
+            
+            <circle r="5" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 80 H 170" /></circle>
+            <circle r="5" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 220" /></circle>
+            <circle r="5" fill="#e67e2
