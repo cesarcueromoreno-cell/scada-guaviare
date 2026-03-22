@@ -9,55 +9,38 @@ import streamlit.components.v1 as components
 import re
 
 # ==========================================
-# 1. CONFIGURACIÓN INICIAL Y SEGURIDAD - NO TOCAR
+# 1. CONFIGURACIÓN INICIAL Y FONDO SOLAR
 # ==========================================
 st.set_page_config(page_title="Central CV Ingeniería", page_icon="⚡", layout="centered")
 
-# --- NUEVO: INYECCIÓN DE INTERFAZ DE FONDO (GRANJA SOLAR) ---
-# Usamos CSS para colocar una imagen de fondo y asegurar legibilidad
-# Imagen de referencia profesional de una granja solar
-URL_FONDO_SOLAR = "https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=1920"
-
 st.markdown(
-    f"""
+    """
     <style>
-    # Cambiamos el fondo de toda la aplicación
-    .stApp {{
-        background-image: url("{URL_FONDO_SOLAR}");
+    /* Fondo de granja solar */
+    [data-testid="stAppViewContainer"] {
+        background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
         background-size: cover;
         background-position: center;
-        background-repeat: no-repeat;
         background-attachment: fixed;
-    }}
+    }
     
-    # Añadimos un panel semitransparente sobre el fondo para garantizar la legibilidad del texto
-    .stApp::before {{
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(255, 255, 255, 0.85); /* Capa blanca al 85% de opacidad */
-        z-index: -1;
-    }}
+    /* Barra superior transparente */
+    [data-testid="stHeader"] {
+        background: rgba(0,0,0,0);
+    }
     
-    # Ajustes opcionales para que los componentes se vean mejor sobre el fondo
-    .stMarkdown, .stButton, .stSelectbox, .stTextInput, .stForm, .stExpander {{
-        background-color: rgba(255, 255, 255, 0.9); /* Fondo ligero para elementos */
-        padding: 10px;
-        border-radius: 10px;
-    }}
-    
-    # Ajuste para la barra lateral
-    [data-testid="stSidebar"] {{
-        background-color: rgba(240, 242, 246, 0.95);
-    }}
+    /* Cuadro blanco semitransparente para que se lea tu interfaz */
+    [data-testid="stAppViewBlockContainer"] {
+        background-color: rgba(255, 255, 255, 0.92);
+        border-radius: 15px;
+        padding: 2rem;
+        margin-top: 20px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    }
     </style>
     """,
     unsafe_allow_html=True
 )
-# -------------------------------------------------------------
 
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
@@ -109,9 +92,8 @@ def obtener_datos_reales(planta):
         except:
             pass
 
-    # --- ARREGLO PARA LA LÍNEA 74 (ValueError) ---
+    # Solución al error de texto en la capacidad
     cap_texto = str(planta.get("capacidad", "5"))
-    # Extraemos solo números para evitar que "kWp" rompa el programa
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
     
     try:
@@ -140,7 +122,7 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
 st.sidebar.info("**CV INGENIERIA SAS**")
 
 # ==========================================
-# VENTANA 1: MONITOREO (DISEÑO ORIGINAL)
+# VENTANA 1: MONITOREO
 # ==========================================
 if menu == "📊 Monitoreo":
     st.title("⚡ CENTRAL GESTIÓN DE PLANTAS")
@@ -163,9 +145,9 @@ if menu == "📊 Monitoreo":
 
     st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
     
-    # TU GRÁFICA ORIGINAL (SVG NATIVO) - SIN CAMBIOS
+    # TU GRÁFICA ORIGINAL (SVG NATIVO) SIN CAMBIOS
     diagrama_svg = f"""
-    <div style="background: rgba(253, 253, 253, 0.95); padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
+    <div style="background: transparent; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
         <svg viewBox="0 0 400 350" width="100%">
             <path d="M 100 85 V 150 H 170" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
             <path d="M 300 85 V 150 H 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
@@ -215,7 +197,7 @@ if menu == "📊 Monitoreo":
     if st.button("🔄 Actualizar Datos"): st.rerun()
 
 # ==========================================
-# VENTANA 2: GESTIÓN DE PORTAFOLIO - NO TOCAR
+# VENTANA 2: GESTIÓN DE PORTAFOLIO
 # ==========================================
 else:
     st.title("🏢 GESTIÓN DE PORTAFOLIO")
@@ -226,7 +208,7 @@ else:
             c1, c2 = st.columns(2)
             n_nom = c1.text_input("Nombre Planta")
             n_ubi = c2.text_input("Ubicación")
-            n_inv = c1.selectbox("Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt"])
+            n_inv = c1.selectbox("Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must"])
             n_cap = c2.text_input("Capacidad (kWp)")
             st.markdown("---")
             c3, c4 = st.columns(2)
