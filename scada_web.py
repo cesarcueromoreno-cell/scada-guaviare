@@ -44,7 +44,16 @@ ARCHIVO_PLANTAS = 'plantas.json'
 
 def cargar_plantas():
     if not os.path.exists(ARCHIVO_PLANTAS):
-        plantas_iniciales = [{"nombre": "Planta Principal", "ubicacion": "San José del Guaviare", "capacidad": "13.92 kWp", "inversores": "Fronius + GoodWe", "datalogger": "SN: 240.123456 / IP: 192.168.1.15"}]
+        # Actualizamos la planta por defecto con los nuevos datos de batería
+        plantas_iniciales = [{
+            "nombre": "Planta Principal", 
+            "ubicacion": "San José del Guaviare", 
+            "capacidad": "13.92 kWp", 
+            "inversores": "Fronius + GoodWe", 
+            "datalogger": "SN: 240.123456 / IP: 192.168.1.15",
+            "bat_marca": "GoodWe Lynx Home U",
+            "bat_tipo": "Litio (LiFePO4)"
+        }]
         with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas_iniciales, f)
     with open(ARCHIVO_PLANTAS, 'r') as f: return json.load(f)
 
@@ -89,10 +98,16 @@ if menu == "📊 Monitoreo en Vivo":
     
     planta_seleccionada = st.selectbox("Seleccione la planta a monitorear:", [p["nombre"] for p in plantas_guardadas])
     detalles = next(p for p in plantas_guardadas if p["nombre"] == planta_seleccionada)
-    dl_info = detalles.get("datalogger", "No registrado")
     
+    # Extraemos todos los datos (con .get por si hay plantas viejas registradas sin estos datos)
+    dl_info = detalles.get("datalogger", "No registrado")
+    bat_marca = detalles.get("bat_marca", "Ninguna")
+    bat_tipo = detalles.get("bat_tipo", "N/A")
+    
+    # Mostramos el encabezado súper profesional
     st.markdown(f"**Ubicación:** {detalles['ubicacion']} | **Capacidad:** {detalles['capacidad']}")
     st.markdown(f"**Equipos:** {detalles['inversores']} | 📡 **Datalogger:** `{dl_info}`")
+    st.markdown(f"🔋 **Almacenamiento:** {bat_marca} | **Tecnología:** {bat_tipo}")
     st.markdown("---")
 
     st.markdown("### 📈 Curva de Generación Diaria")
@@ -103,7 +118,7 @@ if menu == "📊 Monitoreo en Vivo":
     pot_load = 1800 + random.randint(-50, 50)
     pot_red = 0
     pot_bat = pot_solar_total - pot_load  
-    soc_bateria = random.randint(40, 100) 
+    soc_bateria = random.randint(40, 100) if bat_marca != "Ninguna" else 0 # Si no hay batería, SOC 0%
 
     st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
     diagrama_svg = f"""
@@ -134,7 +149,7 @@ if menu == "📊 Monitoreo en Vivo":
         </svg>
     </div>
     """
-    components.html(diagrama_svg, height=500) # ALTURA CORREGIDA A 500
+    components.html(diagrama_svg, height=500)
     
     if st.button("🔄 Refrescar Lecturas"):
         st.rerun()
@@ -148,26 +163,11 @@ elif menu == "🏢 Gestión de Plantas":
     
     with st.expander("➕ Registrar Nueva Planta", expanded=False):
         with st.form("formulario_planta"):
+            # Fila 1: Datos básicos
             col_a, col_b = st.columns(2)
             with col_a:
                 nuevo_nombre = st.text_input("Nombre del Proyecto")
                 nueva_capacidad = st.text_input("Capacidad (ej: 30 kW)")
             with col_b:
                 nueva_ubicacion = st.text_input("Ubicación")
-                nuevos_inversores = st.selectbox("Marcas de Inversores", ["Fronius", "GoodWe", "Huawei", "Deye", "Híbrido Multimarca"])
-            
-            nuevo_datalogger = st.text_input("📡 Datalogger / Módulo Wi-Fi (Número de Serie, IP o MAC)")
-            
-            if st.form_submit_button("💾 Guardar Planta"):
-                if nuevo_nombre != "":
-                    guardar_planta({"nombre": nuevo_nombre, "ubicacion": nueva_ubicacion, "capacidad": nueva_capacidad, "inversores": nuevos_inversores, "datalogger": nuevo_datalogger if nuevo_datalogger else "No especificado"})
-                    st.success("¡Planta registrada con éxito!")
-                    st.rerun()
-                else:
-                    st.error("Por favor, ponle un nombre al proyecto.")
-
-    st.markdown("---")
-    st.markdown("### 📋 Plantas Activas")
-    for planta in plantas_guardadas:
-        dl = planta.get("datalogger", "No registrado")
-        st.info(f"**{planta['nombre']}** \n📍 {planta['ubicacion']} | ⚡ {planta['capacidad']} | 🎛️ {planta['inversores']} | 📡 **DL:** `{dl}`")
+                nuevos_inversores = st.selectbox("Marcas de Inversores",
