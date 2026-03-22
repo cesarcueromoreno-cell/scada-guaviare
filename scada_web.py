@@ -16,7 +16,13 @@ ARCHIVO_PLANTAS = 'plantas.json'
 def cargar_plantas():
     if not os.path.exists(ARCHIVO_PLANTAS):
         plantas_iniciales = [
-            {"nombre": "Planta Principal", "ubicacion": "San José del Guaviare", "capacidad": "13.92 kWp", "inversores": "Fronius + GoodWe"}
+            {
+                "nombre": "Planta Principal", 
+                "ubicacion": "San José del Guaviare", 
+                "capacidad": "13.92 kWp", 
+                "inversores": "Fronius + GoodWe",
+                "datalogger": "SN: 240.123456 / IP: 192.168.1.15" # Dato nuevo
+            }
         ]
         with open(ARCHIVO_PLANTAS, 'w') as f:
             json.dump(plantas_iniciales, f)
@@ -35,21 +41,18 @@ plantas_guardadas = cargar_plantas()
 # 2. MOTOR MATEMÁTICO SOLAR
 # ==========================================
 def generar_curva_solar(nombre_planta):
-    """Genera una curva en forma de campana (arco del sol) única para cada planta"""
-    # Usamos el nombre de la planta para que su curva siempre sea consistente
     random.seed(nombre_planta) 
-    pico_maximo = random.randint(4000, 15000) # Asigna una capacidad aleatoria a la planta
+    pico_maximo = random.randint(4000, 15000) 
     
-    horas = [f"{h:02d}:00" for h in range(6, 19)] # De 6 AM a 6 PM
+    horas = [f"{h:02d}:00" for h in range(6, 19)] 
     energia = []
     
     for h in range(6, 19):
-        # Fórmula de curva senoidal para simular el paso del sol
         porcentaje_sol = math.sin(math.pi * (h - 6) / 12)
-        valor = pico_maximo * porcentaje_sol + random.randint(-400, 400) # Añadimos nubes/ruido
-        energia.append(max(0, int(valor))) # Evitar números negativos en la noche
+        valor = pico_maximo * porcentaje_sol + random.randint(-400, 400) 
+        energia.append(max(0, int(valor))) 
         
-    random.seed() # Restauramos la aleatoriedad normal para el tiempo real
+    random.seed() 
     df = pd.DataFrame({"Hora": horas, "Generación (W)": energia})
     return df.set_index("Hora")
 
@@ -67,31 +70,29 @@ st.sidebar.info("Panel de Control Multimarca")
 if menu == "📊 Monitoreo en Vivo":
     st.title("⚡ Centro de Control Web")
     
-    # 1. Selector Dinámico de Planta
     nombres_plantas = [p["nombre"] for p in plantas_guardadas]
     planta_seleccionada = st.selectbox("Seleccione la planta a monitorear:", nombres_plantas)
     
-    # Extraemos los detalles de la planta seleccionada
     detalles = next(p for p in plantas_guardadas if p["nombre"] == planta_seleccionada)
-    st.markdown(f"**Ubicación:** {detalles['ubicacion']} | **Capacidad:** {detalles['capacidad']} | **Equipos:** {detalles['inversores']}")
+    # Mostramos el datalogger también en la vista principal
+    dl_info = detalles.get("datalogger", "No registrado")
+    
+    st.markdown(f"**Ubicación:** {detalles['ubicacion']} | **Capacidad:** {detalles['capacidad']}")
+    st.markdown(f"**Equipos:** {detalles['inversores']} | 📡 **Datalogger:** `{dl_info}`")
     st.markdown("---")
 
-    # 2. Historial Gráfico (NUEVO)
     st.markdown("### 📈 Curva de Generación Diaria")
     datos_historial = generar_curva_solar(planta_seleccionada)
-    st.area_chart(datos_historial, color="#f1c40f") # Gráfica de área color amarillo solar
+    st.area_chart(datos_historial, color="#f1c40f")
 
-    # 3. Simulador de Tiempo Real (Ajustado a la planta)
-    # Tomamos el último valor de la curva para que el tiempo real coincida con la gráfica
     pot_solar_total = datos_historial.iloc[-1]["Generación (W)"] + random.randint(-150, 150)
     pot_solar_total = max(0, pot_solar_total)
     
     pot_load = 1800 + random.randint(-50, 50)
     pot_red = 0
     pot_bat = pot_solar_total - pot_load  
-    soc_bateria = random.randint(40, 100) # Simulamos un SOC aleatorio para cada planta
+    soc_bateria = random.randint(40, 100) 
 
-    # 4. Diagrama de Flujo (El que ya dominas)
     st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
     diagrama_svg = f"""
     <div style="background-color: #f9f9f9; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 500px; margin: auto; font-family: 'Segoe UI', sans-serif;">
@@ -143,9 +144,19 @@ elif menu == "🏢 Gestión de Plantas":
                 nueva_ubicacion = st.text_input("Ubicación")
                 nuevos_inversores = st.selectbox("Marcas de Inversores", ["Fronius", "GoodWe", "Huawei", "Deye", "Híbrido Multimarca"])
             
+            # EL NUEVO CAMPO DEL DATALOGGER (Ocupa todo el ancho abajo)
+            nuevo_datalogger = st.text_input("📡 Datalogger / Módulo Wi-Fi (Número de Serie, IP o MAC)")
+            
             if st.form_submit_button("💾 Guardar Planta"):
                 if nuevo_nombre != "":
-                    guardar_planta({"nombre": nuevo_nombre, "ubicacion": nueva_ubicacion, "capacidad": nueva_capacidad, "inversores": nuevos_inversores})
+                    # Ahora guardamos también el datalogger en la base de datos
+                    guardar_planta({
+                        "nombre": nuevo_nombre, 
+                        "ubicacion": nueva_ubicacion, 
+                        "capacidad": nueva_capacidad, 
+                        "inversores": nuevos_inversores,
+                        "datalogger": nuevo_datalogger if nuevo_datalogger else "No especificado"
+                    })
                     st.success("¡Planta registrada con éxito!")
                     st.rerun()
                 else:
@@ -154,4 +165,6 @@ elif menu == "🏢 Gestión de Plantas":
     st.markdown("---")
     st.markdown("### 📋 Plantas Activas")
     for planta in plantas_guardadas:
-        st.info(f"**{planta['nombre']}** \n📍 {planta['ubicacion']} | ⚡ {planta['capacidad']} | 🎛️ {planta['inversores']}")
+        # Usamos .get() por si acaso hay plantas viejas que no tenían este dato
+        dl = planta.get("datalogger", "No registrado")
+        st.info(f"**{planta['nombre']}** \n📍 {planta['ubicacion']} | ⚡ {planta['capacidad']} | 🎛️ {planta['inversores']} | 📡 **DL:** `{dl}`")
