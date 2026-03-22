@@ -2,24 +2,24 @@ import streamlit as st
 import random
 import json
 import os
+import math
+import pandas as pd
 import streamlit.components.v1 as components
 
 # ==========================================
 # 1. CONFIGURACIÓN Y BASE DE DATOS
 # ==========================================
-st.set_page_config(page_title="SCADA Guaviare", page_icon="⚡", layout="centered")
+st.set_page_config(page_title="SCADA Multi-Planta", page_icon="⚡", layout="centered")
 
 ARCHIVO_PLANTAS = 'plantas.json'
 
 def cargar_plantas():
-    # Si es la primera vez, creamos la planta por defecto
     if not os.path.exists(ARCHIVO_PLANTAS):
         plantas_iniciales = [
             {"nombre": "Planta Principal", "ubicacion": "San José del Guaviare", "capacidad": "13.92 kWp", "inversores": "Fronius + GoodWe"}
         ]
         with open(ARCHIVO_PLANTAS, 'w') as f:
             json.dump(plantas_iniciales, f)
-            
     with open(ARCHIVO_PLANTAS, 'r') as f:
         return json.load(f)
 
@@ -32,7 +32,29 @@ def guardar_planta(nueva_planta):
 plantas_guardadas = cargar_plantas()
 
 # ==========================================
-# 2. MENÚ LATERAL (SIDEBAR)
+# 2. MOTOR MATEMÁTICO SOLAR
+# ==========================================
+def generar_curva_solar(nombre_planta):
+    """Genera una curva en forma de campana (arco del sol) única para cada planta"""
+    # Usamos el nombre de la planta para que su curva siempre sea consistente
+    random.seed(nombre_planta) 
+    pico_maximo = random.randint(4000, 15000) # Asigna una capacidad aleatoria a la planta
+    
+    horas = [f"{h:02d}:00" for h in range(6, 19)] # De 6 AM a 6 PM
+    energia = []
+    
+    for h in range(6, 19):
+        # Fórmula de curva senoidal para simular el paso del sol
+        porcentaje_sol = math.sin(math.pi * (h - 6) / 12)
+        valor = pico_maximo * porcentaje_sol + random.randint(-400, 400) # Añadimos nubes/ruido
+        energia.append(max(0, int(valor))) # Evitar números negativos en la noche
+        
+    random.seed() # Restauramos la aleatoriedad normal para el tiempo real
+    df = pd.DataFrame({"Hora": horas, "Generación (W)": energia})
+    return df.set_index("Hora")
+
+# ==========================================
+# 3. MENÚ LATERAL (SIDEBAR)
 # ==========================================
 st.sidebar.title("Navegación")
 menu = st.sidebar.radio("Ir a:", ["📊 Monitoreo en Vivo", "🏢 Gestión de Plantas"])
@@ -40,44 +62,45 @@ st.sidebar.markdown("---")
 st.sidebar.info("Panel de Control Multimarca")
 
 # ==========================================
-# VENTANA 1: MONITOREO EN VIVO (Tu SCADA actual)
+# VENTANA 1: MONITOREO EN VIVO DINÁMICO
 # ==========================================
 if menu == "📊 Monitoreo en Vivo":
     st.title("⚡ Centro de Control Web")
     
-    # Selector de planta para darle realismo
+    # 1. Selector Dinámico de Planta
     nombres_plantas = [p["nombre"] for p in plantas_guardadas]
     planta_seleccionada = st.selectbox("Seleccione la planta a monitorear:", nombres_plantas)
     
-    # Buscamos la ubicación de la planta seleccionada para mostrarla
-    ubicacion_actual = next(p["ubicacion"] for p in plantas_guardadas if p["nombre"] == planta_seleccionada)
-    st.markdown(f"**Ubicación:** {ubicacion_actual}")
+    # Extraemos los detalles de la planta seleccionada
+    detalles = next(p for p in plantas_guardadas if p["nombre"] == planta_seleccionada)
+    st.markdown(f"**Ubicación:** {detalles['ubicacion']} | **Capacidad:** {detalles['capacidad']} | **Equipos:** {detalles['inversores']}")
     st.markdown("---")
 
-    # Datos simulados
-    pot_fronius = 4500 + random.randint(-100, 100)
-    pot_goodwe = 3200 + random.randint(-100, 100)
-    soc_goodwe = 98
-    pot_solar_total = pot_fronius + pot_goodwe
-    pot_load = 1800 + random.randint(-20, 20)
+    # 2. Historial Gráfico (NUEVO)
+    st.markdown("### 📈 Curva de Generación Diaria")
+    datos_historial = generar_curva_solar(planta_seleccionada)
+    st.area_chart(datos_historial, color="#f1c40f") # Gráfica de área color amarillo solar
+
+    # 3. Simulador de Tiempo Real (Ajustado a la planta)
+    # Tomamos el último valor de la curva para que el tiempo real coincida con la gráfica
+    pot_solar_total = datos_historial.iloc[-1]["Generación (W)"] + random.randint(-150, 150)
+    pot_solar_total = max(0, pot_solar_total)
+    
+    pot_load = 1800 + random.randint(-50, 50)
     pot_red = 0
     pot_bat = pot_solar_total - pot_load  
+    soc_bateria = random.randint(40, 100) # Simulamos un SOC aleatorio para cada planta
 
-    # Indicadores
-    col1, col2 = st.columns(2)
-    with col1: st.metric(label="🔵 Inversor 1", value=f"{pot_fronius} W")
-    with col2: st.metric(label="🟠 Inversor 2 (Híbrido)", value=f"{pot_goodwe} W", delta=f"Batería: {soc_goodwe}%")
-
-    # Diagrama SVG Deye-style (Ajustado a 500px)
+    # 4. Diagrama de Flujo (El que ya dominas)
+    st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
     diagrama_svg = f"""
     <div style="background-color: #f9f9f9; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 500px; margin: auto; font-family: 'Segoe UI', sans-serif;">
-        <h3 style="text-align: center; color: #333; margin-top: 0; margin-bottom: 20px;">Diagrama de Energía</h3>
         <svg viewBox="0 0 400 330" width="100%" height="100%">
             <path d="M 100 80 H 170" fill="none" stroke="#ddd" stroke-width="3"/>
             <path d="M 230 150 H 300 V 80" fill="none" stroke="#ddd" stroke-width="3"/>
             <path d="M 170 150 H 100 V 220" fill="none" stroke="#ddd" stroke-width="3"/>
             <path d="M 230 150 H 300 V 220" fill="none" stroke="#ddd" stroke-width="3"/>
-            <circle cx="0" cy="0" r="5" fill="#3498db"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 80 H 170" /></circle>
+            <circle cx="0" cy="0" r="5" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 80 H 170" /></circle>
             <circle cx="0" cy="0" r="5" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 220" /></circle>
             <circle cx="0" cy="0" r="5" fill="#e67e22"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 220" /></circle>
             <rect x="165" y="115" width="70" height="70" rx="15" fill="#e1f5fe" stroke="#3498db" stroke-width="2"/>
@@ -90,7 +113,7 @@ if menu == "📊 Monitoreo en Vivo":
             <text x="300" y="55" text-anchor="middle" font-size="14" fill="#7f8c8d">🗼 Red</text>
             <text x="300" y="80" text-anchor="middle" font-size="18" font-weight="bold" fill="#e74c3c">{pot_red} W</text>
             <rect x="35" y="220" width="130" height="70" rx="10" fill="white" stroke="#eee" stroke-width="2"/>
-            <text x="100" y="245" text-anchor="middle" font-size="14" fill="#7f8c8d">🔋 Batería</text>
+            <text x="100" y="245" text-anchor="middle" font-size="14" fill="#7f8c8d">🔋 Batería ({soc_bateria}%)</text>
             <text x="100" y="270" text-anchor="middle" font-size="18" font-weight="bold" fill="#2ecc71">{pot_bat} W</text>
             <rect x="235" y="220" width="130" height="70" rx="10" fill="white" stroke="#eee" stroke-width="2"/>
             <text x="300" y="245" text-anchor="middle" font-size="14" fill="#7f8c8d">🏠 Carga (Casa)</text>
@@ -98,7 +121,7 @@ if menu == "📊 Monitoreo en Vivo":
         </svg>
     </div>
     """
-    components.html(diagrama_svg, height=500)
+    components.html(diagrama_svg, height=350)
     
     if st.button("🔄 Refrescar Lecturas"):
         st.rerun()
@@ -108,9 +131,8 @@ if menu == "📊 Monitoreo en Vivo":
 # ==========================================
 elif menu == "🏢 Gestión de Plantas":
     st.title("🏢 Directorio de Instalaciones")
-    st.markdown("Aquí puedes administrar todo tu portafolio de proyectos solares.")
+    st.markdown("Administra todo tu portafolio de proyectos solares.")
     
-    # 1. Formulario para crear una planta nueva
     with st.expander("➕ Registrar Nueva Planta", expanded=False):
         with st.form("formulario_planta"):
             col_a, col_b = st.columns(2)
@@ -121,17 +143,9 @@ elif menu == "🏢 Gestión de Plantas":
                 nueva_ubicacion = st.text_input("Ubicación")
                 nuevos_inversores = st.selectbox("Marcas de Inversores", ["Fronius", "GoodWe", "Huawei", "Deye", "Híbrido Multimarca"])
             
-            submit_planta = st.form_submit_button("💾 Guardar Planta")
-            
-            if submit_planta:
+            if st.form_submit_button("💾 Guardar Planta"):
                 if nuevo_nombre != "":
-                    nueva_data = {
-                        "nombre": nuevo_nombre,
-                        "ubicacion": nueva_ubicacion,
-                        "capacidad": nueva_capacidad,
-                        "inversores": nuevos_inversores
-                    }
-                    guardar_planta(nueva_data)
+                    guardar_planta({"nombre": nuevo_nombre, "ubicacion": nueva_ubicacion, "capacidad": nueva_capacidad, "inversores": nuevos_inversores})
                     st.success("¡Planta registrada con éxito!")
                     st.rerun()
                 else:
@@ -139,7 +153,5 @@ elif menu == "🏢 Gestión de Plantas":
 
     st.markdown("---")
     st.markdown("### 📋 Plantas Activas")
-    
-    # 2. Mostramos las plantas como "Tarjetas"
     for planta in plantas_guardadas:
         st.info(f"**{planta['nombre']}** \n📍 {planta['ubicacion']} | ⚡ {planta['capacidad']} | 🎛️ {planta['inversores']}")
