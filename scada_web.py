@@ -19,7 +19,7 @@ except ImportError:
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y FONDO SOLAR
 # ==========================================
-st.set_page_config(page_title="Central CV Ingeniería", page_icon="⚡", layout="centered")
+st.set_page_config(page_title="Central CV Ingeniería", page_icon="⚡", layout="wide") # Cambiado a wide para aprovechar la pantalla en el Panorama
 
 st.markdown(
     """
@@ -40,6 +40,18 @@ st.markdown(
         margin-top: 20px;
         box-shadow: 0 8px 16px rgba(0,0,0,0.2);
     }
+    /* Estilos para las tarjetas del Panorama */
+    .tarjeta-planta {
+        background-color: #ffffff;
+        border-left: 5px solid #2ecc71;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        margin-bottom: 15px;
+    }
+    .tarjeta-titulo { color: #2c3e50; font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+    .tarjeta-dato { font-size: 22px; font-weight: bold; color: #34495e; }
+    .tarjeta-label { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
     </style>
     """,
     unsafe_allow_html=True
@@ -81,15 +93,12 @@ def guardar_planta(nueva):
     plantas.append(nueva)
     with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
-# --- FUNCIÓN PARA BORRAR CORREGIDA (Usa el número de orden, no el nombre) ---
 def eliminar_planta(indice):
     plantas = cargar_plantas()
     if 0 <= indice < len(plantas):
         plantas.pop(indice)
         with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
-# ----------------------------------------------------------------------------
 
-# --- CREDENCIALES SOLARMAN API (DEYE) ---
 SOLARMAN_APP_ID = "TU_APP_ID_AQUI"
 SOLARMAN_APP_SECRET = "TU_APP_SECRET_AQUI"
 SOLARMAN_EMAIL = "tu_correo@cvingenieria.com"
@@ -110,14 +119,17 @@ def obtener_datos_reales(planta):
     marca = planta.get("inversores")
     ip_sn = planta.get("datalogger", "")
     
+    # 1. INTEGRACIÓN FRONIUS
     if marca == "Fronius" and "." in ip_sn:
         try:
             url = f"http://{ip_sn}/solar_api/v1/GetInverterRealtimeData.cgi?Scope=Device&DeviceId=1&DataCollection=CommonInverterData"
             r = requests.get(url, timeout=1.2).json()
             pot_sol = r['Body']['Data'].get('PAC', {}).get('Value', 0)
-            return {"solar": int(pot_sol) if pot_sol else 0, "casa": 1400, "soc": 100, "status": "Online"}
+            energia_diaria = round((pot_sol * 4) / 1000, 1) # Estimación rápida
+            return {"solar": int(pot_sol) if pot_sol else 0, "casa": 1400, "soc": 100, "energia_diaria": energia_diaria, "status": "Online"}
         except: pass
 
+    # 2. INTEGRACIÓN DEYE (API Solarman)
     if marca == "Deye" and "TU_APP_ID" not in SOLARMAN_APP_ID and len(ip_sn) > 6 and "." not in ip_sn:
         token = obtener_token_solarman()
         if token:
@@ -131,42 +143,106 @@ def obtener_datos_reales(planta):
                     datos_api = res.json()
                     if datos_api.get("success"):
                         parametros = datos_api.get("dataList", [])
-                        pot_fv, soc_bat, pot_carga = 0, 100, 1500
+                        pot_fv, soc_bat, pot_carga, energia_diaria = 0, 100, 1500, 0
                         for param in parametros:
                             if param.get("key") == "DC_P": pot_fv = float(param.get("value", 0))
                             elif param.get("key") == "B_SOC": soc_bat = int(float(param.get("value", 0)))
                             elif param.get("key") == "L_P": pot_carga = float(param.get("value", 0))
-                        return {"solar": int(pot_fv), "casa": int(pot_carga), "soc": int(soc_bat), "status": "Online (Nube)"}
+                            elif param.get("key") in ["E_D", "E_Today", "Daily_Generation"]: energia_diaria = float(param.get("value", 0))
+                        return {"solar": int(pot_fv), "casa": int(pot_carga), "soc": int(soc_bat), "energia_diaria": energia_diaria, "status": "Online (Nube)"}
             except: pass 
 
+    # 3. SIMULADOR INTELIGENTE
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
     try: cap_val = float(solo_numeros[0]) * 1000 if solo_numeros else 5000 
     except: cap_val = 5000 
+    
+    pot_simulada = int(cap_val * random.uniform(0.1, 0.8))
+    # Simulamos una energía diaria basada en la potencia actual para que se vea realista
+    energia_simulada = round((pot_simulada * random.uniform(3.5, 5.0)) / 1000, 1)
 
-    estado = "Simulado (Falta configurar API Solarman)" if marca == "Deye" else "Simulado"
+    estado = "Simulado (Falta configurar API)" if marca == "Deye" else "Simulado"
 
     return {
-        "solar": int(cap_val * random.uniform(0.1, 0.8)),
+        "solar": pot_simulada,
         "casa": 1750 + random.randint(-40, 40),
         "soc": random.randint(50, 99),
+        "energia_diaria": energia_simulada,
         "status": estado
     }
 
 plantas_guardadas = cargar_plantas()
 
 # ==========================================
-# 3. NAVEGACIÓN Y RESTO DEL CÓDIGO
+# 3. NAVEGACIÓN
 # ==========================================
 st.sidebar.title("Navegación CV")
-menu = st.sidebar.radio("Ir a:", ["📊 Monitoreo", "🏢 Gestión"])
+# --- AQUÍ AÑADIMOS LA NUEVA PESTAÑA AL MENÚ ---
+menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo", "🏢 Gestión"])
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
     st.rerun()
 st.sidebar.info("**CV INGENIERIA SAS**")
 
-if menu == "📊 Monitoreo":
-    st.title("⚡ CENTRAL GESTIÓN DE PLANTAS")
+# ==========================================
+# VENTANA 1: PANORAMA GENERAL (NUEVA FUNCIÓN TIPO SOLARMAN)
+# ==========================================
+if menu == "🌐 Panorama General":
+    st.title("🌐 PANORAMA DE PLANTAS")
+    st.markdown("**Vista global del portafolio - CV INGENIERIA SAS**")
+    
+    if not plantas_guardadas:
+        st.warning("No hay plantas registradas. Ve a Gestión para agregar una.")
+    else:
+        # Mostramos un resumen rápido arriba
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Plantas Totales", len(plantas_guardadas))
+        c2.metric("En Línea / Accediendo", "Esperando API")
+        c3.metric("Desconectadas", "0")
+        st.markdown("---")
+
+        # Creamos la lista imitando la app de tu celular
+        for pl in plantas_guardadas:
+            datos = obtener_datos_reales(pl)
+            
+            # Limpiar la capacidad para mostrarla bonita
+            cap_texto = str(pl.get("capacidad", "0"))
+            solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
+            cap_limpia = f"{solo_numeros[0]} kWp" if solo_numeros else "N/A"
+
+            # Tarjeta visual HTML/CSS
+            tarjeta = f"""
+            <div class="tarjeta-planta">
+                <div class="tarjeta-titulo">{pl['nombre']} <span style="float:right; font-size:12px; color:#95a5a6;">{datos['status']}</span></div>
+                <div style="display: flex; justify-content: space-between; text-align: center; margin-top: 15px;">
+                    <div>
+                        <div class="tarjeta-dato">{datos['solar']} W</div>
+                        <div class="tarjeta-label">Energía (Potencia Actual)</div>
+                    </div>
+                    <div>
+                        <div class="tarjeta-dato">{datos['energia_diaria']} kWh</div>
+                        <div class="tarjeta-label">Producción Diaria</div>
+                    </div>
+                    <div>
+                        <div class="tarjeta-dato">{cap_limpia}</div>
+                        <div class="tarjeta-label">Capacidad Total</div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; font-size: 11px; color: #bdc3c7; text-transform: uppercase;">
+                    📍 {pl['ubicacion']} | ⚡ Inversor: {pl['inversores']}
+                </div>
+            </div>
+            """
+            st.markdown(tarjeta, unsafe_allow_html=True)
+            
+        if st.button("🔄 Actualizar Todo"): st.rerun()
+
+# ==========================================
+# VENTANA 2: MONITOREO DETALLADO (DISEÑO ORIGINAL INTACTO)
+# ==========================================
+elif menu == "📊 Monitoreo":
+    st.title("⚡ MONITOREO DETALLADO")
     st.markdown("**CV INGENIERIA SAS**")
     
     if not plantas_guardadas:
@@ -238,6 +314,9 @@ if menu == "📊 Monitoreo":
         components.html(diagrama_svg, height=520) 
         if st.button("🔄 Actualizar Datos"): st.rerun()
 
+# ==========================================
+# VENTANA 3: GESTIÓN DE PORTAFOLIO (INTACTO)
+# ==========================================
 else:
     st.title("🏢 GESTIÓN DE PORTAFOLIO")
     st.markdown("**CV INGENIERIA SAS**")
@@ -262,13 +341,11 @@ else:
 
     st.markdown("### 📋 Directorio de Plantas")
     
-    # --- AQUÍ INYECTAMOS EL BOTÓN DE BORRAR (CORREGIDO PARA NOMBRES DUPLICADOS) ---
     for i, pl in enumerate(plantas_guardadas):
         col_info, col_btn = st.columns([5, 1]) 
         with col_info:
             st.info(f"**{pl['nombre']}** | {pl['ubicacion']} | 🔋 {pl.get('bat_marca','N/A')}")
         with col_btn:
-            # Usamos el índice "i" para que el botón sea único, sin importar el nombre
             if st.button("🗑️", key=f"del_btn_{i}", help="Borrar planta"):
                 eliminar_planta(i)
                 st.rerun()
