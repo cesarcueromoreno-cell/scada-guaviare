@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit.components.v1 as components
 
 # ==========================================
-# 1. CONFIGURACIÓN INICIAL Y SEGURIDAD (LOGIN)
+# 1. SEGURIDAD Y LOGIN
 # ==========================================
 st.set_page_config(page_title="Central CV Ingeniería", page_icon="⚡", layout="centered")
 
@@ -15,116 +15,106 @@ if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
 if not st.session_state["autenticado"]:
-    st.markdown("<h1 style='text-align: center;'>🔒 CENTRAL GESTION DE PLANTAS</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🔒 CENTRAL GESTIÓN DE PLANTAS</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #1f77b4;'>CV INGENIERIA SAS</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Ingrese sus credenciales para acceder al panel de control.</p>", unsafe_allow_html=True)
     
-    st.markdown("---")
-    col_vacia1, col_centro, col_vacia2 = st.columns([1, 2, 1]) 
-    
+    col1, col_centro, col2 = st.columns([1, 2, 1])
     with col_centro:
         with st.form("login_form"):
             usuario = st.text_input("👤 Usuario")
-            contrasena = st.text_input("🔑 Contraseña", type="password") 
-            submit_login = st.form_submit_button("Iniciar Sesión", use_container_width=True)
-            
-            if submit_login:
+            contrasena = st.text_input("🔑 Contraseña", type="password")
+            if st.form_submit_button("Iniciar Sesión", use_container_width=True):
                 if usuario == "admin" and contrasena == "solar123":
                     st.session_state["autenticado"] = True
-                    st.rerun() 
+                    st.rerun()
                 else:
-                    st.error("❌ Usuario o contraseña incorrectos.")
-    
-    st.stop() 
+                    st.error("❌ Credenciales incorrectas")
+    st.stop()
 
 # ==========================================
-# 2. BASE DE DATOS Y MOTOR MATEMÁTICO SOLAR
+# 2. BASE DE DATOS DE PLANTAS
 # ==========================================
 ARCHIVO_PLANTAS = 'plantas.json'
 
 def cargar_plantas():
     if not os.path.exists(ARCHIVO_PLANTAS):
-        plantas_iniciales = [{
-            "nombre": "Planta Principal", 
-            "ubicacion": "San José del Guaviare", 
-            "capacidad": "13.92 kWp", 
-            "inversores": "Fronius + GoodWe", 
-            "datalogger": "SN: 240.123456 / IP: 192.168.1.15",
-            "bat_marca": "GoodWe Lynx Home U",
-            "bat_tipo": "Litio (LiFePO4)"
-        }]
-        with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas_iniciales, f)
+        inicial = [{"nombre": "Planta Principal", "ubicacion": "San José del Guaviare", "capacidad": "13.92 kWp", "inversores": "Fronius + GoodWe", "datalogger": "SN: 240.123", "bat_marca": "GoodWe Lynx", "bat_tipo": "Litio (LiFePO4)"}]
+        with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(inicial, f)
     with open(ARCHIVO_PLANTAS, 'r') as f: return json.load(f)
 
-def guardar_planta(nueva_planta):
+def guardar_planta(nueva):
     plantas = cargar_plantas()
-    plantas.append(nueva_planta)
+    plantas.append(nueva)
     with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
 plantas_guardadas = cargar_plantas()
 
-def generar_curva_solar(nombre_planta):
-    random.seed(nombre_planta) 
-    pico_maximo = random.randint(4000, 15000) 
-    horas = [f"{h:02d}:00" for h in range(6, 19)] 
-    energia = []
-    for h in range(6, 19):
-        porcentaje_sol = math.sin(math.pi * (h - 6) / 12)
-        energia.append(max(0, int(pico_maximo * porcentaje_sol + random.randint(-400, 400)))) 
-    random.seed() 
-    return pd.DataFrame({"Hora": horas, "Generación (W)": energia}).set_index("Hora")
-
 # ==========================================
-# 3. MENÚ LATERAL (SIDEBAR)
+# 3. NAVEGACIÓN
 # ==========================================
 st.sidebar.title("Navegación")
-menu = st.sidebar.radio("Ir a:", ["📊 Monitoreo en Vivo", "🏢 Gestión de Plantas"])
-st.sidebar.markdown("---")
-
+menu = st.sidebar.radio("Ir a:", ["📊 Monitoreo", "🏢 Gestión"])
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
     st.rerun()
-
-st.sidebar.info("Plataforma Oficial \n**CV INGENIERIA SAS**")
+st.sidebar.info("**CV INGENIERIA SAS**")
 
 # ==========================================
-# VENTANA 1: MONITOREO EN VIVO DINÁMICO
+# VENTANA: MONITOREO
 # ==========================================
-if menu == "📊 Monitoreo en Vivo":
-    st.title("⚡ CENTRAL GESTION DE PLANTAS")
-    st.markdown("**CV INGENIERIA SAS**")
-    st.markdown("---")
+if menu == "📊 Monitoreo":
+    st.title("⚡ MONITOREO EN VIVO")
+    planta_sel = st.selectbox("Seleccione Planta:", [p["nombre"] for p in plantas_guardadas])
+    p = next(item for item in plantas_guardadas if item["nombre"] == planta_sel)
     
-    planta_seleccionada = st.selectbox("Seleccione la planta a monitorear:", [p["nombre"] for p in plantas_guardadas])
-    detalles = next(p for p in plantas_guardadas if p["nombre"] == planta_seleccionada)
+    st.write(f"📍 **{p['ubicacion']}** | 📡 DL: `{p.get('datalogger','N/A')}`")
+    st.write(f"🔋 **Batería:** {p.get('bat_marca','N/A')} ({p.get('bat_tipo','N/A')})")
     
-    dl_info = detalles.get("datalogger", "No registrado")
-    bat_marca = detalles.get("bat_marca", "Ninguna")
-    bat_tipo = detalles.get("bat_tipo", "N/A")
+    # Simulación de datos
+    pot_solar = random.randint(3000, 8000)
+    pot_casa = 2000 + random.randint(-100, 100)
+    pot_bat = pot_solar - pot_casa
     
-    st.markdown(f"**Ubicación:** {detalles['ubicacion']} | **Capacidad:** {detalles['capacidad']}")
-    st.markdown(f"**Equipos:** {detalles['inversores']} | 📡 **Datalogger:** `{dl_info}`")
-    st.markdown(f"🔋 **Almacenamiento:** {bat_marca} | **Tecnología:** {bat_tipo}")
-    st.markdown("---")
+    # Diagrama de Flujo SVG
+    diagrama = f"""
+    <div style="background: #f0f2f6; padding: 20px; border-radius: 15px; font-family: sans-serif;">
+        <svg viewBox="0 0 400 300" width="100%">
+            <path d="M 100 50 H 200 V 150" fill="none" stroke="#ccc" stroke-width="3"/>
+            <path d="M 300 50 H 200 V 150" fill="none" stroke="#ccc" stroke-width="3"/>
+            <path d="M 200 150 V 250 H 100" fill="none" stroke="#ccc" stroke-width="3"/>
+            <path d="M 200 150 V 250 H 300" fill="none" stroke="#ccc" stroke-width="3"/>
+            <circle r="5" fill="yellow"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 50 H 200 V 150" /></circle>
+            <rect x="165" y="120" width="70" height="60" rx="10" fill="#1f77b4"/><text x="200" y="155" text-anchor="middle" fill="white">Inv</text>
+            <text x="100" y="40" text-anchor="middle">☀️ {pot_solar}W</text>
+            <text x="300" y="40" text-anchor="middle">🗼 Red: 0W</text>
+            <text x="100" y="280" text-anchor="middle">🔋 Bat: {pot_bat}W</text>
+            <text x="300" y="280" text-anchor="middle">🏠 Casa: {pot_casa}W</text>
+        </svg>
+    </div>
+    """
+    components.html(diagrama, height=400)
+    if st.button("🔄 Actualizar"): st.rerun()
 
-    st.markdown("### 📈 Curva de Generación Diaria")
-    datos_historial = generar_curva_solar(planta_seleccionada)
-    st.area_chart(datos_historial, color="#f1c40f")
+# ==========================================
+# VENTANA: GESTIÓN
+# ==========================================
+else:
+    st.title("🏢 GESTIÓN DE PROYECTOS")
+    with st.form("nueva_planta"):
+        c1, c2 = st.columns(2)
+        nombre = c1.text_input("Nombre Planta")
+        ubi = c2.text_input("Ubicación")
+        inv = c1.selectbox("Inversor", ["Fronius", "GoodWe", "Deye", "Huawei", "Growatt"])
+        cap = c2.text_input("Capacidad (kWp)")
+        st.markdown("---")
+        b_marca = c1.selectbox("Batería", ["Ninguna", "Pylontech", "Deye", "GoodWe", "BYD", "AGM/Gel"])
+        b_tipo = c2.selectbox("Tecnología", ["Litio (LiFePO4)", "Plomo-Ácido", "AGM", "Gel"])
+        dl = st.text_input("📡 SN Datalogger / IP")
+        
+        if st.form_submit_button("💾 Registrar Planta"):
+            if nombre:
+                guardar_planta({"nombre": nombre, "ubicacion": ubi, "capacidad": cap, "inversores": inv, "datalogger": dl, "bat_marca": b_marca, "bat_tipo": b_tipo})
+                st.success("Planta Guardada")
+                st.rerun()
 
-    pot_solar_total = max(0, datos_historial.iloc[-1]["Generación (W)"] + random.randint(-150, 150))
-    pot_load = 1800 + random.randint(-50, 50)
-    pot_red = 0
-    pot_bat = pot_solar_total - pot_load  
-    soc_bateria = random.randint(40, 100) if bat_marca != "Ninguna (On-Grid)" else 0 
-
-    st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
-    diagrama_svg = f"""
-    <div style="background-color: #f9f9f9; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 500px; margin: auto; font-family: 'Segoe UI', sans-serif;">
-        <svg viewBox="0 0 400 330" width="100%" height="100%">
-            <path d="M 100 80 H 170" fill="none" stroke="#ddd" stroke-width="3"/>
-            <path d="M 230 150 H 300 V 80" fill="none" stroke="#ddd" stroke-width="3"/>
-            <path d="M 170 150 H 100 V 220" fill="none" stroke="#ddd" stroke-width="3"/>
-            <path d="M 230 150 H 300 V 220" fill="none" stroke="#ddd" stroke-width="3"/>
-            <circle cx="0" cy="0" r="5" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 80 H 170" /></circle>
-            <circle cx="0" cy="0" r="5" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 220" /></circle>
-            <circle cx="0" cy="0" r="5" fill="#e67e22"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 220" /></circle>
+    st.markdown("### 📋 Directorio")
