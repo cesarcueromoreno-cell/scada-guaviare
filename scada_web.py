@@ -45,7 +45,7 @@ st.markdown("---")
 
 
 # ==========================================
-# 4. DIAGRAMA DE FLUJO Deye-style (Integración Nueva)
+# 4. DIAGRAMA DE FLUJO Deye-style (Integración Nueva y CORREGIDA)
 # ==========================================
 # Calculamos un escenario doméstico lógico basado en los datos simulados
 pot_solar_total = pot_fronius + pot_goodwe  # Total paneles
@@ -56,10 +56,11 @@ pot_red = 0  # Red en cero, como en tu captura
 pot_bat = pot_solar_total - pot_load  
 
 # LA MAGIA: Código HTML y SVG para dibujar el diagrama animado (recreando tu imagen Deye)
+# AJUSTE: viewBox y posicionamiento de tarjetas para asegurar visibilidad completa
 diagrama_svg = f"""
 <div style="background-color: #f9f9f9; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 500px; margin: auto; font-family: 'Segoe UI', sans-serif;">
     <h3 style="text-align: center; color: #333; margin-top: 0; margin-bottom: 20px;">Diagrama de Energía</h3>
-    <svg viewBox="0 0 400 300" width="100%" height="100%">
+    <svg viewBox="0 0 400 330" width="100%" height="100%">
         
         <path d="M 100 80 H 170" fill="none" stroke="#ddd" stroke-width="3"/>
         <path d="M 230 150 H 300 V 80" fill="none" stroke="#ddd" stroke-width="3"/>
@@ -102,7 +103,8 @@ diagrama_svg = f"""
 """
 # 5. RENDERIZADO DE LA WEB
 st.markdown("### 🔄 Estado del Sistema (Deye Flow Chart)")
-components.html(diagrama_svg, height=350)  # Incrustamos el diagrama SVG animado
+# AJUSTE CRÍTICO: Se aumentó el 'height' de 350 a 500 para visibilidad completa
+components.html(diagrama_svg, height=500)  # Incrustamos el diagrama SVG animado
 
 st.markdown("---")
 if st.button("🔄 Refrescar Lecturas"):
