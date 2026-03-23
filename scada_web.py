@@ -53,10 +53,9 @@ st.markdown(
 # 2. BASE DE DATOS (PLANTAS Y USUARIOS)
 # ==========================================
 ARCHIVO_PLANTAS = 'plantas.json'
-ARCHIVO_USUARIOS = 'usuarios.json' # NUEVA BASE DE DATOS DE USUARIOS
+ARCHIVO_USUARIOS = 'usuarios.json'
 
 def cargar_usuarios():
-    # Si no existe, crea el archivo con el usuario administrador por defecto
     if not os.path.exists(ARCHIVO_USUARIOS):
         with open(ARCHIVO_USUARIOS, 'w') as f: json.dump({"admin": "solar123"}, f)
     with open(ARCHIVO_USUARIOS, 'r') as f: return json.load(f)
@@ -83,7 +82,6 @@ def eliminar_planta(indice):
         plantas.pop(indice)
         with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
-# --- SISTEMA DE LOGIN ACTUALIZADO ---
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
@@ -95,7 +93,6 @@ if not st.session_state["autenticado"]:
             usuario_input = st.text_input("👤 Usuario")
             contrasena_input = st.text_input("🔑 Contraseña", type="password") 
             if st.form_submit_button("Iniciar Sesión", use_container_width=True):
-                # Verificamos contra la base de datos de usuarios
                 usuarios_bd = cargar_usuarios()
                 if usuario_input in usuarios_bd and usuarios_bd[usuario_input] == contrasena_input:
                     st.session_state["autenticado"] = True
@@ -164,7 +161,6 @@ plantas_guardadas = cargar_plantas()
 # 3. NAVEGACIÓN PRINCIPAL
 # ==========================================
 st.sidebar.title("Navegación CV")
-# Bienvenida personalizada en el menú
 st.sidebar.write(f"👤 Bienvenido, **{st.session_state.get('usuario_actual', 'admin')}**")
 
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "🏢 Gestión de Portafolio"])
@@ -215,7 +211,7 @@ if menu == "🌐 Panorama General":
         if st.button("🔄 Actualizar Todo"): st.rerun()
 
 # ==========================================
-# VENTANA 2: MONITOREO DETALLADO
+# VENTANA 2: MONITOREO DETALLADO Y REPORTE
 # ==========================================
 elif menu == "📊 Monitoreo Detallado":
     st.title("📊 MONITOREO DETALLADO POR PLANTA")
@@ -269,53 +265,35 @@ elif menu == "📊 Monitoreo Detallado":
         fig2.update_traces(selector=dict(name="Consumo Carga"), fill='none')
         st.plotly_chart(fig2, use_container_width=True, key="graf_monitoreo_principal")
 
-# ==========================================
-# VENTANA 3: GESTIÓN DE PORTAFOLIO Y USUARIOS
-# ==========================================
-elif menu == "🏢 Gestión de Portafolio":
-    st.title("🏢 GESTIÓN DE PORTAFOLIO")
-    st.markdown("**Organiza tus plantas y accesos - CV INGENIERIA SAS**")
-    
-    with st.expander("➕ Registrar Nueva Planta", expanded=False):
-        with st.form("f_planta"):
-            c1, c2 = st.columns(2)
-            n_nom = c1.text_input("Nombre Planta")
-            n_ubi = c2.text_input("Ubicación")
-            n_inv = c1.selectbox("Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must"])
-            n_cap = c2.text_input("Capacidad (kWp)")
-            st.markdown("---")
-            c3, c4 = st.columns(2)
-            n_b_m = c3.selectbox("Batería", ["Ninguna", "Pylontech", "Deye", "BYD", "Trojan"])
-            n_b_t = c4.selectbox("Tecnología", ["Litio (LiFePO4)", "Plomo-Ácido", "AGM", "Gel"])
-            n_dl = st.text_input("📡 SN Datalogger / IP")
-            if st.form_submit_button("💾 Guardar Planta"):
-                if n_nom:
-                    guardar_planta({"nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, "inversores": n_inv, "datalogger": n_dl, "bat_marca": n_b_m, "bat_tipo": n_b_t})
-                    st.success("Planta Guardada")
-                    st.rerun()
-
-    st.markdown("### 📋 Directorio de Plantas")
-    
-    for i, pl in enumerate(plantas_guardadas):
-        col_info, col_btn = st.columns([5, 1]) 
-        with col_info:
-            st.info(f"**{pl['nombre']}** | {pl['ubicacion']} | 🔋 {pl.get('bat_marca','N/A')}")
-        with col_btn:
-            if st.button("🗑️", key=f"del_btn_{i}", help="Borrar planta"):
-                eliminar_planta(i)
-                st.rerun()
-
-    # --- NUEVA SECCIÓN DE GESTIÓN DE USUARIOS ---
-    st.markdown("---")
-    st.markdown("### 👥 Gestión de Accesos")
-    with st.expander("➕ Crear Nuevo Usuario", expanded=False):
-        with st.form("f_usuario"):
-            st.write("Crea credenciales para que tus clientes puedan ingresar.")
-            n_usr = st.text_input("Nuevo Usuario (Ej: cliente_guaviare)")
-            n_pwd = st.text_input("Contraseña", type="password")
-            if st.form_submit_button("💾 Crear Usuario"):
-                if n_usr and n_pwd:
-                    guardar_usuario(n_usr, n_pwd)
-                    st.success(f"Usuario '{n_usr}' creado correctamente. Ya puede iniciar sesión.")
-                    time.sleep(2) # Pausa breve para que se lea el mensaje verde
-                    st.rerun()
+        # --- NUEVA FUNCIÓN: DESCARGA DE INFORME ---
+        st.markdown("---")
+        st.markdown("### 📄 Exportar Datos")
+        
+        # Preparamos los datos estructurados para Excel
+        fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        datos_informe = {
+            "Fecha/Hora Consulta": [fecha_hora_actual],
+            "Nombre de Planta": [d['nombre']],
+            "Ubicación": [d['ubicacion']],
+            "Capacidad (kWp)": [d['capacidad']],
+            "Marca Inversor": [d['inversores']],
+            "Batería": [f"{d.get('bat_marca','N/A')} ({d.get('bat_tipo','N/A')})"],
+            "Estado Conexión": [datos_act['status']],
+            "Generación FV Actual (W)": [pot_solar],
+            "Consumo Carga Actual (W)": [pot_casa],
+            "Nivel Batería SOC (%)": [soc],
+            "Producción Diaria (kWh)": [datos_act['energia_diaria']]
+        }
+        
+        # Convertimos a formato CSV para descargar
+        df_informe = pd.DataFrame(datos_informe)
+        csv_data = df_informe.to_csv(index=False).encode('utf-8-sig') # utf-8-sig ayuda a Excel a leer las tildes
+        
+        nombre_archivo = f"Reporte_Planta_{d['nombre'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+        
+        st.download_button(
+            label="📥 Descargar Informe Técnico (CSV / Excel)",
+            data=csv_data,
+            file_name=nombre_archivo,
+            mime="text/csv",
+            use_container_width
