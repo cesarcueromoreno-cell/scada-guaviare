@@ -17,10 +17,6 @@ st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide"
 
 css_global = """
 <style>
-/* =========================================
-   REPARACIÓN DEFINITIVA DE COLORES 
-   ========================================= */
-
 /* FONDO DEL PAISAJE (Global) */
 [data-testid="stAppViewContainer"] {
     background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
@@ -41,15 +37,11 @@ css_global = """
     border-right: 1px solid #2c5364 !important;
 }
 [data-testid="stSidebar"] * { color: #ffffff !important; text-shadow: none !important; }
-/* Arreglo del botón "Cerrar Sesión" para que se vea el texto */
 [data-testid="stSidebar"] button { background-color: rgba(255,255,255,0.1) !important; border: 1px solid rgba(255,255,255,0.3) !important; }
 [data-testid="stSidebar"] button p { color: #ffffff !important; font-weight: bold !important; }
 [data-testid="stSidebar"] button:hover { background-color: rgba(231, 76, 60, 0.8) !important; }
 
-/* =========================================
-   PANEL CENTRAL (TEXTOS OSCUROS LEGIBLES)
-   ========================================= */
-/* El gran contenedor blanco central */
+/* PANEL CENTRAL (Fondo blanco translúcido) */
 .block-container { 
     background-color: rgba(244, 247, 249, 0.95) !important; 
     padding: 2rem !important; 
@@ -58,7 +50,7 @@ css_global = """
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
-/* OBLIGAMOS a que TODO el texto dentro del panel blanco sea oscuro y sin sombra */
+/* OBLIGAMOS a que el texto dentro del panel blanco sea oscuro y sin sombra */
 .block-container h1, .block-container h2, .block-container h3, .block-container h4, 
 .block-container h5, .block-container p, .block-container span, .block-container label, 
 .block-container div {
@@ -66,7 +58,33 @@ css_global = """
     text-shadow: none !important;
 }
 
-/* TARJETAS KPI (Producción, Consumo, etc.) */
+/* ==============================================================
+   SOLUCIÓN AL PROBLEMA DEL TEXTO INVISIBLE EN EL FORMULARIO
+   ============================================================== */
+/* 1. Estilo Cristal SOLO para el formulario de Login (Fuera del panel) */
+[data-testid="stForm"] { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; }
+[data-testid="stForm"] p, [data-testid="stForm"] label { color: white !important; text-shadow: 1px 1px 3px black !important; }
+
+/* 2. Reseteamos el estilo para los formularios que están DENTRO del panel blanco (Crear Planta, etc.) */
+.block-container [data-testid="stForm"] {
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    border: 1px solid #eaeaea !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+}
+.block-container [data-testid="stForm"] p, 
+.block-container [data-testid="stForm"] label,
+.block-container input,
+.block-container select {
+    color: #2c3e50 !important;
+    text-shadow: none !important;
+}
+/* Mantenemos el texto del botón azul primario en blanco */
+.block-container button[kind="primary"] p { color: white !important; }
+/* ============================================================== */
+
+
+/* TARJETAS KPI */
 div.solarman-card { 
     background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; 
     box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; 
@@ -87,16 +105,13 @@ div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transpa
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
 
-/* BOTONES INFERIORES AZULES */
+/* BOTONES AZULES */
 div[data-testid="stButton"] button[kind="primary"] { background-color: #2d8cf0 !important; border-color: #2d8cf0 !important; border-radius: 4px !important; }
 div[data-testid="stButton"] button[kind="primary"] p { color: white !important; }
 div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
 div[data-testid="stButton"] button[kind="secondary"] { border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
 div[data-testid="stButton"] button[kind="secondary"] p { color: #2d8cf0 !important; }
 
-/* LOGIN ESTILO CRISTAL */
-[data-testid="stForm"] { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; }
-[data-testid="stForm"] p { color: white !important; text-shadow: 1px 1px 3px black !important; }
 [data-testid="stExpanderDetails"] { background: rgba(255, 255, 255, 0.95) !important; }
 [data-testid="stExpanderDetails"] p { color: #2c3e50 !important; text-shadow: none !important; }
 </style>
@@ -290,7 +305,7 @@ if menu == "🌐 Panorama General":
             n_ubi = c2.text_input("Ubicación")
             n_cap = c1.text_input("Capacidad (Ej: 30 kWp)")
             
-            # ---> AQUÍ ESTÁ EL CAMBIO: Lista actualizada con Fronius <---
+            # --- LISTA COMPLETA CON FRONIUS Y SYLVANIA INTACTA ---
             n_inv = c2.selectbox("Marca de Inversor", ["Deye", "Fronius", "GoodWe", "Huawei", "Sylvania"])
             
             n_sn = st.text_input("SN del Datalogger")
@@ -363,7 +378,7 @@ elif menu == "📊 Panel de Planta":
         t_graf, t_rep = st.tabs(["📈 Panel Gráfico", "📄 Reportes"])
         t_ctrl, t_om = None, None
     
-    # --- GRÁFICA Y FLUJO ---
+    # --- GRÁFICA Y FLUJO (CON EL SVG ANIMADO HD ORIGINAL) ---
     with t_graf:
         col_grafica, col_flujo = st.columns([7, 3])
         with col_grafica:
@@ -399,7 +414,7 @@ elif menu == "📊 Panel de Planta":
             """
             components.html(diagrama_svg, height=415)
             
-    # --- CONTROL REMOTO ---
+    # --- CONTROL REMOTO (INTACTO CON TODAS TUS PESTAÑAS) ---
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
@@ -437,7 +452,7 @@ elif menu == "📊 Panel de Planta":
             with st_mo2:
                 st.toggle("* FuncionamientoporPeriodos", value=False)
 
-            # --- RED: CON LÍMITE DE INYECCIÓN Y TIEMPOS DE DESPEJE ---
+            # --- RED: LÍMITE DE INYECCIÓN Y TIEMPOS DE DESPEJE INTACTOS ---
             with st_red:
                 if not st.session_state["red_desbloqueada"]:
                     st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para desbloquear</div>", unsafe_allow_html=True)
