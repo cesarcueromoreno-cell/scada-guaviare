@@ -456,16 +456,22 @@ if menu == "🌐 Panorama General":
             st.markdown(f"<h3 style='color:#2c3e50 !important; text-shadow:none !important;'>✏️ Editar Parámetros: {p_edit['nombre']}</h3>", unsafe_allow_html=True)
             with st.form("edit_form"):
                 c1, c2 = st.columns(2)
-                # Aplicar estilo al texto del input para que no sea blanco en fondo blanco
                 st.markdown("<style>input {color: #2c3e50 !important; text-shadow:none !important;}</style>", unsafe_allow_html=True)
                 new_nom = c1.text_input("Nombre de la Planta", value=p_edit["nombre"])
                 new_ubi = c2.text_input("Ubicación", value=p_edit["ubicacion"])
                 new_cap = c1.text_input("Capacidad (kWp)", value=p_edit["capacidad"])
                 new_inv = c2.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"], index=["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"].index(p_edit["inversores"]) if p_edit["inversores"] in ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"] else 0)
                 
+                # --- NUEVO CAMPO: SN DEL DATALOGGER EN LA EDICIÓN ---
+                new_sn = st.text_input("SN del Datalogger (Wifi/LAN)", value=p_edit.get("datalogger", ""))
+                # ----------------------------------------------------
+                
                 sub1, sub2 = st.columns(2)
                 if sub1.form_submit_button("💾 Guardar Cambios"):
-                    plantas_guardadas[idx_edit].update({"nombre": new_nom, "ubicacion": new_ubi, "capacidad": new_cap, "inversores": new_inv})
+                    plantas_guardadas[idx_edit].update({
+                        "nombre": new_nom, "ubicacion": new_ubi, "capacidad": new_cap, 
+                        "inversores": new_inv, "datalogger": new_sn
+                    })
                     with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas_guardadas, f)
                     st.session_state["editando_planta"] = None
                     st.rerun()
@@ -513,7 +519,6 @@ if menu == "🌐 Panorama General":
                     status_icon = "🔴"
                     alerta_html = f"<div style='position:absolute; top:5px; left:15px; background: #e74c3c; color:white; font-size:9px; padding: 2px 6px; border-radius:10px;'>{len(datos['alertas'])} Alertas</div>"
 
-                # REEMPLAZO DE IMAGENES POR LINKS FUNCIONALES (Mágia Pura)
                 iconos_accion = ""
                 if rol_actual == "admin":
                     iconos_accion = f"""
@@ -579,7 +584,12 @@ elif menu == "📊 Panel de Planta":
         datos_act = obtener_datos_reales(d)
         
         estado_ico = "🟢 En línea" if not datos_act["alertas"] else "🔴 Con Alertas"
-        st.markdown(f"<h2>{d['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| {estado_ico}</span></h2>", unsafe_allow_html=True)
+        
+        # --- SE MUESTRA EL SN DEL DATALOGGER EN LA CABECERA DE LA PLANTA ---
+        sn_info = f" | SN: {d.get('datalogger', 'No asignado')}" if d.get('datalogger') else ""
+        st.markdown(f"<h2>{d['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| {estado_ico}{sn_info}</span></h2>", unsafe_allow_html=True)
+        # -------------------------------------------------------------------
+        
         st.markdown("<hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
 
         prod_solar = datos_act["energia_diaria"]
@@ -800,15 +810,22 @@ elif menu == "🏢 Gestión de Portafolio":
             c1, c2 = st.columns(2)
             n_nom = c1.text_input("Nombre de la Planta")
             n_tipo = c2.selectbox("Tipo de Planta", ["Residencial", "Comercial e Industrial", "Off-Grid"])
-            n_ubi = st.text_input("Ubicación (Ciudad/Región)")
-            n_inv = st.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Huawei", "Sylvania"])
-            n_cap = st.text_input("Capacidad (kWp)")
+            
+            c3, c4 = st.columns(2)
+            n_ubi = c3.text_input("Ubicación (Ciudad/Región)")
+            n_cap = c4.text_input("Capacidad (kWp)")
+            
+            c5, c6 = st.columns(2)
+            n_inv = c5.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Huawei", "Sylvania"])
+            # --- NUEVO CAMPO: SN DEL DATALOGGER EN LA CREACIÓN ---
+            n_sn = c6.text_input("SN del Datalogger (Opcional)")
+            # -----------------------------------------------------
             
             if st.form_submit_button("💾 Crear Planta (createPlant)"):
                 if n_nom:
                     guardar_planta({
                         "nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, 
-                        "inversores": n_inv, "status": "active"
+                        "inversores": n_inv, "datalogger": n_sn, "status": "active"
                     })
                     st.success("Planta creada exitosamente.")
                     st.rerun()
@@ -819,7 +836,8 @@ elif menu == "🏢 Gestión de Portafolio":
     for i, pl in enumerate(plantas_guardadas):
         col_info, col_btn = st.columns([5, 1]) 
         with col_info:
-            st.markdown(f"<div style='background: white; color: black; padding: 10px; border-radius: 5px; border: 1px solid #eaeaea;'><b>{pl['nombre']}</b> | {pl['ubicacion']} | {pl['capacidad']} | Inversor: {pl['inversores']}</div>", unsafe_allow_html=True)
+            sn_display = f" | SN: {pl.get('datalogger', 'N/A')}" if pl.get('datalogger') else ""
+            st.markdown(f"<div style='background: white; color: black; padding: 10px; border-radius: 5px; border: 1px solid #eaeaea;'><b>{pl['nombre']}</b> | {pl['ubicacion']} | {pl['capacidad']} | Inversor: {pl['inversores']}{sn_display}</div>", unsafe_allow_html=True)
         with col_btn:
             if st.button("🗑️", key=f"del_pl_{i}", help="Borrar planta"):
                 eliminar_planta(i)
