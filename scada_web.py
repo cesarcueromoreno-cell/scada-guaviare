@@ -15,22 +15,93 @@ import time
 # ==========================================
 st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide")
 
-# Estilos globales base (Fondo de paneles solares)
-css_fondo = """
+css_global = """
 <style>
+/* =========================================
+   REPARACIÓN DEFINITIVA DE COLORES 
+   ========================================= */
+
+/* FONDO DEL PAISAJE (Global) */
 [data-testid="stAppViewContainer"] {
     background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
     background-size: cover; background-position: center; background-attachment: fixed;
 }
 [data-testid="stHeader"] { background: rgba(0,0,0,0); }
+
+/* Textos blancos SOLO para las partes que están directo sobre el paisaje (Login y Títulos fuera del panel) */
+.stApp > header + div > div > div > div > h1, 
+.stApp > header + div > div > div > div > h3 { 
+    color: #ffffff !important; 
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important; 
+}
+
+/* SIDEBAR OSCURO Y BOTÓN DE SALIR VISIBLE */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #112027 0%, #1a323c 50%, #162a33 100%) !important;
     border-right: 1px solid #2c5364 !important;
 }
 [data-testid="stSidebar"] * { color: #ffffff !important; text-shadow: none !important; }
+/* Arreglo del botón "Cerrar Sesión" para que se vea el texto */
+[data-testid="stSidebar"] button { background-color: rgba(255,255,255,0.1) !important; border: 1px solid rgba(255,255,255,0.3) !important; }
+[data-testid="stSidebar"] button p { color: #ffffff !important; font-weight: bold !important; }
+[data-testid="stSidebar"] button:hover { background-color: rgba(231, 76, 60, 0.8) !important; }
+
+/* =========================================
+   PANEL CENTRAL (TEXTOS OSCUROS LEGIBLES)
+   ========================================= */
+/* El gran contenedor blanco central */
+.block-container { 
+    background-color: rgba(244, 247, 249, 0.95) !important; 
+    padding: 2rem !important; 
+    border-radius: 12px; 
+    margin-top: 2rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+/* OBLIGAMOS a que TODO el texto dentro del panel blanco sea oscuro y sin sombra */
+.block-container h1, .block-container h2, .block-container h3, .block-container h4, 
+.block-container h5, .block-container p, .block-container span, .block-container label, 
+.block-container div {
+    color: #2c3e50 !important; 
+    text-shadow: none !important;
+}
+
+/* TARJETAS KPI (Producción, Consumo, etc.) */
+div.solarman-card { 
+    background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; 
+}
+div.solarman-card div.solarman-val { font-size: 26px !important; font-weight: bold !important; margin-bottom: 5px !important; }
+div.solarman-card div.solarman-lbl { font-size: 13px !important; text-transform: uppercase !important; color: #7f8c8d !important; }
+div.solarman-card span.solarman-lbl-sm { color: #7f8c8d !important; font-size: 10px !important; text-transform: uppercase !important;}
+
+/* LISTA DE PLANTAS EN PANORAMA */
+.tarjeta-dash-pro { background-color: #ffffff !important; padding: 15px !important; border-radius: 8px !important; margin-bottom: 10px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; display: flex !important; align-items: center !important; justify-content: space-between !important; border: 1px solid #eaeaea !important;}
+.tarjeta-label-pro { font-size: 11px !important; color: #7f8c8d !important; text-transform: uppercase !important; margin-bottom: 2px !important; white-space: nowrap !important; }
+.tarjeta-dato-pro { font-size: 16px !important; font-weight: bold !important; color: #2c3e50 !important; white-space: nowrap !important; }
+
+/* TABS ESTILO SOLARMAN BUSINESS */
+div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; font-weight: 600 !important; font-size: 16px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
+
+/* BOTONES INFERIORES AZULES */
+div[data-testid="stButton"] button[kind="primary"] { background-color: #2d8cf0 !important; border-color: #2d8cf0 !important; border-radius: 4px !important; }
+div[data-testid="stButton"] button[kind="primary"] p { color: white !important; }
+div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
+div[data-testid="stButton"] button[kind="secondary"] { border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
+div[data-testid="stButton"] button[kind="secondary"] p { color: #2d8cf0 !important; }
+
+/* LOGIN ESTILO CRISTAL */
+[data-testid="stForm"] { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; }
+[data-testid="stForm"] p { color: white !important; text-shadow: 1px 1px 3px black !important; }
+[data-testid="stExpanderDetails"] { background: rgba(255, 255, 255, 0.95) !important; }
+[data-testid="stExpanderDetails"] p { color: #2c3e50 !important; text-shadow: none !important; }
 </style>
 """
-st.markdown(css_fondo, unsafe_allow_html=True)
+st.markdown(css_global, unsafe_allow_html=True)
 
 # ==========================================
 # 2. BLINDAJE DE VARIABLES DE SESIÓN
@@ -122,20 +193,9 @@ if "edit" in st.query_params:
     except: pass
 
 # ==========================================
-# 4. LOGIN Y CSS CONDICIONAL
+# 4. LOGIN (PERFECTAMENTE VISIBLE)
 # ==========================================
 if not st.session_state["autenticado"]:
-    # CSS específico para Login (Textos blancos con sombra)
-    st.markdown("""
-    <style>
-    .block-container { background-color: transparent !important; }
-    h1, h2, h3, h4, h5, p, span, label { color: #ffffff !important; text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important; }
-    [data-testid="stForm"] { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; }
-    [data-testid="stExpanderDetails"] { background: rgba(255, 255, 255, 0.9) !important; }
-    [data-testid="stExpanderDetails"] * { color: #2c3e50 !important; text-shadow: none !important; }
-    </style>
-    """, unsafe_allow_html=True)
-    
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: white !important;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
@@ -168,44 +228,6 @@ if not st.session_state["autenticado"]:
                         if success: st.success(message)
                         else: st.error(message)
     st.stop()
-
-# --- CSS PARA USUARIO AUTENTICADO (Fondo blanco nítido para lectura) ---
-st.markdown("""
-<style>
-/* Contenedor principal con fondo blanco translúcido para que todo se lea perfecto */
-.block-container { 
-    background-color: rgba(244, 247, 249, 0.95) !important; 
-    padding: 2rem !important; 
-    border-radius: 12px; 
-    margin-top: 2rem;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-/* Quitar sombras a todos los textos adentro del panel y forzar color oscuro */
-.block-container * { text-shadow: none !important; color: #2c3e50 !important; }
-
-/* Estilos de las pestañas */
-div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; font-weight: 600 !important; font-size: 16px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
-
-/* Botón Azul Solarman */
-div[data-testid="stButton"] button[kind="primary"] { background-color: #2d8cf0 !important; border-color: #2d8cf0 !important; color: white !important; border-radius: 4px !important; }
-div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
-div[data-testid="stButton"] button[kind="secondary"] { color: #2d8cf0 !important; border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
-
-/* Tarjetas KPI sin wrap de texto */
-.solarman-card { background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-.solarman-val { font-size: 24px !important; font-weight: bold !important; margin-bottom: 5px !important; }
-.solarman-lbl { font-size: 12px !important; text-transform: uppercase !important; color: #7f8c8d !important;}
-
-/* Lista de Plantas */
-.tarjeta-dash-pro { background-color: #ffffff !important; padding: 15px !important; border-radius: 8px !important; margin-bottom: 10px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; display: flex !important; align-items: center !important; justify-content: space-between !important; }
-.tarjeta-label-pro { font-size: 11px !important; color: #7f8c8d !important; text-transform: uppercase !important; margin-bottom: 2px !important; white-space: nowrap !important; }
-.tarjeta-dato-pro { font-size: 16px !important; font-weight: bold !important; color: #2c3e50 !important; white-space: nowrap !important; }
-</style>
-""", unsafe_allow_html=True)
 
 # ==========================================
 # 5. NAVEGACIÓN Y DATOS
@@ -310,7 +332,7 @@ if menu == "🌐 Panorama General":
         st.markdown("</div></div>", unsafe_allow_html=True)
 
 # ==========================================
-# 7. VISTA: PANEL DE PLANTA (RESTURACIÓN COMPLETA)
+# 7. VISTA: PANEL DE PLANTA Y CONTROL REMOTO
 # ==========================================
 elif menu == "📊 Panel de Planta":
     if not plantas:
@@ -323,12 +345,12 @@ elif menu == "📊 Panel de Planta":
     
     st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', '2412120039')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
-    # KPIs (NÚMEROS ARREGLADOS, SIN WRAP NI SOMBRAS)
+    # KPIs DE BATERÍA PERFECTOS (Sin texto invisible)
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#3498db !important;'>{d['hoy']} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
     c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e67e22 !important;'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold;'>🔋 {round(d['hoy']*0.2,1)} kWh <span class='solarman-lbl'>Cargar</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px;'>🔋 {round(d['hoy']*0.1,1)} kWh <span class='solarman-lbl'>Descargar</span></div></div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold;'>⚡ 0 kWh <span class='solarman-lbl'>A Red</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px;'>⚡ 0 kWh <span class='solarman-lbl'>De Red</span></div></div>", unsafe_allow_html=True)
+    c3.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold; color:#2c3e50;'>🔋 {round(d['hoy']*0.2,1)} kWh <span class='solarman-lbl-sm'>Cargar</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px; color:#2c3e50;'>🔋 {round(d['hoy']*0.1,1)} kWh <span class='solarman-lbl-sm'>Descargar</span></div></div>", unsafe_allow_html=True)
+    c4.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>A Red</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>De Red</span></div></div>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
     # TABS PRINCIPALES
@@ -338,7 +360,7 @@ elif menu == "📊 Panel de Planta":
         t_graf, t_rep = st.tabs(["📈 Panel Gráfico", "📄 Reportes"])
         t_ctrl, t_om = None, None
     
-    # --- RESTAURACIÓN: GRÁFICA Y FLUJO ---
+    # --- GRÁFICA Y FLUJO ---
     with t_graf:
         col_grafica, col_flujo = st.columns([7, 3])
         with col_grafica:
@@ -374,7 +396,7 @@ elif menu == "📊 Panel de Planta":
             """
             components.html(diagrama_svg, height=415)
             
-    # --- CONTROL REMOTO ---
+    # --- CONTROL REMOTO (CORREGIDO ERROR TYPEERROR Y AÑADIDA RED) ---
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
@@ -387,10 +409,16 @@ elif menu == "📊 Panel de Planta":
                 st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
                 cb1, cb2, cb3, cb4, cb5 = st.columns(5)
                 cb1.selectbox("* Tipo Batería", ["Modo Litio", "Plomo"])
-                cb2.number_input("* Capacidad (Ah)", 100)
-                cb3.number_input("* Max Carga (A)", 50)
-                cb4.number_input("* Max Descarga (A)", 50)
-                cb5.number_input("* Desconexión %", 10)
+                cb2.number_input("* Capacidad (Ah)", value=100)
+                cb3.number_input("* Max Carga (A)", value=50)
+                cb4.number_input("* Max Descarga (A)", value=50)
+                cb5.number_input("* Desconexión %", value=10)
+                cc1, cc2, cc3, cc4, cc5 = st.columns(5)
+                cc1.number_input("* Reconexión %", value=35)
+                cc2.number_input("* Batería Baja %", value=20)
+                cc3.selectbox("* Paralelo bat1&bat2", opts_sel)
+                cc4.selectbox("* Carga de Red", opts_sel)
+                cc5.selectbox("* Carga Generador", opts_sel)
 
             with st_mo1:
                 st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
@@ -399,12 +427,12 @@ elif menu == "📊 Panel de Planta":
                 with m2:
                     st.markdown("<p style='font-size:12px; margin-bottom:5px;'>* Configuración</p>", unsafe_allow_html=True)
                     st.checkbox("Lunes", True); st.checkbox("Martes", True)
-                m3.number_input("* Max Solar (W)", 5000)
-                m4.number_input("* Max Red (W)", 5000)
+                m3.number_input("* Max Solar (W)", value=5000)
+                m4.number_input("* Max Red (W)", value=5000)
                 m5.selectbox("* Prioridad", ["Carga", "Batería"])
 
             with st_mo2:
-                st.toggle("* FuncionamientoporPeriodos", False)
+                st.toggle("* FuncionamientoporPeriodos", value=False)
 
             with st_red:
                 if not st.session_state["red_desbloqueada"]:
@@ -424,7 +452,7 @@ elif menu == "📊 Panel de Planta":
                     cf1, cf2 = st.columns(2)
                     cf1.number_input("Sobre Frecuencia Máx (Hz)", value=60.5)
                     cf2.number_input("Sub Frecuencia Mín (Hz)", value=59.5)
-                    if st.button("🔒 Bloquear"):
+                    if st.button("🔒 Bloquear Red"):
                         st.session_state["red_desbloqueada"] = False
                         st.rerun()
 
@@ -435,16 +463,43 @@ elif menu == "📊 Panel de Planta":
                 cs3.selectbox("* Par CA Carga", opts_sel)
 
             with st_bas:
-                st.toggle("Sonido zumbador", True)
+                st.toggle("Sonido zumbador", value=True)
 
+            # MATRIZ COMPLETA Y REPARADA DE FUNCIONES AVANZADAS 1
             with st_av1:
-                a1, a2, a3 = st.columns(3)
-                a1.selectbox("* Configuración ARC", opts_sel)
-                a2.number_input("* Potencia reducción de picos (W)", 1000)
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
+                
+                a1, a2, a3, a4, a5 = st.columns(5)
+                a1.selectbox("* Configuración ARC", options=opts_sel)
+                a2.selectbox("* Gen Peak-afeitado", options=opts_sel)
+                a3.number_input("* Potencia reducción de picos (W)", value=1000)
+                a4.selectbox("* Reducción de picos de la red", options=opts_sel)
+                a5.number_input("* Potencia reducción red (W)", value=1000)
+                
+                b1, b2, b3, b4, b5 = st.columns(5)
+                b1.selectbox("* Paralelo", options=opts_sel)
+                b2.selectbox("* Modo (Maestro Esclavo)", options=["Seleccione", "Maestro", "Esclavo"])
+                b3.number_input("* Modbus SN", value=1)
+                b4.selectbox("* DRM", options=opts_sel)
+                b5.selectbox("* Modo Isla de Señal", options=opts_sel)
+
+                c1, c2, c3, c4, c5 = st.columns(5)
+                c1.number_input("* Retraso de respaldo", value=0)
+                c2.number_input("* relación CT", value=1000)
+                c3.selectbox("* EX_MeterCT", options=opts_sel)
+                c4.selectbox("* Medidor red2", options=opts_sel)
+                c5.selectbox("* Escaneo MPPT", options=opts_sel)
+
+                d1, d2, d3, d4, d5 = st.columns(5)
+                d1.selectbox("* Seleccionar Medidor", options=opts_sel)
+                d2.selectbox("* Alimentación asimétrica", options=opts_sel)
+                d3.selectbox("* Relé principal en el lado...", options=opts_sel, key="d3_rele")
+                d4.selectbox("* Relé de derivación en...", options=opts_sel, key="d4_rele")
+                d5.empty()
 
             with st_av2:
                 av_col1, _, _ = st.columns([1.5, 1, 2])
-                av_col1.selectbox("* DC 1 para turbina eólica", opts_sel)
+                av_col1.selectbox("* DC 1 para turbina eólica", options=opts_sel)
         
             st.markdown("<br><hr style='margin:10px 0;'>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns([6, 2, 2])
@@ -454,7 +509,7 @@ elif menu == "📊 Panel de Planta":
                     with st.spinner("Enviando..."): time.sleep(1.5)
                     st.success("¡Configuración aplicada!")
 
-    # --- RESTAURACIÓN: REPORTES Y DESCARGA CSV ---
+    # --- REPORTES Y DESCARGA CSV ---
     with t_rep:
         st.markdown("### 📄 Descarga de Datos Históricos")
         st.write("Exporte las métricas del día actual a Excel.")
@@ -462,7 +517,7 @@ elif menu == "📊 Panel de Planta":
         csv_data = df_informe.to_csv(index=False).encode('utf-8-sig') 
         st.download_button(label="📥 Descargar Informe CSV", data=csv_data, file_name=f"Reporte_{p['nombre']}.csv", mime="text/csv")
 
-    # --- RESTAURACIÓN: O&M (AGENDA DE MANTENIMIENTO) ---
+    # --- O&M (AGENDA DE MANTENIMIENTO) ---
     if t_om:
         with t_om:
             st.markdown("### 📅 Agenda de Mantenimiento")
