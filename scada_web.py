@@ -463,6 +463,7 @@ if menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL DEL PORTAFOLIO")
     st.markdown("**MOMISOLAR APP - Vista global rápida**")
     
+    # --- FORMULARIO DE EDICIÓN ---
     if st.session_state.get("editando_planta") is not None:
         idx_edit = st.session_state["editando_planta"]
         if idx_edit < len(plantas_guardadas):
@@ -584,7 +585,6 @@ elif menu == "📊 Panel de Planta":
         st.markdown("<br>", unsafe_allow_html=True)
 
         if rol_actual == "admin":
-            # --- AÑADIDA LA NUEVA PESTAÑA "Modos Operación-1" ---
             tabs = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes y Datos", "🛠️ Agenda de O&M"])
             tab_monitor = tabs[0]
             tab_control = tabs[1]
@@ -639,10 +639,51 @@ elif menu == "📊 Panel de Planta":
             with tab_control:
                 st.info(f"⚙️ Configurando el inversor **{d['inversores']}** de la planta '{d['nombre']}'. Proceda con precaución.")
                 
-                # --- NUEVA PESTAÑA AÑADIDA AQUÍ ---
-                sub_t1, sub_t2, sub_t3, sub_t4 = st.tabs(["🔋 Config. Baterías", "🔄 Modos de operación-1", "⚡ Red y Normativa", "🕒 TOU"])
+                # RESTAURADAS LAS PESTAÑAS ORIGINALES + LAS NUEVAS AL LADO
+                sub_t1, sub_t2, sub_t3, sub_t4, sub_t5 = st.tabs([
+                    "🔋 Parámetros BMS", 
+                    "⚡ Red y Normativa", 
+                    "🕒 Time of Use (TOU)",
+                    "🔋 Config. Baterías (Avanzado)",
+                    "🔄 Modos de Operación-1"
+                ])
                 
+                # --- 1. PARÁMETROS BMS (LA TUYA ORIGINAL) ---
                 with sub_t1:
+                    col_b1, col_b2 = st.columns(2)
+                    col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60)
+                    col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80)
+                    col_s1, col_s2, col_s3 = st.columns(3)
+                    col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20)
+                    col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35)
+                    col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50)
+
+                # --- 2. RED Y NORMATIVA (CON FRECUENCIAS Y VOLTAJES) ---
+                with sub_t2:
+                    col_g1, col_g2 = st.columns(2)
+                    col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
+                    col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0)
+                    
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V)</div>", unsafe_allow_html=True)
+                    col_v1, col_v2 = st.columns(2)
+                    col_v1.number_input("Sobre Tensión Máx (Over-voltage V)", min_value=220.0, max_value=280.0, value=253.0, step=1.0)
+                    col_v2.number_input("Sub Tensión Mín (Under-voltage V)", min_value=170.0, max_value=220.0, value=198.0, step=1.0)
+
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz)</div>", unsafe_allow_html=True)
+                    col_f1, col_f2 = st.columns(2)
+                    col_f1.number_input("Sobre Frecuencia Máx (Over-frequency Hz)", min_value=60.0, max_value=65.0, value=60.5, step=0.1)
+                    col_f2.number_input("Sub Frecuencia Mín (Under-frequency Hz)", min_value=55.0, max_value=60.0, value=59.5, step=0.1)
+
+                # --- 3. TIME OF USE (LA CARGA DE RED) ---
+                with sub_t3:
+                    st.checkbox("Habilitar Carga desde la Red Eléctrica (Grid Charge)")
+                    col_t1, col_t2 = st.columns(2)
+                    col_t1.time_input("Inicio de carga forzada", value=datetime.strptime("00:00", "%H:%M"))
+                    col_t2.time_input("Fin de carga forzada", value=datetime.strptime("05:00", "%H:%M"))
+                    st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100)
+
+                # --- 4. CONFIG BATERÍAS AVANZADO (LA CUADRÍCULA DE SOLARMAN) ---
+                with sub_t4:
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
                     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
                     cb1.selectbox("* Tipo de Batería", ["Modo Litio", "Plomo-Ácido", "Sin Batería"], index=0)
@@ -665,10 +706,9 @@ elif menu == "📊 Panel de Planta":
                     cd4.number_input("* Máx Tiempo Gen", value=0.0)
                     cd5.number_input("* Tiempo parada Gen", value=0.0)
 
-                # --- NUEVO CÓDIGO DE "Modos de operación-1" (CLONADO DE TU FOTO) ---
-                with sub_t2:
+                # --- 5. MODOS DE OPERACIÓN-1 (LA ÚLTIMA FOTO DE SOLARMAN) ---
+                with sub_t5:
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
-                    
                     m1, m2, m3, m4, m5 = st.columns(5)
                     m1.selectbox("* Modos de Operación", ["Seleccione", "Autoconsumo", "Corte de picos", "Respaldo"])
                     
@@ -692,27 +732,8 @@ elif menu == "📊 Panel de Planta":
                     m6.number_input("* Cero exportación de energía (W)", min_value=-500, max_value=500, value=0)
                     m7.selectbox("* Función de Límite Duro", ["Seleccione", "Habilitado", "Deshabilitado"])
                     m8.number_input("* Potencia de límite fijo (%)", min_value=0.1, max_value=100.0, value=100.0)
-                # ------------------------------------------------------------------
-
-                with sub_t3:
-                    col_g1, col_g2 = st.columns(2)
-                    col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
-                    col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0)
-                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V)</div>", unsafe_allow_html=True)
-                    col_v1, col_v2 = st.columns(2)
-                    col_v1.number_input("Sobre Tensión Máx (Over-voltage V)", min_value=220.0, max_value=280.0, value=253.0, step=1.0)
-                    col_v2.number_input("Sub Tensión Mín (Under-voltage V)", min_value=170.0, max_value=220.0, value=198.0, step=1.0)
-                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz)</div>", unsafe_allow_html=True)
-                    col_f1, col_f2 = st.columns(2)
-                    col_f1.number_input("Sobre Frecuencia Máx (Over-frequency Hz)", min_value=60.0, max_value=65.0, value=60.5, step=0.1)
-                    col_f2.number_input("Sub Frecuencia Mín (Under-frequency Hz)", min_value=55.0, max_value=60.0, value=59.5, step=0.1)
-
-                with sub_t4:
-                    st.checkbox("Habilitar Carga desde la Red Eléctrica (Grid Charge)")
-                    col_t1, col_t2 = st.columns(2)
-                    col_t1.time_input("Inicio de carga forzada", value=datetime.strptime("00:00", "%H:%M"))
-                    col_t2.time_input("Fin de carga forzada", value=datetime.strptime("05:00", "%H:%M"))
-                    st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100)
+                    m9.empty()
+                    m10.empty()
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("🚀 Escribir Parámetros al Datalogger", use_container_width=True):
