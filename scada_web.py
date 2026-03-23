@@ -37,7 +37,7 @@ st.markdown(
         background: rgba(0,0,0,0); 
     }
     
-    /* HACER EL CONTENEDOR TOTALMENTE TRANSPARENTE */
+    /* HACER EL CONTENEDOR CENTRAL TOTALMENTE TRANSPARENTE */
     .block-container, [data-testid="stMainBlockContainer"], div[data-testid="block-container"] {
         background-color: transparent !important;
         border: none !important;
@@ -45,13 +45,19 @@ st.markdown(
         backdrop-filter: none !important;
     }
 
-    /* TEXTO BLANCO CON SOMBRA NEGRA PARA LEER SOBRE LA FOTO */
+    /* TEXTO BLANCO CON SOMBRA NEGRA PARA EL ÁREA DE LA FOTO */
     h1, h2, h3, h4, h5, p, label, li, .stMarkdown span {
         color: #ffffff !important;
         text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
     }
 
-    /* EXCEPCIONES: Textos que deben mantener su color oscuro para no dañarse (Tarjetas, Inputs, Botones) */
+    /* EXCEPCIÓN 1: Menú Lateral (Sidebar) con texto oscuro y limpio */
+    [data-testid="stSidebar"] * {
+        color: #2c3e50 !important;
+        text-shadow: none !important;
+    }
+
+    /* EXCEPCIÓN 2: Tarjetas, Inputs, Botones (Letras oscuras sin sombra) */
     .tarjeta-planta *, input, select, textarea, button span, .stAlert p {
         color: #2c3e50 !important;
         text-shadow: none !important;
