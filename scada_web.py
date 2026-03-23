@@ -21,13 +21,13 @@ except ImportError:
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y FONDO VISUAL
 # ==========================================
-# NUEVO NOMBRE EN LA PESTAÑA DEL NAVEGADOR
+# NUEVO NOMBRE EN LA PESTAÑA DEL NAVEGADOR (César)
 st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide") 
 
 st.markdown(
     """
     <style>
-    /* FONDO DE LA APLICACIÓN */
+    /* FONDO DE LA APLICACIÓN (INTACTO) */
     [data-testid="stAppViewContainer"] {
         background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
         background-size: cover; 
@@ -70,7 +70,7 @@ st.markdown(
     }
 
     /* =========================================
-       DISEÑO "SORPRESA" DEL MENÚ LATERAL
+       NUEVO: DISEÑO DEL MENÚ LATERAL (César)
        ========================================= */
     [data-testid="stSidebar"] {
         /* Degradado oscuro tecnológico (Midnight Blue a Slate) */
@@ -85,7 +85,7 @@ st.markdown(
         text-shadow: none !important;
     }
 
-    /* Toque especial "Amarillo Solar" para la caja de la empresa en el menú */
+    /* Toque especial "Amarillo Solar" para la caja de la empresa en el menú (César) */
     [data-testid="stSidebar"] [data-testid="stAlert"] {
         background-color: rgba(241, 196, 15, 0.15) !important;
         border-left: 5px solid #f1c40f !important;
@@ -104,18 +104,51 @@ st.markdown(
         text-shadow: none !important;
     }
 
-    /* DISEÑO ORIGINAL DE LAS TARJETAS */
-    .tarjeta-planta {
+    /* =========================================
+       NUEVO: ESTILO DASHBOARD PRO (Target image_9.png)
+       ========================================= */
+    /* Contenedor gris suave para el área del Dashboard */
+    .dashboard-dash-base {
+        background-color: #f0f2f5 !important; /* Gris suave profesional */
+        border-radius: 15px !important;
+        padding: 25px !important;
+        box-shadow: inset 0 0 15px rgba(0,0,0,0.1) !important;
+        margin-bottom: 20px !important;
+    }
+    
+    /* Texto oscuro dentro de la base del dashboard */
+    .dashboard-dash-base h1, .dashboard-dash-base h2, .dashboard-dash-base h3, .dashboard-dash-base p {
+        color: #2c3e50 !important;
+        text-shadow: none !important;
+    }
+
+    /* Tarjetas blancas puras y sólidas tipo tabla (Sin border-left) */
+    .tarjeta-dash-pro {
         background-color: #ffffff !important; 
-        border-left: 5px solid #2ecc71 !important;
         padding: 15px !important; 
         border-radius: 8px !important; 
-        margin-bottom: 5px !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+        margin-bottom: 10px !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
     }
-    .tarjeta-titulo { font-size: 18px !important; font-weight: bold !important; margin-bottom: 10px !important; }
-    .tarjeta-dato { font-size: 22px !important; font-weight: bold !important; color: #34495e !important; }
-    .tarjeta-label { font-size: 12px !important; color: #7f8c8d !important; text-transform: uppercase !important; }
+    .tarjeta-dash-item {
+        margin: 0 15px !important;
+    }
+    .tarjeta-label-pro {
+        font-size: 11px !important;
+        color: #7f8c8d !important;
+        text-transform: uppercase !important;
+        margin-bottom: 2px !important;
+    }
+    .tarjeta-dato-pro {
+        font-size: 16px !important;
+        font-weight: bold !important;
+        color: #2c3e50 !important;
+    }
+    /* ========================================= */
+    
     </style>
     """,
     unsafe_allow_html=True
@@ -169,7 +202,7 @@ if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
 if not st.session_state["autenticado"]:
-    # NUEVO NOMBRE EN LA PANTALLA DE LOGIN
+    # NUEVO NOMBRE EN LA PANTALLA DE LOGIN (César)
     st.markdown("<h1 style='text-align: center; font-size: 3.5rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
     
@@ -245,7 +278,7 @@ plantas_guardadas = cargar_plantas()
 # ==========================================
 # 3. NAVEGACIÓN PRINCIPAL
 # ==========================================
-# NUEVO NOMBRE EN EL MENÚ LATERAL
+# NUEVO NOMBRE EN EL MENÚ LATERAL (César)
 st.sidebar.title("☀️ MOMISOLAR APP")
 rol_actual = "Instalador/Admin" if st.session_state.get('usuario_actual') == 'admin' else "Cliente"
 st.sidebar.write(f"👤 Usuario: **{st.session_state.get('usuario_actual', 'admin')}**\n\n🛡️ Rol: {rol_actual}")
@@ -256,64 +289,99 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
     st.rerun()
     
-# Identidad de la empresa
+# Identidad de la empresa (glow yellow)
 st.sidebar.info("**POWERED BY:**\n\n**CV INGENIERIA SAS**")
 
 # ==========================================
-# VENTANA 1: PANORAMA GENERAL
+# VENTANA 1: PANORAMA GENERAL (REDISEÑO DASHBOARD PRO)
 # ==========================================
 if menu == "🌐 Panorama General":
+    # Título blanco original
     st.title("🌐 PANORAMA GENERAL DEL PORTAFOLIO")
     st.markdown("**MOMISOLAR APP - Vista global rápida**")
     
     if not plantas_guardadas:
         st.warning("No hay plantas registradas. Ve a Gestión para agregar una.")
     else:
-        for i, pl in enumerate(plantas_guardadas):
-            datos = obtener_datos_reales(pl)
-            cap_texto = str(pl.get("capacidad", "0"))
-            solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
-            cap_limpia = f"{solo_numeros[0]} kWp" if solo_numeros else "N/A"
+        # Panel base del dashboard (gris profesional flotante sobre la foto)
+        with st.container():
+            st.markdown("<div class='dashboard-dash-base'>", unsafe_allow_html=True)
+            
+            st.markdown("<h3 style='margin-bottom:20px; color:#2c3e50;'>Directorio Técnico de Plantas</h3>", unsafe_allow_html=True)
+            
+            # Header profesional tipo tabla (Target image_9.png)
+            header_tabla = f"""
+<div style="background:#ffffff; border-radius: 8px; padding: 10px 15px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+<div style="display:flex; align-items:center;">
+<div style="color: #3498db; font-size:16px; margin-right:10px;">☀️</div>
+<div style="font-weight:bold; color: #2c3e50;">Listado Activo (Total {len(plantas_guardadas)})</div>
+</div>
+<div style="background: #ffffff; border: 1px solid #ccd0d5; border-radius: 4px; padding: 2px 10px; color: #7f8c8d; font-size:12px;">🔍 Por favor, ingrese el nombre de la...</div>
+</div>
+"""
+            st.markdown(header_tabla, unsafe_allow_html=True)
+            
+            # Recorrer plantas y crear filas tipo tabla
+            for i, pl in enumerate(plantas_guardadas):
+                datos = obtener_datos_reales(pl)
+                cap_texto = str(pl.get("capacidad", "0"))
+                solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
+                cap_limpia = f"{solo_numeros[0]} kWp" if solo_numeros else "N/A"
 
-            alerta_html = ""
-            if datos["alertas"]:
-                alerta_html = "<div style='color:#e74c3c; font-size:12px; font-weight:bold; margin-bottom:10px;'>⚠️ ALERTAS ACTIVAS (Ver Centro de Alertas)</div>"
+                alerta_html = ""
+                status_icon = "🟢" if datos["solar"] > 10 else "🟠"
+                if datos["alertas"]:
+                    status_icon = "🔴"
+                    # Pequeño badge de alerta si hay problemas
+                    alerta_html = f"<div style='position:absolute; top:5px; left:15px; background: #e74c3c; color:white; font-size:9px; padding: 2px 6px; border-radius:10px;'>{len(datos['alertas'])} Alertas</div>"
 
-            tarjeta = f"""
-<div class="tarjeta-planta">
-<div class="tarjeta-titulo">{pl['nombre']} <span style="float:right; font-size:12px; color:#95a5a6;">{datos['status']}</span></div>
+                # NOTA: Todo alineado a la izquierda sin espacios para evitar el error del bloque de código crudo
+                # FILA PRO TIPO TABLA (Target image_9.png visual appearance)
+                fila_pro = f"""
+<div class="tarjeta-dash-pro" style="position:relative;">
 {alerta_html}
-<div style="display: flex; justify-content: space-between; text-align: center; margin-top: 15px;">
-<div><div class="tarjeta-dato">{datos['solar']} W</div><div class="tarjeta-label">Energía (Potencia)</div></div>
-<div><div class="tarjeta-dato">{datos['energia_diaria']} kWh</div><div class="tarjeta-label">Producción Diaria</div></div>
-<div><div class="tarjeta-dato">{cap_limpia}</div><div class="tarjeta-label">Capacidad Total</div></div>
+<div style="display:flex; align-items:center; width: 400px;">
+<img src="https://img.icons8.com/color/48/solar-panel.png" style="width: 32px; height:32px; margin-right:15px; border-radius:4px;"/>
+<div>
+<div style="font-size: 14px; font-weight: bold; color: #2c3e50;">{pl['nombre']}</div>
+<div style="font-size: 12px; color: #7f8c8d;"><img src="https://img.icons8.com/material-rounded/24/marker.png" style="width:12px; height:12px; margin-right:3px;"/>{pl['ubicacion']}</div>
+</div>
+</div>
+<div class="tarjeta-dash-item" style="text-align: center; width: 50px;">
+<div class="tarjeta-label-pro">Com</div>
+<div style="font-size:16px;">📶</div>
+</div>
+<div class="tarjeta-dash-item" style="text-align: center; width: 60px;">
+<div class="tarjeta-label-pro">Alertas</div>
+<div style="font-size:16px;">{status_icon}</div>
+</div>
+<div class="tarjeta-dash-item" style="width: 150px;">
+<div class="tarjeta-label-pro">Capacidad (fetchData)</div>
+<div class="tarjeta-dato-pro">{cap_limpia}</div>
+</div>
+<div class="tarjeta-dash-item" style="width: 150px;">
+<div class="tarjeta-label-pro">Potencia Solar Actual</div>
+<div class="tarjeta-dato-pro">{datos['solar']} W</div>
+</div>
+<div class="tarjeta-dash-item" style="width: 150px;">
+<div class="tarjeta-label-pro">Producción Diaria Hoy</div>
+<div class="tarjeta-dato-pro" style="color: #27ae60 !important;">{datos['energia_diaria']} kWh</div>
+</div>
+<div style="display: flex; gap: 5px;">
+<img src="https://img.icons8.com/material-rounded/24/edit.png" style="width:18px; height:18px; cursor:pointer; opacity:0.6;"/>
+<img src="https://img.icons8.com/material-rounded/24/filled-trash.png" style="width:18px; height:18px; cursor:pointer; opacity:0.6;"/>
 </div>
 </div>
 """
-            st.markdown(tarjeta, unsafe_allow_html=True)
-            
-            with st.expander(f"📉 Ver gráfica de comportamiento: {pl['nombre']}", expanded=False):
-                df_historico = simular_historico_24h(pl)
-                fig = px.area(
-                    df_historico, x="timestamp", y=["Generación FV", "Consumo Carga"], 
-                    color_discrete_map={"Generación FV": "#e67e22", "Consumo Carga": "#e74c3c"}
-                )
-                fig.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(255,255,255,0.9)", 
-                    legend_title_text=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
-                    xaxis=dict(tickformat="%H:%M"), yaxis_title="Potencia (kW)", margin=dict(l=20, r=20, t=10, b=20), height=300
-                )
-                fig.update_traces(fill='tozeroy', mode='lines', line=dict(width=2))
-                fig.update_traces(selector=dict(name="Consumo Carga"), fill='none')
-                st.plotly_chart(fig, use_container_width=True, key=f"graf_pan_{i}")
+                st.markdown(fila_pro, unsafe_allow_html=True)
                 
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True) # Cerrar dashboard-dash-base
             
         if st.button("🔄 Actualizar Todo"): 
             st.rerun()
 
 # ==========================================
-# VENTANA 2: MONITOREO DETALLADO
+# VENTANA 2: MONITOREO DETALLADO (DIAGRAMA TRANSPARENTE)
 # ==========================================
 elif menu == "📊 Monitoreo Detallado":
     st.title("📊 MONITOREO DETALLADO POR PLANTA")
@@ -338,6 +406,7 @@ elif menu == "📊 Monitoreo Detallado":
         soc = datos_act["soc"]
         color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
 
+        # AQUÍ REGRESAMOS EL DIAGRAMA A 100% TRANSPARENTE (César)
         diagrama_svg = f"""
         <div style="background: transparent; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
             <svg viewBox="0 0 400 350" width="100%">
@@ -485,7 +554,7 @@ elif menu == "⚙️ Control de Inversores":
                 st.success(f"¡Nuevos parámetros escritos en el Datalogger '{d['nombre']}'!")
 
 # ==========================================
-# VENTANA 4: GESTIÓN DE PORTAFOLIO Y USUARIOS
+# VENTANA 4: GESTIÓN DE PORTAFOLIO (INTACTA CON NUEVO IDENTIDAD)
 # ==========================================
 elif menu == "🏢 Gestión de Portafolio":
     st.title("🏢 CONFIGURACIÓN DE PROYECTOS")
