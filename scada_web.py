@@ -46,9 +46,26 @@ st.markdown(
     }
 
     /* TEXTO BLANCO CON SOMBRA NEGRA PARA EL ÁREA DE LA FOTO */
-    h1, h2, h3, h4, h5, p, label, li, .stMarkdown span {
+    h1, h2, h3, h4, h5, p, .stMarkdown span {
         color: #ffffff !important;
         text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
+    }
+
+    /* CORRECCIÓN: Nombres de los parámetros (Labels) y Pestañas (Tabs) en blanco brillante */
+    label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {
+        color: #ffffff !important;
+        text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
+    }
+
+    /* CORRECCIÓN: Fondo sólido para las cajas de información y advertencias (st.warning, st.info) */
+    [data-testid="stAlert"] {
+        background-color: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+    }
+    [data-testid="stAlert"] * {
+        color: #2c3e50 !important;
+        text-shadow: none !important;
     }
 
     /* EXCEPCIÓN 1: Menú Lateral (Sidebar) con texto oscuro y limpio */
@@ -58,7 +75,7 @@ st.markdown(
     }
 
     /* EXCEPCIÓN 2: Tarjetas, Inputs, Botones (Letras oscuras sin sombra) */
-    .tarjeta-planta *, input, select, textarea, button span, .stAlert p {
+    .tarjeta-planta *, input, select, textarea, button span {
         color: #2c3e50 !important;
         text-shadow: none !important;
     }
@@ -233,7 +250,7 @@ if menu == "🌐 Panorama General":
             if datos["alertas"]:
                 alerta_html = "<div style='color:#e74c3c; font-size:12px; font-weight:bold; margin-bottom:10px;'>⚠️ ALERTAS ACTIVAS (Ver Centro de Alertas)</div>"
 
-            # NOTA: Todo alineado a la izquierda sin espacios para evitar el error del bloque de código crudo
+            # TODO ALINEADO A LA IZQUIERDA PARA EVITAR CÓDIGO HTML CRUDO
             tarjeta = f"""
 <div class="tarjeta-planta">
 <div class="tarjeta-titulo">{pl['nombre']} <span style="float:right; font-size:12px; color:#95a5a6;">{datos['status']}</span></div>
@@ -432,6 +449,8 @@ elif menu == "⚙️ Control de Inversores":
                 st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100)
 
             st.markdown("---")
+            st.warning("⚠️ Advertencia: Enviar estos parámetros alterará el funcionamiento del equipo. Asegúrese de no violar garantías ni normativas del operador de red local.")
+            
             if st.button("🚀 Guardar y Enviar Parámetros", use_container_width=True):
                 with st.spinner("Conectando con el equipo remoto..."):
                     time.sleep(2)
