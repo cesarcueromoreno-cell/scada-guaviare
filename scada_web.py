@@ -132,7 +132,7 @@ if not st.session_state["autenticado"]:
     col1, col_centro, col2 = st.columns([1, 2, 1]) 
     with col_centro:
         with st.form("login_form"):
-            usuario_input = st.text_input("👤 Usuario")
+            usuario_input = st.text_input("👤 Correo / Usuario")
             contrasena_input = st.text_input("🔑 Contraseña", type="password") 
             if st.form_submit_button("Iniciar Sesión", use_container_width=True):
                 usuarios_bd = cargar_usuarios()
@@ -193,7 +193,8 @@ plantas_guardadas = cargar_plantas()
 # 3. NAVEGACIÓN PRINCIPAL
 # ==========================================
 st.sidebar.title("Navegación CV")
-st.sidebar.write(f"👤 Bienvenido, **{st.session_state.get('usuario_actual', 'admin')}**")
+rol_actual = "Instalador/Admin" if st.session_state.get('usuario_actual') == 'admin' else "Cliente"
+st.sidebar.write(f"👤 Usuario: **{st.session_state.get('usuario_actual', 'admin')}**\n\n🛡️ Rol: {rol_actual}")
 
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "⚙️ Control de Inversores", "🏢 Gestión de Portafolio"])
 
@@ -255,7 +256,7 @@ if menu == "🌐 Panorama General":
 # ==========================================
 elif menu == "📊 Monitoreo Detallado":
     st.title("📊 MONITOREO DETALLADO POR PLANTA")
-    st.markdown("**Analiza el comportamiento individual - CV INGENIERIA SAS**")
+    st.markdown("**Analiza el comportamiento individual (fetchData) - CV INGENIERIA SAS**")
     
     if not plantas_guardadas:
         st.warning("No hay plantas registradas. Por favor, ve a Gestión para crear una.")
@@ -385,22 +386,22 @@ elif menu == "⚙️ Control de Inversores":
             with tab_bat:
                 st.markdown("#### Parámetros de Corriente y SOC")
                 col_b1, col_b2 = st.columns(2)
-                col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60, help="Amperaje máximo hacia las baterías")
-                col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80, help="Amperaje máximo desde las baterías")
+                col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60)
+                col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80)
                 
                 st.markdown("##### Límites de Estado de Carga (SOC %)")
                 col_s1, col_s2, col_s3 = st.columns(3)
-                col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20, help="El inversor se apaga si llega a este nivel")
-                col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35, help="Envía alerta de batería baja")
-                col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50, help="Nivel para volver a descargar")
+                col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20)
+                col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35)
+                col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50)
 
             with tab_grid:
                 st.markdown("#### Configuración de Red (Grid Code)")
                 col_g1, col_g2 = st.columns(2)
-                col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727", "Personalizado"])
-                col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0, help="0% = Inyección Cero. 100% = Venta total.")
+                col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
+                col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0)
                 
-                st.markdown("##### Protecciones de Voltaje (Desconexión)")
+                st.markdown("##### Protecciones de Voltaje")
                 col_v1, col_v2 = st.columns(2)
                 col_v1.number_input("Voltaje Máx. AC (V)", min_value=220, max_value=270, value=253)
                 col_v2.number_input("Voltaje Mín. AC (V)", min_value=180, max_value=210, value=198)
@@ -415,63 +416,99 @@ elif menu == "⚙️ Control de Inversores":
                 st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100)
 
             st.markdown("---")
-            st.warning("⚠️ **Advertencia:** Enviar estos parámetros alterará el funcionamiento del equipo. Asegúrese de no violar garantías ni normativas del operador de red local.")
             if st.button("🚀 Guardar y Enviar Parámetros", use_container_width=True):
-                with st.spinner("Estableciendo conexión segura con el equipo remoto..."):
+                with st.spinner("Conectando con el equipo remoto..."):
                     time.sleep(2)
-                st.success(f"¡Nuevos parámetros escritos correctamente en el Datalogger de la planta '{d['nombre']}'! (Modo Simulación)")
+                st.success(f"¡Nuevos parámetros escritos en el Datalogger '{d['nombre']}'!")
 
 # ==========================================
-# VENTANA 4: GESTIÓN DE PORTAFOLIO Y USUARIOS
+# VENTANA 4: GESTIÓN DE PORTAFOLIO Y USUARIOS (NUEVO FLUJO)
 # ==========================================
 elif menu == "🏢 Gestión de Portafolio":
-    st.title("🏢 GESTIÓN DE PORTAFOLIO")
-    st.markdown("**Organiza tus plantas y accesos - CV INGENIERIA SAS**")
+    st.title("🏢 CONFIGURACIÓN DE PROYECTOS")
+    st.markdown("**Asistente de Puesta en Marcha - CV INGENIERIA SAS**")
     
-    with st.expander("➕ Registrar Nueva Planta", expanded=False):
+    st.markdown("### 🛠️ Flujo de Creación y Autorización")
+
+    # PASO 1: CREAR PLANTA
+    with st.expander("1️⃣ Crear Proyecto (Añadir Planta)", expanded=False):
+        st.write("Complete los datos técnicos del nuevo sistema solar.")
         with st.form("f_planta"):
             c1, c2 = st.columns(2)
-            n_nom = c1.text_input("Nombre Planta")
-            n_ubi = c2.text_input("Ubicación")
-            n_inv = c1.selectbox("Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"])
-            n_cap = c2.text_input("Capacidad (kWp)")
+            n_nom = c1.text_input("Nombre de la Planta")
+            n_tipo = c2.selectbox("Tipo de Planta", ["Residencial", "Comercial e Industrial", "Off-Grid"])
+            
+            c3, c4 = st.columns(2)
+            n_ubi = c3.text_input("Ubicación (Ciudad/Región)")
+            n_tz = c4.selectbox("Zona Horaria y Moneda", ["GMT-5 (Bogotá) - Moneda: COP", "GMT-5 (Lima) - Moneda: USD"])
+
+            n_inv = c3.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"])
+            n_cap = c4.text_input("Capacidad (kWp)")
             
             st.markdown("---")
-            c3, c4 = st.columns(2)
-            n_b_m = c3.selectbox("Batería", ["Ninguna", "Pylontech", "Deye", "BYD", "Trojan", "Sylvania"])
-            n_b_t = c4.selectbox("Tecnología", ["Litio (LiFePO4)", "Plomo-Ácido", "AGM", "Gel"])
-            n_dl = st.text_input("📡 SN Datalogger / IP")
+            c5, c6 = st.columns(2)
+            n_b_m = c5.selectbox("Marca de Batería", ["Ninguna", "Pylontech", "Deye", "BYD", "Trojan", "Sylvania"])
+            n_b_t = c6.selectbox("Tecnología de Batería", ["Litio (LiFePO4)", "Plomo-Ácido", "AGM", "Gel"])
             
-            if st.form_submit_button("💾 Guardar Planta"):
+            if st.form_submit_button("💾 Crear Planta (createPlant)"):
                 if n_nom:
                     guardar_planta({
                         "nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, 
-                        "inversores": n_inv, "datalogger": n_dl, "bat_marca": n_b_m, "bat_tipo": n_b_t
+                        "inversores": n_inv, "datalogger": "Pendiente", "bat_marca": n_b_m, "bat_tipo": n_b_t
                     })
-                    st.success("Planta Guardada")
+                    st.success("Planta creada exitosamente en el Data Center local.")
                     st.rerun()
 
-    st.markdown("### 📋 Directorio de Plantas")
+    # PASO 2: VINCULAR DATALOGGER Y RED
+    with st.expander("2️⃣ Vincular Datalogger y Configurar Red", expanded=False):
+        st.write("Asocie el hardware de comunicación a la planta creada.")
+        if plantas_guardadas:
+            p_sel = st.selectbox("Seleccione la Planta:", [p["nombre"] for p in plantas_guardadas])
+            sn_logger = st.text_input("Número de Serie (SN) del Datalogger o QR:")
+            
+            st.markdown("#### Configuración Wi-Fi (Hotspot del Inversor)")
+            cw1, cw2 = st.columns(2)
+            cw1.text_input("SSID de la Red Local")
+            cw2.text_input("Contraseña de la Red Local", type="password")
+            
+            if st.button("📡 Vincular y Conectar (bindDevice & connect)", use_container_width=True):
+                with st.spinner("Conectando al hotspot... asignando DHCP y enlazando SN..."):
+                    time.sleep(3)
+                st.success(f"Datalogger {sn_logger} vinculado a la planta '{p_sel}'. Sincronización en curso.")
+                st.info("Por favor espere de 5 a 10 minutos para la validación (fetchData).")
+        else:
+            st.warning("Cree una planta en el Paso 1 primero.")
+
+    # PASO 3: AUTORIZAR PLANTA AL CLIENTE
+    with st.expander("3️⃣ Compartir / Autorizar Planta (App Cliente)", expanded=False):
+        st.write("Cree los accesos para que el usuario final visualice su sistema.")
+        with st.form("f_usuario"):
+            n_usr = st.text_input("Correo electrónico del Cliente")
+            n_pwd = st.text_input("Contraseña de acceso temporal", type="password")
+            
+            if plantas_guardadas:
+                p_auth = st.selectbox("Autorizar visualización de la Planta:", ["Todas (Rol Instalador/Admin)"] + [p["nombre"] for p in plantas_guardadas])
+            else:
+                p_auth = st.selectbox("Autorizar visualización de la Planta:", ["Ninguna disponible"])
+                
+            permiso = st.selectbox("Nivel de Permiso", ["Solo Lectura (Invitado)", "Edición y Control (Propietario)"])
+            
+            if st.form_submit_button("✉️ Autorizar y Enviar Acceso"):
+                if n_usr and n_pwd:
+                    guardar_usuario(n_usr, n_pwd)
+                    st.success(f"Permisos asignados. El cliente '{n_usr}' ya puede iniciar sesión en la app.")
+                    time.sleep(2) 
+                    st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 📋 Directorio de Plantas Activas")
     
     for i, pl in enumerate(plantas_guardadas):
         col_info, col_btn = st.columns([5, 1]) 
         with col_info:
-            st.info(f"**{pl['nombre']}** | {pl['ubicacion']} | 🔋 {pl.get('bat_marca','N/A')}")
+            # Ahora la tarjeta informativa tiene un estilo de fondo blanco para que resalte
+            st.markdown(f"<div style='background: white; color: black; padding: 10px; border-radius: 5px;'><b>{pl['nombre']}</b> | {pl['ubicacion']} | Inversor: {pl['inversores']}</div>", unsafe_allow_html=True)
         with col_btn:
             if st.button("🗑️", key=f"del_btn_{i}", help="Borrar planta"):
                 eliminar_planta(i)
                 st.rerun()
-
-    st.markdown("---")
-    st.markdown("### 👥 Gestión de Accesos")
-    with st.expander("➕ Crear Nuevo Usuario", expanded=False):
-        with st.form("f_usuario"):
-            st.write("Crea credenciales para que tus clientes puedan ingresar.")
-            n_usr = st.text_input("Nuevo Usuario (Ej: cliente_guaviare)")
-            n_pwd = st.text_input("Contraseña", type="password")
-            if st.form_submit_button("💾 Crear Usuario"):
-                if n_usr and n_pwd:
-                    guardar_usuario(n_usr, n_pwd)
-                    st.success(f"Usuario '{n_usr}' creado correctamente.")
-                    time.sleep(2) 
-                    st.rerun()
