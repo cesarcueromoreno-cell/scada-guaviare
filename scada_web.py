@@ -77,6 +77,8 @@ if "autenticado" not in st.session_state: st.session_state["autenticado"] = Fals
 if "usuario" not in st.session_state: st.session_state["usuario"] = None
 if "rol" not in st.session_state: st.session_state["rol"] = None
 if "editando_planta" not in st.session_state: st.session_state["editando_planta"] = None
+if "mostrar_crear" not in st.session_state: st.session_state["mostrar_crear"] = False
+if "red_desbloqueada" not in st.session_state: st.session_state["red_desbloqueada"] = False
 
 if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
@@ -113,13 +115,35 @@ def cargar_plantas():
         with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(inicial, f)
     with open(ARCHIVO_PLANTAS, 'r') as f: return json.load(f)
 
-# --- LOGIN (AHORA CON "CREAR USUARIO" RESTAURADO) ---
+def guardar_planta(nueva):
+    plantas = cargar_plantas()
+    plantas.append(nueva)
+    with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
+
+# --- MANEJO DE ACCIONES POR QUERY PARAMS (LÁPIZ/PAPELERA) ---
+if "delete" in st.query_params:
+    try:
+        idx = int(st.query_params["delete"])
+        pl = cargar_plantas()
+        if 0 <= idx < len(pl):
+            pl.pop(idx)
+            with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(pl, f)
+        st.query_params.clear()
+    except: pass
+
+if "edit" in st.query_params:
+    try:
+        idx = int(st.query_params["edit"])
+        st.session_state["editando_planta"] = idx
+        st.query_params.clear()
+    except: pass
+
+# --- LOGIN ---
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: white !important;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     with col_l2:
-        # Formulario de Inicio de Sesión
         with st.form("login"):
             st.markdown("<div style='color:white; font-weight:bold; font-size:14px; text-shadow: 1px 1px 3px black;'>Usuario</div>", unsafe_allow_html=True)
             u = st.text_input("Usuario", label_visibility="collapsed")
@@ -138,23 +162,18 @@ if not st.session_state["autenticado"]:
                 else: 
                     st.error("❌ Credenciales incorrectas o usuario no registrado.")
         
-        # Formulario de Solicitud (Crear Usuario)
         with st.expander("¿No tienes cuenta? Solicita acceso aquí"):
             with st.form("solicitud_form"):
                 nuevo_usuario = st.text_input("👤 Correo / Usuario Solicitado")
                 nueva_contrasena = st.text_input("🔑 Contraseña", type="password")
                 confirmar_contrasena = st.text_input("🔑 Confirmar Contraseña", type="password")
                 if st.form_submit_button("Enviar Solicitud", use_container_width=True):
-                    if not nuevo_usuario or not nueva_contrasena:
-                        st.error("⚠️ Complete todos los campos.")
-                    elif nueva_contrasena != confirmar_contrasena:
-                        st.error("⚠️ Las contraseñas no coinciden.")
+                    if not nuevo_usuario or not nueva_contrasena: st.error("⚠️ Complete todos los campos.")
+                    elif nueva_contrasena != confirmar_contrasena: st.error("⚠️ Las contraseñas no coinciden.")
                     else:
                         success, message = solicitar_usuario(nuevo_usuario, nueva_contrasena)
-                        if success: 
-                            st.success(message)
-                        else: 
-                            st.error(message)
+                        if success: st.success(message)
+                        else: st.error(message)
     st.stop()
 
 # ==========================================
@@ -165,7 +184,7 @@ st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; t
 st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Instalador/Admin' if st.session_state.get('rol') == 'admin' else 'Cliente'}")
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"])
 if st.sidebar.button("🚪 Cerrar Sesión"):
-    st.session_state.update({"autenticado": False, "usuario": None, "rol": None})
+    st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "red_desbloqueada": False})
     st.rerun()
 
 # --- FUNCIONES DE SIMULACIÓN ---
@@ -188,6 +207,7 @@ def sim_graph():
 if menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL")
     
+    # --- FORMULARIO DE EDICIÓN ---
     if st.session_state["editando_planta"] is not None:
         idx = st.session_state["editando_planta"]
         p_edit = plantas[idx]
@@ -199,31 +219,69 @@ if menu == "🌐 Panorama General":
             u = c2.text_input("Ubicación", p_edit['ubicacion'])
             c = c1.text_input("Capacidad", p_edit.get('capacidad', ''))
             sn = c2.text_input("SN Datalogger", p_edit.get('datalogger', ''))
-            if st.form_submit_button("💾 Guardar"):
+            if st.form_submit_button("💾 Guardar Cambios"):
                 plantas[idx].update({"nombre": n, "ubicacion": u, "capacidad": c, "datalogger": sn})
                 with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
                 st.session_state["editando_planta"] = None
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
-    
-    for i, pl in enumerate(plantas):
-        d = get_data(pl)
-        col_t1, col_t2 = st.columns([11, 1])
-        with col_t1:
-            st.markdown(f"""
-            <div style="background:white; padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid #ddd; margin-bottom:10px;">
-                <div style="color:#2c3e50; font-size:16px;"><b>{pl['nombre']}</b><br><small style="color:#7f8c8d;">📍 {pl['ubicacion']} | SN: {pl.get('datalogger', 'N/A')}</small></div>
-                <div style="color:#2c3e50">Potencia Solar:<br><b>{d['solar']} W</b></div>
-                <div style="color:#27ae60">Energía Hoy:<br><b>{d['hoy']} kWh</b></div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col_t2:
-            if st.session_state['rol'] == 'admin':
-                st.markdown("<div style='height:15px;'></div><div class='iconos-accion'>", unsafe_allow_html=True)
-                if st.button("✎", key=f"ed_{i}"):
-                    st.session_state["editando_planta"] = i
+
+    # --- RESTAURADO: FORMULARIO DE CREAR PLANTA ---
+    if st.session_state.get("mostrar_crear") and st.session_state['rol'] == 'admin':
+        st.markdown("<div style='background:rgba(255,255,255,0.95); padding:20px; border-radius:10px; margin-bottom:20px;'>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color:#2c3e50 !important; text-shadow:none !important;'>➕ Crear Nueva Planta</h3>", unsafe_allow_html=True)
+        with st.form("crear_planta_form"):
+            c1, c2 = st.columns(2)
+            n_nom = c1.text_input("Nombre de la Planta")
+            n_ubi = c2.text_input("Ubicación")
+            n_cap = c1.text_input("Capacidad (Ej: 30 kWp)")
+            n_inv = c2.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Huawei", "Sylvania"])
+            n_sn = st.text_input("SN del Datalogger")
+            s1, s2 = st.columns(2)
+            if s1.form_submit_button("💾 Guardar Nueva Planta"):
+                if n_nom:
+                    guardar_planta({"nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, "inversores": n_inv, "datalogger": n_sn})
+                    st.session_state["mostrar_crear"] = False
                     st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
+            if s2.form_submit_button("❌ Cancelar"):
+                st.session_state["mostrar_crear"] = False
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- RESTAURADO: BUSCADOR Y BOTÓN CREAR ---
+    col_bus, col_btn = st.columns([8, 2])
+    with col_bus:
+        c_bus = st.text_input("🔍 Buscar planta", placeholder="Por favor, ingrese el nombre de la planta", label_visibility="collapsed")
+    with col_btn:
+        if st.session_state['rol'] == 'admin':
+            if st.button("Crear una planta", type="primary", use_container_width=True):
+                st.session_state["mostrar_crear"] = not st.session_state.get("mostrar_crear", False)
+                st.rerun()
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if not plantas:
+        st.warning("No hay plantas registradas.")
+    else:
+        filtradas = [pl for pl in plantas if c_bus.lower() in pl['nombre'].lower() or c_bus.lower() in pl['ubicacion'].lower()]
+        st.markdown('<div style="overflow-x: auto; padding-bottom: 15px;"><div style="min-width: 1050px;">', unsafe_allow_html=True)
+        for i, pl in enumerate(filtradas):
+            dat = get_data(pl)
+            col_card, col_btns = st.columns([11, 1])
+            with col_card:
+                st.markdown(f"""
+                <div class="tarjeta-dash-pro" style="position:relative; margin-bottom:0px;">
+                <div style="display:flex; align-items:center; width: 320px; flex-shrink: 0;"><img src="https://img.icons8.com/color/48/solar-panel.png" style="width: 32px; margin-right:15px;"/><div style="font-size: 15px; font-weight: bold; color: #2c3e50;">{pl['nombre']}</div></div>
+                <div class="tarjeta-dash-item"><div class="tarjeta-label-pro">Potencia Solar</div><div class="tarjeta-dato-pro">{dat['solar']} W</div></div>
+                <div class="tarjeta-dash-item"><div class="tarjeta-label-pro">Energía Hoy</div><div class="tarjeta-dato-pro" style="color:#27ae60 !important;">{dat['hoy']} kWh</div></div>
+                </div>""", unsafe_allow_html=True)
+            with col_btns:
+                if st.session_state['rol'] == 'admin':
+                    st.markdown("<div style='height:15px;'></div><div class='iconos-accion'>", unsafe_allow_html=True)
+                    b1, b2 = st.columns(2)
+                    # Enlaces Query Params para editar/eliminar funcionales
+                    st.markdown(f'<a href="?edit={i}" target="_self" title="Editar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/edit.png" style="width:20px; margin-right:5px; cursor:pointer;"/></a><a href="?delete={i}" target="_self" title="Eliminar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/filled-trash.png" style="width:20px; cursor:pointer;"/></a>', unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
 # ==========================================
 # 6. VISTA: PANEL DE PLANTA (CLON SOLARMAN)
@@ -278,6 +336,7 @@ elif menu == "📊 Panel de Planta":
                 cb5.number_input("* Desconexión %", 10)
 
             with st_mo1:
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
                 m1, m2, m3, m4, m5 = st.columns(5)
                 m1.selectbox("* Modo", ["Autoconsumo", "Respaldo"])
                 with m2:
@@ -290,10 +349,34 @@ elif menu == "📊 Panel de Planta":
             with st_mo2:
                 st.toggle("* FuncionamientoporPeriodos", False)
 
+            # --- FUNCIONALIDAD REAL DEL DESBLOQUEO DE RED (CONTRASEÑA: admin123) ---
             with st_red:
-                st.markdown("🔒 **Introduzca la contraseña para desbloquear**")
-                st.text_input("Password", type="password", label_visibility="collapsed")
-                st.button("Desbloquear", type="secondary") 
+                if not st.session_state.get("red_desbloqueada", False):
+                    st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Para configurar la red, introduzca la contraseña para desbloquear</div>", unsafe_allow_html=True)
+                    c_pw1, c_pw2 = st.columns([2, 3])
+                    pwd = c_pw1.text_input("Contraseña", type="password", label_visibility="collapsed")
+                    if c_pw1.button("Desbloquear", type="secondary"):
+                        if pwd == "admin123":
+                            st.session_state["red_desbloqueada"] = True
+                            st.rerun()
+                        else:
+                            st.error("❌ Contraseña incorrecta. Intente de nuevo.")
+                else:
+                    st.success("🔓 Panel de Red Desbloqueado Exitosamente")
+                    st.markdown("<div style='margin-top: 10px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V)</div>", unsafe_allow_html=True)
+                    col_v1, col_v2 = st.columns(2)
+                    col_v1.number_input("Sobre Tensión Máx (Over-voltage V)", min_value=220.0, max_value=280.0, value=253.0, step=1.0)
+                    col_v2.number_input("Sub Tensión Mín (Under-voltage V)", min_value=170.0, max_value=220.0, value=198.0, step=1.0)
+
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz)</div>", unsafe_allow_html=True)
+                    col_f1, col_f2 = st.columns(2)
+                    col_f1.number_input("Sobre Frecuencia Máx (Over-frequency Hz)", min_value=60.0, max_value=65.0, value=60.5, step=0.1)
+                    col_f2.number_input("Sub Frecuencia Mín (Under-frequency Hz)", min_value=55.0, max_value=60.0, value=59.5, step=0.1)
+                    
+                    if st.button("🔒 Bloquear Panel de Red"):
+                        st.session_state["red_desbloqueada"] = False
+                        st.rerun()
+            # ----------------------------------------------------------------------
 
             with st_smart:
                 st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
