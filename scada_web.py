@@ -23,116 +23,102 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide") 
 
-st.markdown(
-    """
-    <style>
-    /* FONDO DE LA APLICACIÓN */
-    [data-testid="stAppViewContainer"] {
-        background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
-        background-size: cover; 
-        background-position: center; 
-        background-attachment: fixed;
-    }
-    [data-testid="stHeader"] { 
-        background: rgba(0,0,0,0); 
-    }
-    
-    /* HACER EL CONTENEDOR CENTRAL TOTALMENTE TRANSPARENTE */
-    .block-container, [data-testid="stMainBlockContainer"], div[data-testid="block-container"] {
-        background-color: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-    }
+# CSS GLOBAL (Fondo transparente y letras blancas para la app en general)
+css_global = """
+<style>
+[data-testid="stAppViewContainer"] {
+    background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
+    background-size: cover; 
+    background-position: center; 
+    background-attachment: fixed;
+}
+[data-testid="stHeader"] { background: rgba(0,0,0,0); }
 
-    /* TEXTO BLANCO CON SOMBRA NEGRA PARA EL ÁREA DE LA FOTO */
-    h1, h2, h3, h4, h5, p, .stMarkdown span {
-        color: #ffffff !important;
-        text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
-    }
+.block-container, [data-testid="stMainBlockContainer"], div[data-testid="block-container"] {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
 
-    /* CORRECCIÓN: Nombres de los parámetros (Labels) y Pestañas en blanco brillante */
-    label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {
-        color: #ffffff !important;
-        text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
-    }
+h1, h2, h3, h4, h5, p, .stMarkdown span {
+    color: #ffffff !important;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
+}
 
-    /* CORRECCIÓN: Fondo sólido para las cajas de información centrales */
-    [data-testid="stAlert"] {
-        background-color: rgba(255, 255, 255, 0.95) !important;
-        border-radius: 10px !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
-    }
-    [data-testid="stAlert"] * {
-        color: #2c3e50 !important;
-        text-shadow: none !important;
-    }
+label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {
+    color: #ffffff !important;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
+}
 
-    /* =========================================
-       DISEÑO DEL MENÚ LATERAL
-       ========================================= */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%) !important;
-        border-right: 1px solid #4ca1af !important;
-        box-shadow: 4px 0 15px rgba(0,0,0,0.5) !important;
-    }
-    
-    [data-testid="stSidebar"] * {
-        color: #ffffff !important;
-        text-shadow: none !important;
-    }
+[data-testid="stAlert"] {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+}
+[data-testid="stAlert"] * {
+    color: #2c3e50 !important;
+    text-shadow: none !important;
+}
 
-    [data-testid="stSidebar"] [data-testid="stAlert"] {
-        background-color: rgba(241, 196, 15, 0.15) !important;
-        border-left: 5px solid #f1c40f !important;
-        box-shadow: 0 0 10px rgba(241, 196, 15, 0.2) !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stAlert"] * {
-        color: #f1c40f !important; 
-        font-weight: bold !important;
-        letter-spacing: 1px !important;
-    }
-    /* ========================================= */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%) !important;
+    border-right: 1px solid #4ca1af !important;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.5) !important;
+}
+[data-testid="stSidebar"] * {
+    color: #ffffff !important;
+    text-shadow: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stAlert"] {
+    background-color: rgba(241, 196, 15, 0.15) !important;
+    border-left: 5px solid #f1c40f !important;
+    box-shadow: 0 0 10px rgba(241, 196, 15, 0.2) !important;
+}
+[data-testid="stSidebar"] [data-testid="stAlert"] * {
+    color: #f1c40f !important; 
+    font-weight: bold !important;
+    letter-spacing: 1px !important;
+}
 
-    /* Tarjetas, Inputs, Botones centrales (Letras oscuras sin sombra) */
-    .tarjeta-planta *, input, select, textarea, button span {
-        color: #2c3e50 !important;
-        text-shadow: none !important;
-    }
+.tarjeta-planta *, input, select, textarea, button span {
+    color: #2c3e50 !important;
+    text-shadow: none !important;
+}
 
-    /* =========================================
-       ESTILO DASHBOARD PRO
-       ========================================= */
-    .tarjeta-dash-pro {
-        background-color: #ffffff !important; 
-        padding: 15px !important; 
-        border-radius: 8px !important; 
-        margin-bottom: 10px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; /* Sombra más fuerte para que resalte en la foto */
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-    }
-    .tarjeta-dash-item {
-        margin: 0 15px !important;
-    }
-    .tarjeta-label-pro {
-        font-size: 11px !important;
-        color: #7f8c8d !important;
-        text-transform: uppercase !important;
-        margin-bottom: 2px !important;
-        white-space: nowrap !important;
-    }
-    .tarjeta-dato-pro {
-        font-size: 16px !important;
-        font-weight: bold !important;
-        color: #2c3e50 !important;
-        white-space: nowrap !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+.dashboard-dash-base {
+    background-color: #f0f2f5 !important; 
+    border-radius: 15px !important;
+    padding: 25px !important;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.1) !important;
+    margin-bottom: 20px !important;
+}
+.dashboard-dash-base h1, .dashboard-dash-base h2, .dashboard-dash-base h3, .dashboard-dash-base p {
+    color: #2c3e50 !important;
+    text-shadow: none !important;
+}
+
+.tarjeta-dash-pro {
+    background-color: #ffffff !important; 
+    padding: 15px !important; 
+    border-radius: 8px !important; 
+    margin-bottom: 10px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+.tarjeta-dash-item { margin: 0 15px !important; }
+.tarjeta-label-pro {
+    font-size: 11px !important; color: #7f8c8d !important; text-transform: uppercase !important;
+    margin-bottom: 2px !important; white-space: nowrap !important;
+}
+.tarjeta-dato-pro {
+    font-size: 16px !important; font-weight: bold !important; color: #2c3e50 !important; white-space: nowrap !important;
+}
+</style>
+"""
+st.markdown(css_global, unsafe_allow_html=True)
 
 # ==========================================
 # 2. BASE DE DATOS (PLANTAS Y USUARIOS)
@@ -142,16 +128,13 @@ ARCHIVO_USUARIOS = 'usuarios.json'
 
 def cargar_usuarios():
     if not os.path.exists(ARCHIVO_USUARIOS):
-        with open(ARCHIVO_USUARIOS, 'w') as f: 
-            json.dump({"admin": "solar123"}, f)
-    with open(ARCHIVO_USUARIOS, 'r') as f: 
-        return json.load(f)
+        with open(ARCHIVO_USUARIOS, 'w') as f: json.dump({"admin": "solar123"}, f)
+    with open(ARCHIVO_USUARIOS, 'r') as f: return json.load(f)
 
 def guardar_usuario(usuario, contrasena):
     usuarios = cargar_usuarios()
     usuarios[usuario] = contrasena
-    with open(ARCHIVO_USUARIOS, 'w') as f: 
-        json.dump(usuarios, f)
+    with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(usuarios, f)
 
 def cargar_plantas():
     if not os.path.exists(ARCHIVO_PLANTAS):
@@ -160,23 +143,19 @@ def cargar_plantas():
             "inversores": "Híbrido Multimarca", "datalogger": "SN: CV-001", 
             "bat_marca": "Deye/Pylontech", "bat_tipo": "Litio (LiFePO4)"
         }]
-        with open(ARCHIVO_PLANTAS, 'w') as f: 
-            json.dump(inicial, f)
-    with open(ARCHIVO_PLANTAS, 'r') as f: 
-        return json.load(f)
+        with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(inicial, f)
+    with open(ARCHIVO_PLANTAS, 'r') as f: return json.load(f)
 
 def guardar_planta(nueva):
     plantas = cargar_plantas()
     plantas.append(nueva)
-    with open(ARCHIVO_PLANTAS, 'w') as f: 
-        json.dump(plantas, f)
+    with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
 def eliminar_planta(indice):
     plantas = cargar_plantas()
     if 0 <= indice < len(plantas):
         plantas.pop(indice)
-        with open(ARCHIVO_PLANTAS, 'w') as f: 
-            json.dump(plantas, f)
+        with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
@@ -261,7 +240,8 @@ st.sidebar.title("☀️ MOMISOLAR APP")
 rol_actual = "Instalador/Admin" if st.session_state.get('usuario_actual') == 'admin' else "Cliente"
 st.sidebar.write(f"👤 Usuario: **{st.session_state.get('usuario_actual', 'admin')}**\n\n🛡️ Rol: {rol_actual}")
 
-menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "⚙️ Control de Inversores", "🏢 Gestión de Portafolio", "🚨 Centro de Alertas"])
+# Se consolidaron los menús porque "Control de Inversores" ahora vive DENTRO del Panel de Planta
+menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Panel de Planta", "🏢 Gestión de Portafolio", "🚨 Centro de Alertas"])
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
@@ -270,7 +250,38 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
 st.sidebar.info("**POWERED BY:**\n\n**CV INGENIERIA SAS**")
 
 # ==========================================
-# VENTANA 1: PANORAMA GENERAL (BUSCADOR REAL AÑADIDO)
+# INYECCIÓN DE CSS DINÁMICO (MODO DASHBOARD BLANCO PARA EL PANEL DE PLANTA)
+# ==========================================
+if menu == "📊 Panel de Planta":
+    st.markdown("""
+    <style>
+    /* Transformar el fondo en un espacio de trabajo limpio tipo Solarman */
+    .block-container, [data-testid="stMainBlockContainer"] {
+        background-color: #f4f7f9 !important;
+        backdrop-filter: none !important;
+        border-radius: 0px !important;
+    }
+    /* Forzar todos los textos principales a oscuros */
+    h1, h2, h3, h4, h5, p, span, label, div {
+        color: #2c3e50 !important;
+        text-shadow: none !important;
+    }
+    /* Tarjetas de métricas superiores */
+    .solarman-card {
+        background: #ffffff;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        border: 1px solid #eaeaea;
+    }
+    .solarman-val { font-size: 26px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
+    .solarman-lbl { font-size: 13px; color: #7f8c8d; text-transform: uppercase; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ==========================================
+# VENTANA 1: PANORAMA GENERAL
 # ==========================================
 if menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL DEL PORTAFOLIO")
@@ -281,16 +292,11 @@ if menu == "🌐 Panorama General":
     else:
         st.markdown("<h3 style='margin-bottom:10px; color:#ffffff;'>Directorio Técnico de Plantas</h3>", unsafe_allow_html=True)
         
-        # SISTEMA DE BÚSQUEDA REAL
         col_espacio, col_buscador = st.columns([2, 1])
         with col_buscador:
             busqueda = st.text_input("🔍 Buscar planta", label_visibility="collapsed", placeholder="Ingrese nombre o ciudad...")
         
-        # Lógica de filtrado
-        plantas_filtradas = []
-        for pl in plantas_guardadas:
-            if busqueda.lower() in pl['nombre'].lower() or busqueda.lower() in pl['ubicacion'].lower():
-                plantas_filtradas.append(pl)
+        plantas_filtradas = [pl for pl in plantas_guardadas if busqueda.lower() in pl['nombre'].lower() or busqueda.lower() in pl['ubicacion'].lower()]
 
         st.markdown('<div style="overflow-x: auto; padding-bottom: 15px;"><div style="min-width: 1050px;">', unsafe_allow_html=True)
         
@@ -338,7 +344,7 @@ if menu == "🌐 Panorama General":
 <div style="font-size:16px;">{status_icon}</div>
 </div>
 <div class="tarjeta-dash-item" style="width: 140px; flex-shrink: 0;">
-<div class="tarjeta-label-pro">Capacidad (fetchData)</div>
+<div class="tarjeta-label-pro">Capacidad</div>
 <div class="tarjeta-dato-pro">{cap_limpia}</div>
 </div>
 <div class="tarjeta-dash-item" style="width: 160px; flex-shrink: 0;">
@@ -346,7 +352,7 @@ if menu == "🌐 Panorama General":
 <div class="tarjeta-dato-pro">{datos['solar']} W</div>
 </div>
 <div class="tarjeta-dash-item" style="width: 150px; flex-shrink: 0;">
-<div class="tarjeta-label-pro">Producción Diaria Hoy</div>
+<div class="tarjeta-label-pro">Producción Diaria</div>
 <div class="tarjeta-dato-pro" style="color: #27ae60 !important;">{datos['energia_diaria']} kWh</div>
 </div>
 <div style="display: flex; gap: 5px; width: 60px; flex-shrink: 0;">
@@ -359,183 +365,175 @@ if menu == "🌐 Panorama General":
             
         st.markdown("</div></div>", unsafe_allow_html=True) 
             
-        if st.button("🔄 Actualizar Todo"): 
-            st.rerun()
+        if st.button("🔄 Actualizar Todo"): st.rerun()
 
 # ==========================================
-# VENTANA 2: MONITOREO DETALLADO
+# VENTANA 2: PANEL DE PLANTA (EL NUEVO WORKSPACE BLANCO + CONFIGURACIÓN)
 # ==========================================
-elif menu == "📊 Monitoreo Detallado":
-    st.title("📊 MONITOREO DETALLADO POR PLANTA")
-    st.markdown("**MOMISOLAR APP - Análisis de comportamiento**")
+elif menu == "📊 Panel de Planta":
     
     if not plantas_guardadas:
-        st.warning("No hay plantas registradas. Por favor, ve a Gestión para crear una.")
+        st.warning("No hay plantas registradas en el sistema.")
     else:
-        planta_sel = st.selectbox("Seleccione Planta:", [p["nombre"] for p in plantas_guardadas])
+        # Selector principal superior
+        col_tit, col_sel = st.columns([2, 1])
+        with col_sel:
+            planta_sel = st.selectbox("Cambiar de Planta:", [p["nombre"] for p in plantas_guardadas], label_visibility="collapsed")
         d = next(p for p in plantas_guardadas if p["nombre"] == planta_sel)
-        
-        st.write(f"📍 {d['ubicacion']} | ⚡ {d['capacidad']} | 📡 Estado: `{obtener_datos_reales(d)['status']}`")
-        st.write(f"🔋 **Batería:** {d.get('bat_marca','N/A')} ({d.get('bat_tipo','N/A')})")
-        st.markdown("---")
-
-        st.markdown("### 🔄 Flujo de Energía en Tiempo Real")
-        
         datos_act = obtener_datos_reales(d)
-        pot_solar = datos_act["solar"]
-        pot_casa = datos_act["casa"]
-        pot_bat = pot_solar - pot_casa
-        soc = datos_act["soc"]
-        color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
+        
+        estado_ico = "🟢 En línea" if not datos_act["alertas"] else "🔴 Con Alertas"
+        st.markdown(f"<h2>{d['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>ID: {hashlib.md5(d['nombre'].encode()).hexdigest()[:8].upper()} | {estado_ico}</span></h2>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
 
-        diagrama_svg = f"""
-        <div style="background: transparent; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
-            <svg viewBox="0 0 400 350" width="100%">
-                <path d="M 100 85 V 150 H 170 M 300 85 V 150 H 230 M 170 150 H 100 V 230 M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
-                <circle r="6" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
-                <circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>
-                <circle r="6" fill="#e67e22"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>
-                
-                <rect x="165" y="115" width="70" height="70" rx="12" fill="#ffffff" stroke="#3498db" stroke-width="3"/>
-                <rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/> 
-                <text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text>
-                <text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">Híbrido</text>
-                
-                <g transform="translate(30,20)">
-                    <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
-                    <rect x="10" y="10" width="45" height="65" fill="#1a237e" rx="2"/>
-                    <text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">FV TOTAL</text>
-                    <text x="65" y="65" font-size="18" font-weight="bold" fill="#2d3436">{pot_solar} W</text>
-                </g>
-                
-                <g transform="translate(230,20)">
-                    <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
-                    <text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">RED ELÉC.</text>
-                    <text x="65" y="65" font-size="18" font-weight="bold" fill="#d63031">0 W</text>
-                </g>
-                
-                <g transform="translate(30,230)">
-                    <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
-                    <rect x="10" y="10" width="45" height="65" rx="4" fill="#636e72"/>
-                    <text x="32" y="67" text-anchor="middle" font-size="10" font-weight="bold" fill="{color_bat}">{soc}%</text>
-                    <text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">BATERÍA</text>
-                    <text x="65" y="65" font-size="18" font-weight="bold" fill="#27ae60">{pot_bat} W</text>
-                </g>
-                
-                <g transform="translate(230,230)">
-                    <rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/>
-                    <text x="75" y="35" font-size="11" fill="#636e72" font-weight="bold">CARGA</text>
-                    <text x="75" y="65" font-size="18" font-weight="bold" fill="#e67e22">{pot_casa} W</text>
-                </g>
-            </svg>
-        </div>
-        """
-        components.html(diagrama_svg, height=520) 
+        # MÉTRICAS SUPERIORES ESTILO SOLARMAN
+        prod_solar = datos_act["energia_diaria"]
+        consumo_sim = round(prod_solar * 0.45, 1)
+        carga_bat = round(prod_solar * 0.2, 1)
+        descarga_bat = round(prod_solar * 0.1, 1)
         
-        st.markdown("---")
-        st.markdown("### 📉 Comportamiento de Generación Vs. Consumo (Hoy)")
-        
-        df_historico = simular_historico_24h(d)
-        fig2 = px.area(
-            df_historico, x="timestamp", y=["Generación FV", "Consumo Carga"], 
-            color_discrete_map={"Generación FV": "#e67e22", "Consumo Carga": "#e74c3c"}
-        )
-        fig2.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(255,255,255,0.9)", 
-            legend_title_text=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
-            xaxis=dict(tickformat="%H:%M", dtick=2 * 3600000), yaxis_title="Potencia (kW)", margin=dict(l=20, r=20, t=20, b=20)
-        )
-        fig2.update_traces(fill='tozeroy', mode='lines', line=dict(width=2))
-        fig2.update_traces(selector=dict(name="Consumo Carga"), fill='none')
-        st.plotly_chart(fig2, use_container_width=True, key="graf_monitoreo_principal")
+        c1, c2, c3, c4 = st.columns([1.5, 1.5, 1, 1])
+        with c1:
+            st.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#3498db;'>{prod_solar} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e67e22;'>{consumo_sim} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"<div class='solarman-card'><div style='font-size:14px; font-weight:bold;'>🔋 {carga_bat} kWh <span style='color:#7f8c8d; font-size:10px;'>Cargar</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px;'>🔋 {descarga_bat} kWh <span style='color:#7f8c8d; font-size:10px;'>Descargar</span></div></div>", unsafe_allow_html=True)
+        with c4:
+            st.markdown(f"<div class='solarman-card'><div style='font-size:14px; font-weight:bold;'>⚡ 0 kWh <span style='color:#7f8c8d; font-size:10px;'>Alimentado</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px;'>⚡ 0 kWh <span style='color:#7f8c8d; font-size:10px;'>Desde Red</span></div></div>", unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.markdown("### 📄 Exportar Datos")
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ÁREA PRINCIPAL DIVIDIDA EN PESTAÑAS (Aquí se integra el Control de Inversores)
+        tab_monitor, tab_control, tab_reportes = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes y Datos"])
         
-        fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        datos_informe = {
-            "Fecha/Hora Consulta": [fecha_hora_actual], "Nombre de Planta": [d['nombre']],
-            "Ubicación": [d['ubicacion']], "Capacidad (kWp)": [d['capacidad']],
-            "Marca Inversor": [d['inversores']], "Batería": [f"{d.get('bat_marca','N/A')} ({d.get('bat_tipo','N/A')})"],
-            "Estado Conexión": [datos_act['status']], "Generación FV Actual (W)": [pot_solar],
-            "Consumo Carga Actual (W)": [pot_casa], "Nivel Batería SOC (%)": [soc],
-            "Producción Diaria (kWh)": [datos_act['energia_diaria']]
-        }
-        
-        df_informe = pd.DataFrame(datos_informe)
-        csv_data = df_informe.to_csv(index=False).encode('utf-8-sig') 
-        nombre_archivo = f"Reporte_Planta_{d['nombre'].replace(' ', '_')}.csv"
-        
-        st.download_button(
-            label="📥 Descargar Informe Técnico (CSV / Excel)", data=csv_data, 
-            file_name=nombre_archivo, mime="text/csv"
-        )
+        with tab_monitor:
+            col_grafica, col_flujo = st.columns([7, 3])
+            
+            with col_grafica:
+                st.markdown("<div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea;'>", unsafe_allow_html=True)
+                df_historico = simular_historico_24h(d)
+                fig2 = px.area(
+                    df_historico, x="timestamp", y=["Generación FV", "Consumo Carga"], 
+                    color_discrete_map={"Generación FV": "#3498db", "Consumo Carga": "#e74c3c"}
+                )
+                fig2.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                    legend_title_text=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
+                    xaxis=dict(tickformat="%H:%M", dtick=2 * 3600000, gridcolor="#f0f0f0"), 
+                    yaxis=dict(gridcolor="#f0f0f0"), yaxis_title="kW", margin=dict(l=10, r=10, t=10, b=10), height=380
+                )
+                fig2.update_traces(fill='tozeroy', mode='lines', line=dict(width=2))
+                fig2.update_traces(selector=dict(name="Consumo Carga"), fill='none')
+                st.plotly_chart(fig2, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with col_flujo:
+                # Diagrama de flujo ajustado para fondo blanco
+                pot_solar = datos_act["solar"]
+                pot_casa = datos_act["casa"]
+                pot_bat = pot_solar - pot_casa
+                soc = datos_act["soc"]
+                color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
+                
+                diagrama_svg = f"""
+                <div style="background: white; border-radius: 8px; padding: 20px; border: 1px solid #eaeaea; height: 100%; display: flex; align-items: center;">
+                    <svg viewBox="0 0 400 350" width="100%">
+                        <path d="M 100 85 V 150 H 170 M 300 85 V 150 H 230 M 170 150 H 100 V 230 M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
+                        <circle r="6" fill="#3498db"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
+                        <circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>
+                        <circle r="6" fill="#e74c3c"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>
+                        
+                        <rect x="165" y="115" width="70" height="70" rx="12" fill="#f8f9fa" stroke="#3498db" stroke-width="3"/>
+                        <rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/> 
+                        <text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text>
+                        <text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">Híbrido</text>
+                        
+                        <g transform="translate(60,30)">
+                            <image href="https://img.icons8.com/color/48/solar-panel.png" width="40" height="40" x="-15" y="-15"/>
+                            <text x="5" y="40" font-size="16" font-weight="bold" fill="#3498db" text-anchor="middle">{pot_solar} W</text>
+                        </g>
+                        
+                        <g transform="translate(260,30)">
+                            <image href="https://img.icons8.com/fluency/48/electrical.png" width="40" height="40" x="-15" y="-15"/>
+                            <text x="5" y="40" font-size="16" font-weight="bold" fill="#7f8c8d" text-anchor="middle">0 W</text>
+                        </g>
+                        
+                        <g transform="translate(60,260)">
+                            <image href="https://img.icons8.com/color/48/car-battery.png" width="40" height="40" x="-15" y="-15"/>
+                            <text x="5" y="40" font-size="16" font-weight="bold" fill="#27ae60" text-anchor="middle">{pot_bat} W</text>
+                            <text x="5" y="55" font-size="11" font-weight="bold" fill="{color_bat}" text-anchor="middle">SOC: {soc}%</text>
+                        </g>
+                        
+                        <g transform="translate(260,260)">
+                            <image href="https://img.icons8.com/color/48/home.png" width="40" height="40" x="-15" y="-15"/>
+                            <text x="5" y="40" font-size="16" font-weight="bold" fill="#e74c3c" text-anchor="middle">{pot_casa} W</text>
+                        </g>
+                    </svg>
+                </div>
+                """
+                components.html(diagrama_svg, height=415)
+
+        with tab_control:
+            # AQUÍ VIVE AHORA EL CONTROL MAESTRO DE INVERSORES
+            if st.session_state.get('usuario_actual') != 'admin':
+                st.error("⛔ ACCESO DENEGADO")
+                st.warning("El control de parámetros es exclusivo para el Administrador de CV INGENIERIA SAS.")
+            else:
+                st.info(f"⚙️ Configurando el inversor **{d['inversores']}** de la planta '{d['nombre']}'. Proceda con precaución.")
+                
+                sub_t1, sub_t2, sub_t3 = st.tabs(["🔋 Parámetros BMS", "⚡ Red y Normativa", "🕒 Time of Use (TOU)"])
+                
+                with sub_t1:
+                    col_b1, col_b2 = st.columns(2)
+                    col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60)
+                    col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80)
+                    col_s1, col_s2, col_s3 = st.columns(3)
+                    col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20)
+                    col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35)
+                    col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50)
+
+                with sub_t2:
+                    col_g1, col_g2 = st.columns(2)
+                    col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
+                    col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0)
+                    col_v1, col_v2 = st.columns(2)
+                    col_v1.number_input("Voltaje Máx. AC (V)", min_value=220, max_value=270, value=253)
+                    col_v2.number_input("Voltaje Mín. AC (V)", min_value=180, max_value=210, value=198)
+
+                with sub_t3:
+                    st.checkbox("Habilitar Carga desde la Red Eléctrica (Grid Charge)")
+                    col_t1, col_t2 = st.columns(2)
+                    col_t1.time_input("Inicio de carga forzada", value=datetime.strptime("00:00", "%H:%M"))
+                    col_t2.time_input("Fin de carga forzada", value=datetime.strptime("05:00", "%H:%M"))
+                    st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("🚀 Escribir Parámetros al Datalogger", use_container_width=True):
+                    with st.spinner("Estableciendo conexión P2P con el inversor..."):
+                        time.sleep(2)
+                    st.success("¡Parámetros actualizados exitosamente!")
+
+        with tab_reportes:
+            st.markdown("### 📄 Descarga de Datos en Bruto")
+            st.write("Exporte las métricas del día actual para auditoría o informes al cliente.")
+            
+            fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            datos_informe = {
+                "Fecha Consulta": [fecha_hora_actual], "Planta": [d['nombre']],
+                "Capacidad": [d['capacidad']], "Batería SOC (%)": [soc_actual],
+                "Producción Diaria (kWh)": [prod_solar]
+            }
+            df_informe = pd.DataFrame(datos_informe)
+            csv_data = df_informe.to_csv(index=False).encode('utf-8-sig') 
+            
+            st.download_button(
+                label="📥 Descargar Informe CSV", data=csv_data, 
+                file_name=f"Reporte_{d['nombre'].replace(' ', '_')}.csv", mime="text/csv"
+            )
 
 # ==========================================
-# VENTANA 3: CONTROL DE INVERSORES
-# ==========================================
-elif menu == "⚙️ Control de Inversores":
-    st.title("⚙️ PARAMETRIZACIÓN REMOTA AVANZADA")
-    st.markdown("**Control maestro de inversores - MOMISOLAR APP**")
-    
-    if st.session_state.get('usuario_actual') != 'admin':
-        st.error("⛔ ACCESO DENEGADO")
-        st.warning("Esta sección es de control crítico y modifica parámetros físicos del equipo. Solo el usuario Administrador tiene los privilegios necesarios.")
-    else:
-        st.info("🔐 Autenticado como Administrador. Proceda con precaución al modificar variables del equipo.")
-        
-        if not plantas_guardadas:
-            st.warning("No hay plantas registradas para configurar.")
-        else:
-            planta_sel = st.selectbox("Seleccione Planta a configurar:", [p["nombre"] for p in plantas_guardadas])
-            d = next(p for p in plantas_guardadas if p["nombre"] == planta_sel)
-            st.write(f"Inversor detectado: **{d['inversores']}** en {d['ubicacion']}")
-            st.markdown("---")
-            
-            tab_bat, tab_grid, tab_tou = st.tabs(["🔋 Baterías (BMS)", "⚡ Red y Normativa (Grid)", "🕒 Franjas Horarias (TOU)"])
-            
-            with tab_bat:
-                st.markdown("#### Parámetros de Corriente y SOC")
-                col_b1, col_b2 = st.columns(2)
-                col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60)
-                col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80)
-                
-                st.markdown("##### Límites de Estado de Carga (SOC %)")
-                col_s1, col_s2, col_s3 = st.columns(3)
-                col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20)
-                col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35)
-                col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50)
-
-            with tab_grid:
-                st.markdown("#### Configuración de Red (Grid Code)")
-                col_g1, col_g2 = st.columns(2)
-                col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
-                col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0)
-                
-                st.markdown("##### Protecciones de Voltaje")
-                col_v1, col_v2 = st.columns(2)
-                col_v1.number_input("Voltaje Máx. AC (V)", min_value=220, max_value=270, value=253)
-                col_v2.number_input("Voltaje Mín. AC (V)", min_value=180, max_value=210, value=198)
-
-            with tab_tou:
-                st.markdown("#### Programación por Tiempo (Time of Use)")
-                st.checkbox("Habilitar Carga desde la Red Eléctrica (Grid Charge)")
-                
-                col_t1, col_t2 = st.columns(2)
-                col_t1.time_input("Inicio de carga forzada", value=datetime.strptime("00:00", "%H:%M"))
-                col_t2.time_input("Fin de carga forzada", value=datetime.strptime("05:00", "%H:%M"))
-                st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100)
-
-            st.markdown("---")
-            st.warning("⚠️ Advertencia: Enviar estos parámetros alterará el funcionamiento del equipo. Asegúrese de no violar garantías ni normativas del operador de red local.")
-            
-            if st.button("🚀 Guardar y Enviar Parámetros", use_container_width=True):
-                with st.spinner("Conectando con el equipo remoto..."):
-                    time.sleep(2)
-                st.success(f"¡Nuevos parámetros escritos en el Datalogger '{d['nombre']}'!")
-
-# ==========================================
-# VENTANA 4: GESTIÓN DE PORTAFOLIO Y USUARIOS
+# VENTANA 3: GESTIÓN DE PORTAFOLIO Y USUARIOS
 # ==========================================
 elif menu == "🏢 Gestión de Portafolio":
     st.title("🏢 CONFIGURACIÓN DE PROYECTOS")
@@ -623,7 +621,7 @@ elif menu == "🏢 Gestión de Portafolio":
                 st.rerun()
 
 # ==========================================
-# VENTANA 5: CENTRO DE ALERTAS
+# VENTANA 4: CENTRO DE ALERTAS
 # ==========================================
 elif menu == "🚨 Centro de Alertas":
     st.title("🚨 CENTRO DE ALERTAS Y DIAGNÓSTICO")
