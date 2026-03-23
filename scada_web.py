@@ -19,7 +19,7 @@ except ImportError:
     MODBUS_DISPONIBLE = False
 
 # ==========================================
-# 1. CONFIGURACIÓN INICIAL Y FONDO
+# 1. CONFIGURACIÓN INICIAL Y FONDO VISUAL
 # ==========================================
 st.set_page_config(page_title="Central CV Ingeniería", page_icon="⚡", layout="wide") 
 
@@ -155,13 +155,13 @@ def obtener_datos_reales(planta):
     energia_simulada = round((pot_simulada * random.uniform(3.5, 5.0)) / 1000, 1)
     estado = "Simulado (Falta API)" if planta.get("inversores") in ["Deye", "Sylvania"] else "Simulado"
     
-    # SISTEMA DE DIAGNÓSTICO (NUEVO)
+    # SISTEMA DE DIAGNÓSTICO (ALERTAS)
     soc_actual = random.randint(15, 99) 
     alertas_activas = []
     
     if soc_actual <= 25:
         alertas_activas.append("⚠️ Batería Baja: Nivel de SOC crítico (<=25%). Riesgo de desconexión de cargas.")
-    if random.random() < 0.15: # 15% de probabilidad de simular un apagón de la red eléctrica
+    if random.random() < 0.15: # 15% de probabilidad de simular un apagón
         alertas_activas.append("🔌 Falla de Red AC: Sin voltaje detectado en la acometida. Operando en modo Off-Grid.")
 
     return {
@@ -200,13 +200,12 @@ def simular_historico_24h(planta):
 plantas_guardadas = cargar_plantas()
 
 # ==========================================
-# 3. NAVEGACIÓN PRINCIPAL
+# 3. NAVEGACIÓN PRINCIPAL (AQUÍ ESTÁ EL MENÚ DE ALERTAS)
 # ==========================================
 st.sidebar.title("Navegación CV")
 rol_actual = "Instalador/Admin" if st.session_state.get('usuario_actual') == 'admin' else "Cliente"
 st.sidebar.write(f"👤 Usuario: **{st.session_state.get('usuario_actual', 'admin')}**\n\n🛡️ Rol: {rol_actual}")
 
-# AGREGAMOS EL CENTRO DE ALERTAS AL MENÚ
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "⚙️ Control de Inversores", "🏢 Gestión de Portafolio", "🚨 Centro de Alertas"])
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
@@ -233,7 +232,7 @@ if menu == "🌐 Panorama General":
             # Aviso rápido si hay alertas en esta planta
             alerta_html = ""
             if datos["alertas"]:
-                alerta_html = "<div style='color:#e74c3c; font-size:12px; font-weight:bold;'>⚠️ ALERTAS ACTIVAS (Ver Centro de Alertas)</div>"
+                alerta_html = "<div style='color:#e74c3c; font-size:12px; font-weight:bold; margin-bottom:10px;'>⚠️ ALERTAS ACTIVAS (Ver Centro de Alertas)</div>"
 
             tarjeta = f"""
             <div class="tarjeta-planta">
@@ -527,7 +526,7 @@ elif menu == "🏢 Gestión de Portafolio":
                 st.rerun()
 
 # ==========================================
-# VENTANA 5: CENTRO DE ALERTAS (NUEVO)
+# VENTANA 5: CENTRO DE ALERTAS
 # ==========================================
 elif menu == "🚨 Centro de Alertas":
     st.title("🚨 CENTRO DE ALERTAS Y DIAGNÓSTICO")
