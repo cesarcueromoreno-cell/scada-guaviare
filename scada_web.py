@@ -47,7 +47,7 @@ h1, h2, h3, h4, h5, p, .stMarkdown span {
     color: #ffffff !important;
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
 }
-label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {
+label, label p, label div {
     color: #ffffff !important;
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
 }
@@ -72,31 +72,63 @@ label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="ta
     text-shadow: none !important;
 }
 
-/* DISEÑO DEL MENÚ LATERAL (OSCURO) */
+/* =========================================
+   DISEÑO DEL MENÚ LATERAL (CLONANDO TU IMAGEN)
+   ========================================= */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%) !important;
-    border-right: 1px solid #4ca1af !important;
+    background: linear-gradient(180deg, #112027 0%, #1a323c 50%, #162a33 100%) !important;
+    border-right: 1px solid #2c5364 !important;
     box-shadow: 4px 0 15px rgba(0,0,0,0.5) !important;
 }
 [data-testid="stSidebar"] * {
     color: #ffffff !important;
     text-shadow: none !important;
 }
+
+/* Ajuste del Radio Button en el Sidebar para que sea Rojo cuando se selecciona */
+[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] div:first-child {
+    background-color: transparent !important;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] input:checked + div {
+    background-color: #e74c3c !important; /* ROJO */
+    border-color: #e74c3c !important;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] input:checked + div div {
+    background-color: #e74c3c !important; /* ROJO */
+}
+[data-testid="stSidebar"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+    font-weight: bold !important;
+    font-size: 15px !important;
+}
+
+/* Caja POWERED BY (Translúcida con borde amarillo) */
 [data-testid="stSidebar"] [data-testid="stAlert"] {
-    background-color: rgba(241, 196, 15, 0.15) !important;
+    background-color: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid #f1c40f !important;
     border-left: 5px solid #f1c40f !important;
-    box-shadow: 0 0 10px rgba(241, 196, 15, 0.2) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 10px rgba(241, 196, 15, 0.1) !important;
 }
 [data-testid="stSidebar"] [data-testid="stAlert"] * {
     color: #f1c40f !important; 
     font-weight: bold !important;
     letter-spacing: 1px !important;
 }
+/* ========================================= */
 
 /* ELEMENTOS DE INPUT NATIVOS */
 .tarjeta-planta *, input, select, textarea, button span {
     color: #2c3e50 !important;
     text-shadow: none !important;
+}
+
+/* ESTILIZAR EL FORMULARIO DE LOGIN COMO CRISTAL */
+[data-testid="stForm"] {
+    background: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* ESTILO DASHBOARD PRO (LISTA DE PLANTAS) */
@@ -149,16 +181,13 @@ def cargar_usuarios():
         db = json.load(f)
         
     datos_actualizados = False
-    
-    # Reparar cuentas viejas
     for user, data in db.items():
         if isinstance(data, str):
-            # Si era la cuenta admin vieja, darle rol admin, a los demás viewer
             rol_asignado = "admin" if user == "admin" else "viewer"
             db[user] = {"pwd": data, "status": "active", "role": rol_asignado}
             datos_actualizados = True
             
-    # REGLA DE ORO: Forzar que "admin" siempre sea administrador activo
+    # REGLA DE ORO: El admin siempre es admin
     if "admin" in db and isinstance(db["admin"], dict):
         if db["admin"].get("role") != "admin" or db["admin"].get("status") != "active":
             db["admin"]["role"] = "admin"
@@ -178,7 +207,7 @@ def solicitar_usuario(usuario, contrasena):
     usuarios[usuario] = {"pwd": contrasena, "status": "pending", "role": "viewer"}
     with open(ARCHIVO_USUARIOS, 'w') as f: 
         json.dump(usuarios, f)
-    return True, "✅ Solicitud enviada. Espere a que el Administrador de CV INGENIERÍA SAS apruebe su cuenta."
+    return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
 
 def gestionar_solicitud(usuario, aprobar=True):
     usuarios = cargar_usuarios()
@@ -246,51 +275,54 @@ if "usuario_actual" not in st.session_state:
 if "rol_usuario" not in st.session_state:
     st.session_state["rol_usuario"] = None
 
+# ==========================================
+# PANTALLA DE LOGIN (DISEÑO LIMPIO TIPO CRISTAL)
+# ==========================================
 if not st.session_state["autenticado"]:
-    st.markdown("<h1 style='text-align: center; font-size: 3.5rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important; text-shadow: 2px 2px 5px rgba(0,0,0,1) !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: white !important; text-shadow: 2px 2px 5px rgba(0,0,0,1) !important;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
     
-    col1, col_centro, col2 = st.columns([1, 2, 1]) 
+    col1, col_centro, col2 = st.columns([1, 1.5, 1]) 
     with col_centro:
-        tab_login, tab_solicitud = st.tabs(["🔑 Iniciar Sesión", "📝 Solicitar Acceso"])
-        
-        with tab_login:
-            with st.form("login_form"):
-                usuario_input = st.text_input("👤 Correo / Usuario")
-                contrasena_input = st.text_input("🔑 Contraseña", type="password") 
-                if st.form_submit_button("Iniciar Sesión", use_container_width=True):
-                    usuarios_bd = cargar_usuarios() # Esto repara a 'admin' instantáneamente
-                    if usuario_input in usuarios_bd and usuarios_bd[usuario_input]["pwd"] == contrasena_input:
-                        user_data = usuarios_bd[usuario_input]
-                        
-                        if user_data["status"] == "pending":
-                            st.warning("⚠️ Su cuenta aún está pendiente de aprobación por el Administrador.")
-                        else:
-                            st.session_state["autenticado"] = True
-                            st.session_state["usuario_actual"] = usuario_input
-                            st.session_state["rol_usuario"] = user_data["role"]
-                            st.rerun() 
+        # Formulario principal limpio
+        with st.form("login_form"):
+            st.markdown("<div style='color:white; font-weight:bold; font-size:14px; text-shadow: 1px 1px 3px black;'>👤 Correo / Usuario</div>", unsafe_allow_html=True)
+            usuario_input = st.text_input("Usuario", label_visibility="collapsed")
+            
+            st.markdown("<div style='color:white; font-weight:bold; font-size:14px; margin-top:10px; text-shadow: 1px 1px 3px black;'>🔑 Contraseña</div>", unsafe_allow_html=True)
+            contrasena_input = st.text_input("Contraseña", type="password", label_visibility="collapsed") 
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.form_submit_button("Iniciar Sesión", use_container_width=True):
+                usuarios_bd = cargar_usuarios()
+                if usuario_input in usuarios_bd and usuarios_bd[usuario_input]["pwd"] == contrasena_input:
+                    user_data = usuarios_bd[usuario_input]
+                    if user_data["status"] == "pending":
+                        st.warning("⚠️ Su cuenta aún está pendiente de aprobación por el Administrador.")
                     else:
-                        st.error("❌ Credenciales incorrectas o usuario no registrado.")
-                        
-        with tab_solicitud:
+                        st.session_state["autenticado"] = True
+                        st.session_state["usuario_actual"] = usuario_input
+                        st.session_state["rol_usuario"] = user_data["role"]
+                        st.rerun() 
+                else:
+                    st.error("❌ Credenciales incorrectas o usuario no registrado.")
+                    
+        # Expander discreto para solicitar acceso sin dañar el diseño principal
+        with st.expander("¿No tienes cuenta? Solicita acceso aquí"):
             with st.form("solicitud_form"):
-                st.write("Complete los datos para solicitar su cuenta de acceso.")
                 nuevo_usuario = st.text_input("👤 Correo / Usuario Solicitado")
                 nueva_contrasena = st.text_input("🔑 Contraseña", type="password")
                 confirmar_contrasena = st.text_input("🔑 Confirmar Contraseña", type="password")
-                
-                if st.form_submit_button("Enviar Solicitud de Registro", use_container_width=True):
+                if st.form_submit_button("Enviar Solicitud", use_container_width=True):
                     if not nuevo_usuario or not nueva_contrasena:
                         st.error("⚠️ Complete todos los campos.")
                     elif nueva_contrasena != confirmar_contrasena:
                         st.error("⚠️ Las contraseñas no coinciden.")
                     else:
                         success, message = solicitar_usuario(nuevo_usuario, nueva_contrasena)
-                        if success:
-                            st.success(message)
-                        else:
-                            st.error(message)
+                        if success: st.success(message)
+                        else: st.error(message)
     st.stop() 
 
 # --- MOTOR DE INTEGRACIÓN SOLARMAN ---
@@ -302,7 +334,6 @@ def obtener_datos_reales(planta):
     
     pot_simulada = int(cap_val * random.uniform(0.1, 0.8))
     energia_simulada = round((pot_simulada * random.uniform(3.5, 5.0)) / 1000, 1)
-    estado = "Simulado"
     
     soc_actual = random.randint(15, 99) 
     alertas_activas = []
@@ -314,7 +345,7 @@ def obtener_datos_reales(planta):
 
     return {
         "solar": pot_simulada, "casa": 1750 + random.randint(-40, 40),
-        "soc": soc_actual, "energia_diaria": energia_simulada, "status": estado,
+        "soc": soc_actual, "energia_diaria": energia_simulada, "status": "Simulado",
         "alertas": alertas_activas
     }
 
@@ -350,14 +381,16 @@ plantas_guardadas = cargar_plantas()
 # ==========================================
 # 3. NAVEGACIÓN PRINCIPAL Y CONTROL DE ROLES
 # ==========================================
-st.sidebar.title("☀️ MOMISOLAR APP")
+# Identidad en el menú lateral
+st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MOMISOLAR APP</h2>", unsafe_allow_html=True)
+
 rol_actual = st.session_state["rol_usuario"]
 usuario_actual = st.session_state["usuario_actual"]
 
-# AQUÍ ESTÁ EL ARREGLO: Etiqueta original
+# ETIQUETA EXACTA COMO EN TUS IMÁGENES
 etiqueta_rol = "Instalador/Admin" if rol_actual == "admin" else "Cliente"
 
-st.sidebar.write(f"👤 Usuario: **{usuario_actual}**\n\n🛡️ Rol: **{etiqueta_rol}**")
+st.sidebar.write(f"🧑🏽‍💻 Usuario: **{usuario_actual}**\n\n🛡️ Rol: **{etiqueta_rol}**\n\nIr a:")
 
 opciones_menu = ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"]
 
@@ -365,7 +398,7 @@ if rol_actual == "admin":
     opciones_menu.append("👥 Gestión de Usuarios")
     opciones_menu.append("🏢 Gestión de Portafolio")
 
-menu = st.sidebar.radio("Ir a:", opciones_menu)
+menu = st.sidebar.radio("Navegación Oculta", opciones_menu, label_visibility="collapsed")
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
@@ -588,7 +621,7 @@ elif menu == "📊 Panel de Planta":
         st.markdown("<br>", unsafe_allow_html=True)
 
         if rol_actual == "admin":
-            tabs = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes y Datos", "🛠️ Agenda O&M"])
+            tabs = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes y Datos", "🛠️ Agenda de O&M"])
             tab_monitor = tabs[0]
             tab_control = tabs[1]
             tab_reportes = tabs[2]
