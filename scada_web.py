@@ -131,12 +131,6 @@ label, label p, label div {
     letter-spacing: 1px !important;
 }
 
-/* ELEMENTOS DE INPUT NATIVOS */
-.tarjeta-planta *, input, select, textarea, button span {
-    color: #2c3e50 !important;
-    text-shadow: none !important;
-}
-
 /* ESTILIZAR EL FORMULARIO DE LOGIN COMO CRISTAL */
 [data-testid="stForm"] {
     background: rgba(255, 255, 255, 0.1) !important;
@@ -196,7 +190,7 @@ label, label p, label div {
 st.markdown(css_global, unsafe_allow_html=True)
 
 # ==========================================
-# 2. BASE DE DATOS
+# 2. BASE DE DATOS (PLANTAS, USUARIOS Y MANTENIMIENTOS)
 # ==========================================
 ARCHIVO_PLANTAS = 'plantas.json'
 ARCHIVO_USUARIOS = 'usuarios.json'
@@ -439,6 +433,7 @@ if menu == "📊 Panel de Planta":
     [data-testid="stMainBlockContainer"] h1, [data-testid="stMainBlockContainer"] h2, [data-testid="stMainBlockContainer"] h3, [data-testid="stMainBlockContainer"] h4, [data-testid="stMainBlockContainer"] h5, [data-testid="stMainBlockContainer"] p, [data-testid="stMainBlockContainer"] span, [data-testid="stMainBlockContainer"] label, [data-testid="stMainBlockContainer"] div {
         color: #2c3e50 !important;
     }
+    /* Estilos TABS superiores */
     div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { background-color: transparent !important; border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
     div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span, div[data-testid="stTabs"] button[data-baseweb="tab"] div { color: #7f8c8d !important; text-shadow: none !important; font-weight: 600 !important; font-size: 16px !important; }
     div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
@@ -639,51 +634,22 @@ elif menu == "📊 Panel de Planta":
             with tab_control:
                 st.info(f"⚙️ Configurando el inversor **{d['inversores']}** de la planta '{d['nombre']}'. Proceda con precaución.")
                 
-                # RESTAURADAS LAS PESTAÑAS ORIGINALES + LAS NUEVAS AL LADO
-                sub_t1, sub_t2, sub_t3, sub_t4, sub_t5 = st.tabs([
-                    "🔋 Parámetros BMS", 
-                    "⚡ Red y Normativa", 
-                    "🕒 Time of Use (TOU)",
-                    "🔋 Config. Baterías (Avanzado)",
-                    "🔄 Modos de Operación-1"
+                # --- SUB-MENÚ EXACTO DE LAS IMÁGENES ---
+                tabs_inversor = st.tabs([
+                    "🔋 Configuración Baterías",
+                    "🔄 Modos de operación-1",
+                    "🔄 Modos de operación-2",
+                    "⚡ Configuración de la red",
+                    "🧠 Carga inteligente",
+                    "⚙️ Configuración Básica",
+                    "🛠️ Func. Avanzadas-1",
+                    "🛠️ Func. Avanzadas-2"
                 ])
                 
-                # --- 1. PARÁMETROS BMS (LA TUYA ORIGINAL) ---
-                with sub_t1:
-                    col_b1, col_b2 = st.columns(2)
-                    col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60)
-                    col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80)
-                    col_s1, col_s2, col_s3 = st.columns(3)
-                    col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20)
-                    col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35)
-                    col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50)
-
-                # --- 2. RED Y NORMATIVA (CON FRECUENCIAS Y VOLTAJES) ---
-                with sub_t2:
-                    col_g1, col_g2 = st.columns(2)
-                    col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
-                    col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0)
-                    
-                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V)</div>", unsafe_allow_html=True)
-                    col_v1, col_v2 = st.columns(2)
-                    col_v1.number_input("Sobre Tensión Máx (Over-voltage V)", min_value=220.0, max_value=280.0, value=253.0, step=1.0)
-                    col_v2.number_input("Sub Tensión Mín (Under-voltage V)", min_value=170.0, max_value=220.0, value=198.0, step=1.0)
-
-                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz)</div>", unsafe_allow_html=True)
-                    col_f1, col_f2 = st.columns(2)
-                    col_f1.number_input("Sobre Frecuencia Máx (Over-frequency Hz)", min_value=60.0, max_value=65.0, value=60.5, step=0.1)
-                    col_f2.number_input("Sub Frecuencia Mín (Under-frequency Hz)", min_value=55.0, max_value=60.0, value=59.5, step=0.1)
-
-                # --- 3. TIME OF USE (LA CARGA DE RED) ---
-                with sub_t3:
-                    st.checkbox("Habilitar Carga desde la Red Eléctrica (Grid Charge)")
-                    col_t1, col_t2 = st.columns(2)
-                    col_t1.time_input("Inicio de carga forzada", value=datetime.strptime("00:00", "%H:%M"))
-                    col_t2.time_input("Fin de carga forzada", value=datetime.strptime("05:00", "%H:%M"))
-                    st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100)
-
-                # --- 4. CONFIG BATERÍAS AVANZADO (LA CUADRÍCULA DE SOLARMAN) ---
-                with sub_t4:
+                t_bat, t_mo1, t_mo2, t_red, t_smart, t_bas, t_av1, t_av2 = tabs_inversor
+                
+                # --- PESTAÑA 1: Configuración Baterías (FOTO 1.18.36 PM) ---
+                with t_bat:
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
                     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
                     cb1.selectbox("* Tipo de Batería", ["Modo Litio", "Plomo-Ácido", "Sin Batería"], index=0)
@@ -706,8 +672,8 @@ elif menu == "📊 Panel de Planta":
                     cd4.number_input("* Máx Tiempo Gen", value=0.0)
                     cd5.number_input("* Tiempo parada Gen", value=0.0)
 
-                # --- 5. MODOS DE OPERACIÓN-1 (LA ÚLTIMA FOTO DE SOLARMAN) ---
-                with sub_t5:
+                # --- PESTAÑA 2: Modos de operación-1 (FOTO 1.41.43 PM) ---
+                with t_mo1:
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
                     m1, m2, m3, m4, m5 = st.columns(5)
                     m1.selectbox("* Modos de Operación", ["Seleccione", "Autoconsumo", "Corte de picos", "Respaldo"])
@@ -724,7 +690,7 @@ elif menu == "📊 Panel de Planta":
                         d1.checkbox("Lunes")
                     
                     m3.number_input("* Máxima Potencia Solar (W)", min_value=1000, max_value=48000, value=5000)
-                    m4.number_input("* Máxima Potencia Inyección a Red (W)", min_value=1000, max_value=120000, value=5000)
+                    m4.number_input("* Máx Potencia Inyección a Red (W)", min_value=1000, max_value=120000, value=5000)
                     m5.selectbox("* Patrón de Energía", ["Seleccione", "Prioridad Carga", "Prioridad Batería"])
                     
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -732,14 +698,38 @@ elif menu == "📊 Panel de Planta":
                     m6.number_input("* Cero exportación de energía (W)", min_value=-500, max_value=500, value=0)
                     m7.selectbox("* Función de Límite Duro", ["Seleccione", "Habilitado", "Deshabilitado"])
                     m8.number_input("* Potencia de límite fijo (%)", min_value=0.1, max_value=100.0, value=100.0)
-                    m9.empty()
-                    m10.empty()
+
+                # --- PESTAÑA 3: Modos de operación-2 (FOTO 1.44.33 PM) ---
+                with t_mo2:
+                    st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
+                    st.toggle("* FuncionamientoporPeriodos", value=False)
+
+                # --- PESTAÑA 4: Configuración de la red (FOTO 1.45.09 PM) ---
+                with t_red:
+                    st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Para configurar la red, introduzca la contraseña para desbloquear</div>", unsafe_allow_html=True)
+                    c_pw1, c_pw2 = st.columns([1, 4])
+                    c_pw1.text_input("Contraseña", placeholder="Introduce la contraseña", label_visibility="collapsed", type="password")
+                    st.button("Desbloquear", type="primary")
+
+                # --- PESTAÑA 5: Carga inteligente (FOTO 1.45.44 PM) ---
+                with t_smart:
+                    st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
+                    cs1, cs2, cs3 = st.columns(3)
+                    cs1.selectbox("* Configuración de SmartLoad", ["Seleccione", "Generador", "SmartLoad"])
+                    cs2.selectbox("* Par de CA en el lado de la red", ["Seleccione", "Habilitar", "Deshabilitar"])
+                    cs3.selectbox("* Par de CA en el lado de carga", ["Seleccione", "Habilitar", "Deshabilitar"])
+
+                # Placeholders
+                with t_bas: st.info("Configuración Básica en desarrollo.")
+                with t_av1: st.info("Funciones Avanzadas 1 en desarrollo.")
+                with t_av2: st.info("Funciones Avanzadas 2 en desarrollo.")
 
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("🚀 Escribir Parámetros al Datalogger", use_container_width=True):
-                    with st.spinner("Conectando con el equipo remoto..."):
-                        time.sleep(2)
-                    st.success("¡Parámetros actualizados exitosamente!")
+                b_esp, b_conf = st.columns([8, 2])
+                with b_conf:
+                    if st.button("Configurar", type="primary", use_container_width=True):
+                        with st.spinner("Estableciendo conexión..."): time.sleep(2)
+                        st.success("¡Comandos enviados correctamente!")
 
         with tab_reportes:
             st.markdown("### 📄 Descarga de Datos en Bruto")
