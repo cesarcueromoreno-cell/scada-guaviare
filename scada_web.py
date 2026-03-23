@@ -23,6 +23,28 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide") 
 
+# --- MANEJO DE ACCIONES DE BOTONES HTML (LÁPIZ Y PAPELERA) ---
+if "delete" in st.query_params:
+    try:
+        idx = int(st.query_params["delete"])
+        def eliminar_planta_directo(indice):
+            if os.path.exists('plantas.json'):
+                with open('plantas.json', 'r') as f: plantas = json.load(f)
+                if 0 <= indice < len(plantas):
+                    plantas.pop(indice)
+                    with open('plantas.json', 'w') as f: json.dump(plantas, f)
+        eliminar_planta_directo(idx)
+        st.query_params.clear()
+    except: pass
+
+if "edit" in st.query_params:
+    try:
+        idx = int(st.query_params["edit"])
+        st.session_state["editando_planta"] = idx
+        st.query_params.clear()
+    except: pass
+# -------------------------------------------------------------
+
 css_global = """
 <style>
 /* FONDO DE LA APLICACIÓN */
@@ -73,7 +95,7 @@ label, label p, label div {
 }
 
 /* =========================================
-   DISEÑO DEL MENÚ LATERAL (CLONANDO TU IMAGEN)
+   DISEÑO DEL MENÚ LATERAL
    ========================================= */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #112027 0%, #1a323c 50%, #162a33 100%) !important;
@@ -84,24 +106,20 @@ label, label p, label div {
     color: #ffffff !important;
     text-shadow: none !important;
 }
-
-/* Ajuste del Radio Button en el Sidebar para que sea Rojo cuando se selecciona */
 [data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] div:first-child {
     background-color: transparent !important;
 }
 [data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] input:checked + div {
-    background-color: #e74c3c !important; /* ROJO */
+    background-color: #e74c3c !important; 
     border-color: #e74c3c !important;
 }
 [data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] input:checked + div div {
-    background-color: #e74c3c !important; /* ROJO */
+    background-color: #e74c3c !important; 
 }
 [data-testid="stSidebar"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
     font-weight: bold !important;
     font-size: 15px !important;
 }
-
-/* Caja POWERED BY (Translúcida con borde amarillo) */
 [data-testid="stSidebar"] [data-testid="stAlert"] {
     background-color: rgba(0, 0, 0, 0.3) !important;
     border: 1px solid #f1c40f !important;
@@ -114,7 +132,6 @@ label, label p, label div {
     font-weight: bold !important;
     letter-spacing: 1px !important;
 }
-/* ========================================= */
 
 /* ELEMENTOS DE INPUT NATIVOS */
 .tarjeta-planta *, input, select, textarea, button span {
@@ -187,7 +204,6 @@ def cargar_usuarios():
             db[user] = {"pwd": data, "status": "active", "role": rol_asignado}
             datos_actualizados = True
             
-    # REGLA DE ORO: El admin siempre es admin
     if "admin" in db and isinstance(db["admin"], dict):
         if db["admin"].get("role") != "admin" or db["admin"].get("status") != "active":
             db["admin"]["role"] = "admin"
@@ -274,9 +290,11 @@ if "usuario_actual" not in st.session_state:
     st.session_state["usuario_actual"] = None
 if "rol_usuario" not in st.session_state:
     st.session_state["rol_usuario"] = None
+if "editando_planta" not in st.session_state:
+    st.session_state["editando_planta"] = None
 
 # ==========================================
-# PANTALLA DE LOGIN (DISEÑO LIMPIO TIPO CRISTAL)
+# PANTALLA DE LOGIN
 # ==========================================
 if not st.session_state["autenticado"]:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -285,7 +303,6 @@ if not st.session_state["autenticado"]:
     
     col1, col_centro, col2 = st.columns([1, 1.5, 1]) 
     with col_centro:
-        # Formulario principal limpio
         with st.form("login_form"):
             st.markdown("<div style='color:white; font-weight:bold; font-size:14px; text-shadow: 1px 1px 3px black;'>👤 Correo / Usuario</div>", unsafe_allow_html=True)
             usuario_input = st.text_input("Usuario", label_visibility="collapsed")
@@ -308,7 +325,6 @@ if not st.session_state["autenticado"]:
                 else:
                     st.error("❌ Credenciales incorrectas o usuario no registrado.")
                     
-        # Expander discreto para solicitar acceso sin dañar el diseño principal
         with st.expander("¿No tienes cuenta? Solicita acceso aquí"):
             with st.form("solicitud_form"):
                 nuevo_usuario = st.text_input("👤 Correo / Usuario Solicitado")
@@ -362,16 +378,8 @@ def simular_historico_24h(planta):
     for minutos in range(0, 24 * 60, 15):
         timestamp = inicio_dia + timedelta(minutes=minutos)
         hora = timestamp.hour
-        
-        generacion = 0
-        if 6 <= hora <= 18:
-            x = (hora - 6) / 12 * math.pi
-            generacion = max(0, (cap_val * 0.9) * math.sin(x) * random.uniform(0.95, 1.05))
-            
-        base_consumo = cap_val * 0.2
-        pico_consumo = cap_val * 0.3 * math.sin((hora-7)/2 * math.pi) if 7 <= hora <= 9 else (cap_val * 0.4 * math.sin((hora-18)/3 * math.pi) if 18 <= hora <= 21 else 0)
-        consumo = max(cap_val * 0.1, base_consumo + pico_consumo + (cap_val * 0.05 * random.uniform(-1, 1)))
-        
+        generacion = max(0, (cap_val * 0.9) * math.sin((hora - 6) / 12 * math.pi) * random.uniform(0.95, 1.05)) if 6 <= hora <= 18 else 0
+        consumo = max(cap_val * 0.1, cap_val * 0.2 + (cap_val * 0.3 * math.sin((hora-7)/2 * math.pi) if 7<=hora<=9 else (cap_val * 0.4 * math.sin((hora-18)/3 * math.pi) if 18<=hora<=21 else 0)))
         datos.append({"timestamp": timestamp, "Generación FV": round(generacion, 2), "Consumo Carga": round(consumo, 2)})
         
     return pd.DataFrame(datos)
@@ -379,21 +387,16 @@ def simular_historico_24h(planta):
 plantas_guardadas = cargar_plantas()
 
 # ==========================================
-# 3. NAVEGACIÓN PRINCIPAL Y CONTROL DE ROLES
+# 3. NAVEGACIÓN PRINCIPAL
 # ==========================================
-# Identidad en el menú lateral
 st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MOMISOLAR APP</h2>", unsafe_allow_html=True)
-
 rol_actual = st.session_state["rol_usuario"]
 usuario_actual = st.session_state["usuario_actual"]
-
-# ETIQUETA EXACTA COMO EN TUS IMÁGENES
 etiqueta_rol = "Instalador/Admin" if rol_actual == "admin" else "Cliente"
 
 st.sidebar.write(f"🧑🏽‍💻 Usuario: **{usuario_actual}**\n\n🛡️ Rol: **{etiqueta_rol}**\n\nIr a:")
 
 opciones_menu = ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"]
-
 if rol_actual == "admin":
     opciones_menu.append("👥 Gestión de Usuarios")
     opciones_menu.append("🏢 Gestión de Portafolio")
@@ -419,72 +422,19 @@ if menu == "📊 Panel de Planta":
         backdrop-filter: none !important;
         border-radius: 0px !important;
     }
-    
-    /* Forzar texto oscuro a todo */
-    [data-testid="stMainBlockContainer"] * {
-        text-shadow: none !important;
-    }
-    [data-testid="stMainBlockContainer"] h1, 
-    [data-testid="stMainBlockContainer"] h2, 
-    [data-testid="stMainBlockContainer"] h3, 
-    [data-testid="stMainBlockContainer"] h4, 
-    [data-testid="stMainBlockContainer"] h5, 
-    [data-testid="stMainBlockContainer"] p, 
-    [data-testid="stMainBlockContainer"] span, 
-    [data-testid="stMainBlockContainer"] label,
-    [data-testid="stMainBlockContainer"] div {
+    [data-testid="stMainBlockContainer"] * { text-shadow: none !important; }
+    [data-testid="stMainBlockContainer"] h1, [data-testid="stMainBlockContainer"] h2, [data-testid="stMainBlockContainer"] h3, [data-testid="stMainBlockContainer"] h4, [data-testid="stMainBlockContainer"] h5, [data-testid="stMainBlockContainer"] p, [data-testid="stMainBlockContainer"] span, [data-testid="stMainBlockContainer"] label, [data-testid="stMainBlockContainer"] div {
         color: #2c3e50 !important;
     }
-
-    /* Limpiar la lista contenedora de pestañas */
-    div[data-testid="stTabs"] > div[data-baseweb="tab-list"] {
-        background-color: transparent !important;
-        border-bottom: 1px solid #e0e0e0 !important;
-        gap: 15px !important;
-    }
-    
-    /* Matar la sombra borrosa en el texto de las pestañas */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] p, 
-    div[data-testid="stTabs"] button[data-baseweb="tab"] span, 
-    div[data-testid="stTabs"] button[data-baseweb="tab"] div {
-        color: #7f8c8d !important;
-        text-shadow: none !important; 
-        font-weight: 600 !important;
-        font-size: 16px !important;
-    }
-
-    /* Estilo del botón de pestaña inactiva */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        background-color: transparent !important;
-        border: none !important;
-        border-bottom: 3px solid transparent !important; 
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        padding-bottom: 10px !important;
-    }
-    
-    /* Estilo de la pestaña ACTIVA */
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-        border-bottom: 3px solid #e74c3c !important; /* Línea roja */
-    }
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p,
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span,
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] div {
-        color: #2c3e50 !important; /* Texto negro */
-    }
-
+    div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { background-color: transparent !important; border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
+    div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span, div[data-testid="stTabs"] button[data-baseweb="tab"] div { color: #7f8c8d !important; text-shadow: none !important; font-weight: 600 !important; font-size: 16px !important; }
+    div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] div { color: #2c3e50 !important; }
     .solarval-blue { color: #3498db !important; }
     .solarval-orange { color: #e67e22 !important; }
     .solarlbl-gray { color: #7f8c8d !important; }
-
-    .solarman-card {
-        background: #ffffff !important;
-        border-radius: 8px !important;
-        padding: 20px !important;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
-        text-align: center !important;
-        border: 1px solid #eaeaea !important;
-    }
+    .solarman-card { background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; }
     .solarman-val { font-size: 26px !important; font-weight: bold !important; margin-bottom: 5px !important; }
     .solarman-lbl { font-size: 13px !important; text-transform: uppercase !important; }
     </style>
@@ -497,6 +447,34 @@ if menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL DEL PORTAFOLIO")
     st.markdown("**MOMISOLAR APP - Vista global rápida**")
     
+    # --- FORMULARIO DE EDICIÓN (SE ABRE AL CLICKEAR EL LÁPIZ) ---
+    if st.session_state.get("editando_planta") is not None:
+        idx_edit = st.session_state["editando_planta"]
+        if idx_edit < len(plantas_guardadas):
+            p_edit = plantas_guardadas[idx_edit]
+            st.markdown("<div style='background:rgba(255,255,255,0.95); padding:20px; border-radius:10px; margin-bottom:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);'>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color:#2c3e50 !important; text-shadow:none !important;'>✏️ Editar Parámetros: {p_edit['nombre']}</h3>", unsafe_allow_html=True)
+            with st.form("edit_form"):
+                c1, c2 = st.columns(2)
+                # Aplicar estilo al texto del input para que no sea blanco en fondo blanco
+                st.markdown("<style>input {color: #2c3e50 !important; text-shadow:none !important;}</style>", unsafe_allow_html=True)
+                new_nom = c1.text_input("Nombre de la Planta", value=p_edit["nombre"])
+                new_ubi = c2.text_input("Ubicación", value=p_edit["ubicacion"])
+                new_cap = c1.text_input("Capacidad (kWp)", value=p_edit["capacidad"])
+                new_inv = c2.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"], index=["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"].index(p_edit["inversores"]) if p_edit["inversores"] in ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"] else 0)
+                
+                sub1, sub2 = st.columns(2)
+                if sub1.form_submit_button("💾 Guardar Cambios"):
+                    plantas_guardadas[idx_edit].update({"nombre": new_nom, "ubicacion": new_ubi, "capacidad": new_cap, "inversores": new_inv})
+                    with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas_guardadas, f)
+                    st.session_state["editando_planta"] = None
+                    st.rerun()
+                if sub2.form_submit_button("❌ Cancelar"):
+                    st.session_state["editando_planta"] = None
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+    # -------------------------------------------------------------
+
     if not plantas_guardadas:
         st.warning("No hay plantas registradas. Ve a Gestión para agregar una.")
     else:
@@ -535,12 +513,13 @@ if menu == "🌐 Panorama General":
                     status_icon = "🔴"
                     alerta_html = f"<div style='position:absolute; top:5px; left:15px; background: #e74c3c; color:white; font-size:9px; padding: 2px 6px; border-radius:10px;'>{len(datos['alertas'])} Alertas</div>"
 
+                # REEMPLAZO DE IMAGENES POR LINKS FUNCIONALES (Mágia Pura)
                 iconos_accion = ""
                 if rol_actual == "admin":
-                    iconos_accion = """
-<div style="display: flex; gap: 5px; width: 60px; flex-shrink: 0;">
-<img src="https://img.icons8.com/material-rounded/24/edit.png" style="width:18px; height:18px; cursor:pointer; opacity:0.6;"/>
-<img src="https://img.icons8.com/material-rounded/24/filled-trash.png" style="width:18px; height:18px; cursor:pointer; opacity:0.6;"/>
+                    iconos_accion = f"""
+<div style="display: flex; gap: 8px; width: 60px; flex-shrink: 0; align-items:center;">
+    <a href="?edit={i}" target="_self" title="Editar Planta"><img src="https://img.icons8.com/material-rounded/24/edit.png" style="width:20px; height:20px; cursor:pointer; opacity:0.7; transition: 0.3s;"/></a>
+    <a href="?delete={i}" target="_self" title="Eliminar Planta"><img src="https://img.icons8.com/material-rounded/24/filled-trash.png" style="width:20px; height:20px; cursor:pointer; opacity:0.7; transition: 0.3s;"/></a>
 </div>
 """
                 else:
