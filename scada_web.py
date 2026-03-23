@@ -49,28 +49,22 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-if "autenticado" not in st.session_state:
-    st.session_state["autenticado"] = False
-
-if not st.session_state["autenticado"]:
-    st.markdown("<h1 style='text-align: center;'>🔒 CENTRAL GESTIÓN DE PLANTAS</h1>", unsafe_allow_html=True)
-    col1, col_centro, col2 = st.columns([1, 2, 1]) 
-    with col_centro:
-        with st.form("login_form"):
-            usuario = st.text_input("👤 Usuario")
-            contrasena = st.text_input("🔑 Contraseña", type="password") 
-            if st.form_submit_button("Iniciar Sesión", use_container_width=True):
-                if usuario == "admin" and contrasena == "solar123":
-                    st.session_state["autenticado"] = True
-                    st.rerun() 
-                else:
-                    st.error("❌ Credenciales incorrectas.")
-    st.stop() 
-
 # ==========================================
-# 2. BASE DE DATOS Y MOTOR DE INTEGRACIÓN
+# 2. BASE DE DATOS (PLANTAS Y USUARIOS)
 # ==========================================
 ARCHIVO_PLANTAS = 'plantas.json'
+ARCHIVO_USUARIOS = 'usuarios.json' # NUEVA BASE DE DATOS DE USUARIOS
+
+def cargar_usuarios():
+    # Si no existe, crea el archivo con el usuario administrador por defecto
+    if not os.path.exists(ARCHIVO_USUARIOS):
+        with open(ARCHIVO_USUARIOS, 'w') as f: json.dump({"admin": "solar123"}, f)
+    with open(ARCHIVO_USUARIOS, 'r') as f: return json.load(f)
+
+def guardar_usuario(usuario, contrasena):
+    usuarios = cargar_usuarios()
+    usuarios[usuario] = contrasena
+    with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(usuarios, f)
 
 def cargar_plantas():
     if not os.path.exists(ARCHIVO_PLANTAS):
@@ -89,13 +83,35 @@ def eliminar_planta(indice):
         plantas.pop(indice)
         with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
+# --- SISTEMA DE LOGIN ACTUALIZADO ---
+if "autenticado" not in st.session_state:
+    st.session_state["autenticado"] = False
+
+if not st.session_state["autenticado"]:
+    st.markdown("<h1 style='text-align: center;'>🔒 CENTRAL GESTIÓN DE PLANTAS</h1>", unsafe_allow_html=True)
+    col1, col_centro, col2 = st.columns([1, 2, 1]) 
+    with col_centro:
+        with st.form("login_form"):
+            usuario_input = st.text_input("👤 Usuario")
+            contrasena_input = st.text_input("🔑 Contraseña", type="password") 
+            if st.form_submit_button("Iniciar Sesión", use_container_width=True):
+                # Verificamos contra la base de datos de usuarios
+                usuarios_bd = cargar_usuarios()
+                if usuario_input in usuarios_bd and usuarios_bd[usuario_input] == contrasena_input:
+                    st.session_state["autenticado"] = True
+                    st.session_state["usuario_actual"] = usuario_input
+                    st.rerun() 
+                else:
+                    st.error("❌ Credenciales incorrectas.")
+    st.stop() 
+
+# --- MOTOR DE INTEGRACIÓN SOLARMAN ---
 SOLARMAN_APP_ID = "TU_APP_ID_AQUI"
 SOLARMAN_APP_SECRET = "TU_APP_SECRET_AQUI"
 SOLARMAN_EMAIL = "tu_correo@cvingenieria.com"
 SOLARMAN_PASSWORD = "tu_password"
 
 def obtener_token_solarman():
-    # Oculto por ahora hasta que te lleguen las llaves
     return None
 
 def obtener_datos_reales(planta):
@@ -145,17 +161,18 @@ def simular_historico_24h(planta):
 plantas_guardadas = cargar_plantas()
 
 # ==========================================
-# 3. NAVEGACIÓN PRINCIPAL EXACTA
+# 3. NAVEGACIÓN PRINCIPAL
 # ==========================================
 st.sidebar.title("Navegación CV")
-# NOTA: Los nombres de este menú ahora coinciden EXACTAMENTE con los IF de abajo.
+# Bienvenida personalizada en el menú
+st.sidebar.write(f"👤 Bienvenido, **{st.session_state.get('usuario_actual', 'admin')}**")
+
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "🏢 Gestión de Portafolio"])
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
     st.rerun()
 st.sidebar.info("**CV INGENIERIA SAS**")
-
 
 # ==========================================
 # VENTANA 1: PANORAMA GENERAL
@@ -185,7 +202,6 @@ if menu == "🌐 Panorama General":
             """
             st.markdown(tarjeta, unsafe_allow_html=True)
             
-            # --- AQUÍ ESTÁ EL DESPLEGABLE CON GRÁFICA PARA CADA PLANTA ---
             with st.expander(f"📉 Ver gráfica de comportamiento: {pl['nombre']}", expanded=False):
                 df_historico = simular_historico_24h(pl)
                 fig = px.area(df_historico, x="timestamp", y=["Generación FV", "Consumo Carga"], color_discrete_map={"Generación FV": "#e67e22", "Consumo Carga": "#e74c3c"})
@@ -254,11 +270,11 @@ elif menu == "📊 Monitoreo Detallado":
         st.plotly_chart(fig2, use_container_width=True, key="graf_monitoreo_principal")
 
 # ==========================================
-# VENTANA 3: GESTIÓN DE PORTAFOLIO
+# VENTANA 3: GESTIÓN DE PORTAFOLIO Y USUARIOS
 # ==========================================
 elif menu == "🏢 Gestión de Portafolio":
     st.title("🏢 GESTIÓN DE PORTAFOLIO")
-    st.markdown("**Organiza tus plantas - CV INGENIERIA SAS**")
+    st.markdown("**Organiza tus plantas y accesos - CV INGENIERIA SAS**")
     
     with st.expander("➕ Registrar Nueva Planta", expanded=False):
         with st.form("f_planta"):
@@ -272,7 +288,7 @@ elif menu == "🏢 Gestión de Portafolio":
             n_b_m = c3.selectbox("Batería", ["Ninguna", "Pylontech", "Deye", "BYD", "Trojan"])
             n_b_t = c4.selectbox("Tecnología", ["Litio (LiFePO4)", "Plomo-Ácido", "AGM", "Gel"])
             n_dl = st.text_input("📡 SN Datalogger / IP")
-            if st.form_submit_button("💾 Guardar"):
+            if st.form_submit_button("💾 Guardar Planta"):
                 if n_nom:
                     guardar_planta({"nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, "inversores": n_inv, "datalogger": n_dl, "bat_marca": n_b_m, "bat_tipo": n_b_t})
                     st.success("Planta Guardada")
@@ -288,3 +304,18 @@ elif menu == "🏢 Gestión de Portafolio":
             if st.button("🗑️", key=f"del_btn_{i}", help="Borrar planta"):
                 eliminar_planta(i)
                 st.rerun()
+
+    # --- NUEVA SECCIÓN DE GESTIÓN DE USUARIOS ---
+    st.markdown("---")
+    st.markdown("### 👥 Gestión de Accesos")
+    with st.expander("➕ Crear Nuevo Usuario", expanded=False):
+        with st.form("f_usuario"):
+            st.write("Crea credenciales para que tus clientes puedan ingresar.")
+            n_usr = st.text_input("Nuevo Usuario (Ej: cliente_guaviare)")
+            n_pwd = st.text_input("Contraseña", type="password")
+            if st.form_submit_button("💾 Crear Usuario"):
+                if n_usr and n_pwd:
+                    guardar_usuario(n_usr, n_pwd)
+                    st.success(f"Usuario '{n_usr}' creado correctamente. Ya puede iniciar sesión.")
+                    time.sleep(2) # Pausa breve para que se lea el mensaje verde
+                    st.rerun()
