@@ -91,7 +91,7 @@ st.markdown(
         box-shadow: 0 0 10px rgba(241, 196, 15, 0.2) !important;
     }
     [data-testid="stSidebar"] [data-testid="stAlert"] * {
-        color: #f1c40f !important; /* Letras amarillas brillantes */
+        color: #f1c40f !important; 
         font-weight: bold !important;
         letter-spacing: 1px !important;
     }
@@ -195,13 +195,12 @@ def obtener_datos_reales(planta):
     energia_simulada = round((pot_simulada * random.uniform(3.5, 5.0)) / 1000, 1)
     estado = "Simulado (Falta API)" if planta.get("inversores") in ["Deye", "Sylvania"] else "Simulado"
     
-    # SISTEMA DE DIAGNÓSTICO (ALERTAS)
     soc_actual = random.randint(15, 99) 
     alertas_activas = []
     
     if soc_actual <= 25:
         alertas_activas.append("⚠️ Batería Baja: Nivel de SOC crítico (<=25%). Riesgo de desconexión de cargas.")
-    if random.random() < 0.15: # 15% de probabilidad de simular un apagón
+    if random.random() < 0.15: 
         alertas_activas.append("🔌 Falla de Red AC: Sin voltaje detectado en la acometida. Operando en modo Off-Grid.")
 
     return {
@@ -334,8 +333,9 @@ elif menu == "📊 Monitoreo Detallado":
         soc = datos_act["soc"]
         color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
 
+        # AQUÍ REGRESAMOS EL DIAGRAMA A 100% TRANSPARENTE
         diagrama_svg = f"""
-        <div style="background: rgba(255,255,255,0.9); border-radius: 15px; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
+        <div style="background: transparent; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
             <svg viewBox="0 0 400 350" width="100%">
                 <path d="M 100 85 V 150 H 170 M 300 85 V 150 H 230 M 170 150 H 100 V 230 M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
                 <circle r="6" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
