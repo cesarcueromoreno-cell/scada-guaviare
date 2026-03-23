@@ -51,13 +51,13 @@ st.markdown(
         text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
     }
 
-    /* CORRECCIÓN: Nombres de los parámetros (Labels) y Pestañas (Tabs) en blanco brillante */
+    /* CORRECCIÓN: Nombres de los parámetros (Labels) y Pestañas en blanco brillante */
     label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {
         color: #ffffff !important;
         text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
     }
 
-    /* CORRECCIÓN: Fondo sólido para las cajas de información y advertencias (st.warning, st.info) */
+    /* CORRECCIÓN: Fondo sólido para las cajas de información centrales */
     [data-testid="stAlert"] {
         background-color: rgba(255, 255, 255, 0.95) !important;
         border-radius: 10px !important;
@@ -68,13 +68,36 @@ st.markdown(
         text-shadow: none !important;
     }
 
-    /* EXCEPCIÓN 1: Menú Lateral (Sidebar) con texto oscuro y limpio */
+    /* =========================================
+       NUEVO: DISEÑO "SORPRESA" DEL MENÚ LATERAL
+       ========================================= */
+    [data-testid="stSidebar"] {
+        /* Degradado oscuro tecnológico (Midnight Blue a Slate) */
+        background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%) !important;
+        border-right: 1px solid #4ca1af !important;
+        box-shadow: 4px 0 15px rgba(0,0,0,0.5) !important;
+    }
+    
+    /* Textos del menú en blanco para contraste perfecto */
     [data-testid="stSidebar"] * {
-        color: #2c3e50 !important;
+        color: #ffffff !important;
         text-shadow: none !important;
     }
 
-    /* EXCEPCIÓN 2: Tarjetas, Inputs, Botones (Letras oscuras sin sombra) */
+    /* Toque especial "Amarillo Solar" para la caja de la empresa en el menú */
+    [data-testid="stSidebar"] [data-testid="stAlert"] {
+        background-color: rgba(241, 196, 15, 0.15) !important;
+        border-left: 5px solid #f1c40f !important;
+        box-shadow: 0 0 10px rgba(241, 196, 15, 0.2) !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stAlert"] * {
+        color: #f1c40f !important; /* Letras amarillas brillantes */
+        font-weight: bold !important;
+        letter-spacing: 1px !important;
+    }
+    /* ========================================= */
+
+    /* Tarjetas, Inputs, Botones centrales (Letras oscuras sin sombra) */
     .tarjeta-planta *, input, select, textarea, button span {
         color: #2c3e50 !important;
         text-shadow: none !important;
@@ -228,6 +251,8 @@ menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detal
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
     st.rerun()
+    
+# Cajíta con diseño especial
 st.sidebar.info("**CV INGENIERIA SAS**")
 
 # ==========================================
@@ -250,7 +275,6 @@ if menu == "🌐 Panorama General":
             if datos["alertas"]:
                 alerta_html = "<div style='color:#e74c3c; font-size:12px; font-weight:bold; margin-bottom:10px;'>⚠️ ALERTAS ACTIVAS (Ver Centro de Alertas)</div>"
 
-            # TODO ALINEADO A LA IZQUIERDA PARA EVITAR CÓDIGO HTML CRUDO
             tarjeta = f"""
 <div class="tarjeta-planta">
 <div class="tarjeta-titulo">{pl['nombre']} <span style="float:right; font-size:12px; color:#95a5a6;">{datos['status']}</span></div>
