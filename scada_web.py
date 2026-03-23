@@ -138,7 +138,7 @@ st.markdown(css_global, unsafe_allow_html=True)
 # ==========================================
 ARCHIVO_PLANTAS = 'plantas.json'
 ARCHIVO_USUARIOS = 'usuarios.json'
-ARCHIVO_MANTENIMIENTOS = 'mantenimientos.json' # NUEVA BASE DE DATOS
+ARCHIVO_MANTENIMIENTOS = 'mantenimientos.json'
 
 # Funciones Usuarios
 def cargar_usuarios():
@@ -173,7 +173,7 @@ def eliminar_planta(indice):
         plantas.pop(indice)
         with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
-# Funciones Mantenimiento (NUEVO)
+# Funciones Mantenimiento
 def cargar_mantenimientos():
     if not os.path.exists(ARCHIVO_MANTENIMIENTOS):
         with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump({}, f)
@@ -207,17 +207,40 @@ if not st.session_state["autenticado"]:
     
     col1, col_centro, col2 = st.columns([1, 2, 1]) 
     with col_centro:
-        with st.form("login_form"):
-            usuario_input = st.text_input("👤 Correo / Usuario")
-            contrasena_input = st.text_input("🔑 Contraseña", type="password") 
-            if st.form_submit_button("Iniciar Sesión", use_container_width=True):
-                usuarios_bd = cargar_usuarios()
-                if usuario_input in usuarios_bd and usuarios_bd[usuario_input] == contrasena_input:
-                    st.session_state["autenticado"] = True
-                    st.session_state["usuario_actual"] = usuario_input
-                    st.rerun() 
-                else:
-                    st.error("❌ Credenciales incorrectas.")
+        # AQUI AGREGAMOS LAS PESTAÑAS DE LOGIN Y REGISTRO
+        tab_login, tab_registro = st.tabs(["🔑 Iniciar Sesión", "📝 Crear Cuenta"])
+        
+        with tab_login:
+            with st.form("login_form"):
+                usuario_input = st.text_input("👤 Correo / Usuario")
+                contrasena_input = st.text_input("🔑 Contraseña", type="password") 
+                if st.form_submit_button("Iniciar Sesión", use_container_width=True):
+                    usuarios_bd = cargar_usuarios()
+                    if usuario_input in usuarios_bd and usuarios_bd[usuario_input] == contrasena_input:
+                        st.session_state["autenticado"] = True
+                        st.session_state["usuario_actual"] = usuario_input
+                        st.rerun() 
+                    else:
+                        st.error("❌ Credenciales incorrectas.")
+                        
+        with tab_registro:
+            with st.form("registro_form"):
+                st.write("Registra un nuevo usuario en la plataforma")
+                nuevo_usuario = st.text_input("👤 Nuevo Correo / Usuario")
+                nueva_contrasena = st.text_input("🔑 Nueva Contraseña", type="password")
+                confirmar_contrasena = st.text_input("🔑 Confirmar Contraseña", type="password")
+                
+                if st.form_submit_button("Crear Cuenta", use_container_width=True):
+                    usuarios_bd = cargar_usuarios()
+                    if nuevo_usuario in usuarios_bd:
+                        st.error("⚠️ Este usuario ya existe.")
+                    elif nueva_contrasena != confirmar_contrasena:
+                        st.error("⚠️ Las contraseñas no coinciden.")
+                    elif not nuevo_usuario or not nueva_contrasena:
+                        st.error("⚠️ Completa todos los campos.")
+                    else:
+                        guardar_usuario(nuevo_usuario, nueva_contrasena)
+                        st.success("✅ Cuenta creada exitosamente. Ahora puedes iniciar sesión en la pestaña de al lado.")
     st.stop() 
 
 # --- MOTOR DE INTEGRACIÓN SOLARMAN ---
@@ -465,7 +488,6 @@ elif menu == "📊 Panel de Planta":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # NUEVA PESTAÑA DE MANTENIMIENTO AÑADIDA AQUÍ
         tab_monitor, tab_control, tab_reportes, tab_mantenimiento = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes y Datos", "🛠️ Agenda de Mantenimiento"])
         
         with tab_monitor:
@@ -591,7 +613,6 @@ elif menu == "📊 Panel de Planta":
                 file_name=f"Reporte_{d['nombre'].replace(' ', '_')}.csv", mime="text/csv"
             )
 
-        # --- SECCIÓN NUEVA: MANTENIMIENTO ---
         with tab_mantenimiento:
             st.markdown("<h3 style='color:#2c3e50;'>📅 Agenda de O&M (Operación y Mantenimiento)</h3>", unsafe_allow_html=True)
             st.write("Programe y lleve el control del servicio técnico y garantías para esta instalación.")
@@ -615,7 +636,6 @@ elif menu == "📊 Panel de Planta":
             if not mants:
                 st.info("Aún no hay mantenimientos programados para esta planta.")
             else:
-                # Mostrar los más recientes arriba
                 for i, m in enumerate(reversed(mants)):
                     real_idx = len(mants) - 1 - i
                     
