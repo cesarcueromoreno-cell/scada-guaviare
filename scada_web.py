@@ -290,6 +290,15 @@ if menu == "📊 Panel de Planta":
         color: #2c3e50 !important;
     }
 
+    /* CORRECCIÓN DE PESTAÑAS: Obligar a los tabs a perder la sombra y ser oscuros */
+    button[data-baseweb="tab"] p, 
+    button[data-baseweb="tab"] span, 
+    button[data-baseweb="tab"] div {
+        color: #2c3e50 !important;
+        text-shadow: none !important;
+        font-weight: bold !important;
+    }
+
     /* Colores específicos para que las tarjetas no queden totalmente grises */
     .solarval-blue { color: #3498db !important; }
     .solarval-orange { color: #e67e22 !important; }
@@ -398,7 +407,7 @@ if menu == "🌐 Panorama General":
         if st.button("🔄 Actualizar Todo"): st.rerun()
 
 # ==========================================
-# VENTANA 2: PANEL DE PLANTA (EL NUEVO WORKSPACE BLANCO + CONFIGURACIÓN)
+# VENTANA 2: PANEL DE PLANTA (EL NUEVO WORKSPACE BLANCO)
 # ==========================================
 elif menu == "📊 Panel de Planta":
     
@@ -416,7 +425,7 @@ elif menu == "📊 Panel de Planta":
         st.markdown(f"<h2>{d['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>ID: {hashlib.md5(d['nombre'].encode()).hexdigest()[:8].upper()} | {estado_ico}</span></h2>", unsafe_allow_html=True)
         st.markdown("<hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
 
-        # MÉTRICAS SUPERIORES ESTILO SOLARMAN (Con clases especiales para recuperar su color)
+        # MÉTRICAS SUPERIORES
         prod_solar = datos_act["energia_diaria"]
         consumo_sim = round(prod_solar * 0.45, 1)
         carga_bat = round(prod_solar * 0.2, 1)
@@ -537,7 +546,7 @@ elif menu == "📊 Panel de Planta":
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("🚀 Escribir Parámetros al Datalogger", use_container_width=True):
-                    with st.spinner("Estableciendo conexión P2P con el inversor..."):
+                    with st.spinner("Conectando con el equipo remoto..."):
                         time.sleep(2)
                     st.success("¡Parámetros actualizados exitosamente!")
 
