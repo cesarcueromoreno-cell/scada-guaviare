@@ -200,7 +200,7 @@ def simular_historico_24h(planta):
 plantas_guardadas = cargar_plantas()
 
 # ==========================================
-# 3. NAVEGACIÓN PRINCIPAL (AQUÍ ESTÁ EL MENÚ DE ALERTAS)
+# 3. NAVEGACIÓN PRINCIPAL
 # ==========================================
 st.sidebar.title("Navegación CV")
 rol_actual = "Instalador/Admin" if st.session_state.get('usuario_actual') == 'admin' else "Cliente"
@@ -229,22 +229,22 @@ if menu == "🌐 Panorama General":
             solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
             cap_limpia = f"{solo_numeros[0]} kWp" if solo_numeros else "N/A"
 
-            # Aviso rápido si hay alertas en esta planta
             alerta_html = ""
             if datos["alertas"]:
                 alerta_html = "<div style='color:#e74c3c; font-size:12px; font-weight:bold; margin-bottom:10px;'>⚠️ ALERTAS ACTIVAS (Ver Centro de Alertas)</div>"
 
+            # NOTA: Todo alineado a la izquierda sin espacios para evitar el error del bloque de código crudo
             tarjeta = f"""
-            <div class="tarjeta-planta">
-                <div class="tarjeta-titulo">{pl['nombre']} <span style="float:right; font-size:12px; color:#95a5a6;">{datos['status']}</span></div>
-                {alerta_html}
-                <div style="display: flex; justify-content: space-between; text-align: center; margin-top: 15px;">
-                    <div><div class="tarjeta-dato">{datos['solar']} W</div><div class="tarjeta-label">Energía (Potencia)</div></div>
-                    <div><div class="tarjeta-dato">{datos['energia_diaria']} kWh</div><div class="tarjeta-label">Producción Diaria</div></div>
-                    <div><div class="tarjeta-dato">{cap_limpia}</div><div class="tarjeta-label">Capacidad Total</div></div>
-                </div>
-            </div>
-            """
+<div class="tarjeta-planta">
+<div class="tarjeta-titulo">{pl['nombre']} <span style="float:right; font-size:12px; color:#95a5a6;">{datos['status']}</span></div>
+{alerta_html}
+<div style="display: flex; justify-content: space-between; text-align: center; margin-top: 15px;">
+<div><div class="tarjeta-dato">{datos['solar']} W</div><div class="tarjeta-label">Energía (Potencia)</div></div>
+<div><div class="tarjeta-dato">{datos['energia_diaria']} kWh</div><div class="tarjeta-label">Producción Diaria</div></div>
+<div><div class="tarjeta-dato">{cap_limpia}</div><div class="tarjeta-label">Capacidad Total</div></div>
+</div>
+</div>
+"""
             st.markdown(tarjeta, unsafe_allow_html=True)
             
             with st.expander(f"📉 Ver gráfica de comportamiento: {pl['nombre']}", expanded=False):
