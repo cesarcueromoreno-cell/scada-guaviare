@@ -131,6 +131,12 @@ label, label p, label div {
     letter-spacing: 1px !important;
 }
 
+/* ELEMENTOS DE INPUT NATIVOS */
+.tarjeta-planta *, input, select, textarea, button span {
+    color: #2c3e50 !important;
+    text-shadow: none !important;
+}
+
 /* ESTILIZAR EL FORMULARIO DE LOGIN COMO CRISTAL */
 [data-testid="stForm"] {
     background: rgba(255, 255, 255, 0.1) !important;
@@ -719,10 +725,95 @@ elif menu == "📊 Panel de Planta":
                     cs2.selectbox("* Par de CA en el lado de la red", ["Seleccione", "Habilitar", "Deshabilitar"])
                     cs3.selectbox("* Par de CA en el lado de carga", ["Seleccione", "Habilitar", "Deshabilitar"])
 
-                # Placeholders
-                with t_bas: st.info("Configuración Básica en desarrollo.")
-                with t_av1: st.info("Funciones Avanzadas 1 en desarrollo.")
-                with t_av2: st.info("Funciones Avanzadas 2 en desarrollo.")
+                # --- PESTAÑA 6: Configuración Básica (FOTO 2.06.41 PM) ---
+                with t_bas:
+                    st.markdown("<h4>Configuración Básica</h4>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ Configuración general del dispositivo.</div>", unsafe_allow_html=True)
+                    col_b1, col_b2 = st.columns(2)
+                    col_b1.toggle("Sonido zumbador", value=True)
+                    col_b2.toggle("Ahorro de energía de la pantalla", value=False)
+                    col_b1.toggle("Iluminación de fondo de la pantalla", value=True)
+                    col_b2.toggle("Interruptor inteligente", value=False)
+                    col_b1.toggle("Carga inalámbrica", value=False)
+
+                # --- PESTAÑA 7: Func. Avanzadas-1 (FOTO 2.07.02 PM) ---
+                with t_av1:
+                    st.markdown("<h4>Funciones Avanzadas-1</h4>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
+                    
+                    # Placeholder options for selectors
+                    opts = ["Seleccione", "Habilitado", "Deshabilitado"]
+                    
+                    # Row 1
+                    a1, a2, a3, a4, a5 = st.columns(5)
+                    # Label cut off in image, assuming text input based on 'm...'
+                    a1.text_input("* Compensación de la batería (m...", placeholder="Introduce valor")
+                    a2.selectbox("* Control de Batería Externo", opts)
+                    a3.selectbox("* Señal BMS", opts)
+                    a4.selectbox("* Despierta BMS", opts)
+                    a5.selectbox("* Control de Batería", opts)
+                    
+                    # Row 2
+                    b1, b2, b3, b4, b5 = st.columns(5)
+                    b1.selectbox("* Puerto COM GNC", opts)
+                    b2.selectbox("* Funciones de red", opts)
+                    b3.selectbox("* Carga de derivación de f...", opts)
+                    b4.selectbox("* Modo de seguridad de la red", opts)
+                    b5.selectbox("* Conexión a tierra de f...", opts)
+                    
+                    # Row 3
+                    c1, c2, c3, c4, c5 = st.columns(5)
+                    c1.selectbox("* Prueba de autocomproba...", opts)
+                    c2.selectbox("* DRMO", opts)
+                    c3.selectbox("* Desvío de carga", opts)
+                    c4.selectbox("* Salida de CA", opts)
+                    c5.selectbox("* Verificación de la red", opts)
+                    
+                    # Row 4
+                    d1, d2, d3, d4, d5 = st.columns(5)
+                    d1.selectbox("* Inyección a red monofá...", opts)
+                    d2.selectbox("* Relé principal en el la...", opts)
+                    d3.selectbox("* Relé principal en el la...", key="av1_relay_main_load", opts=opts) # Unique key
+                    d4.selectbox("* Relé de derivación en e...", opts)
+                    d5.selectbox("* Relé de derivación en e...", key="av1_relay_bypass_load", opts=opts) # Unique key
+                    
+                    # Row 5
+                    e1, e2, e3, e4, e5 = st.columns(5)
+                    e1.selectbox("* Modo de funcionamiento...", opts)
+                    e2.selectbox("* Modo de funcionamiento...", key="av1_op_mode2", opts=opts) # Unique key
+                    e3.selectbox("* Calentador de batería", opts)
+                    e4.selectbox("* Verificación de la bate...", opts)
+                    # Límite current/volt/power usually number inputs
+                    e5.number_input("* Límite de corriente de d...", min_value=0, value=0)
+                    
+                    # Row 6
+                    f1, f2, f3, f4, f5 = st.columns(5)
+                    f1.number_input("* Límite de tensión de des...", min_value=0.0, value=0.0, step=0.1)
+                    f2.number_input("* Límite de potencia de d...", min_value=0, value=0)
+                    f3.number_input("* Límite de corriente de c...", min_value=0, value=0)
+                    f4.number_input("* Límite de tensión de car...", min_value=0.0, value=0.0, step=0.1)
+                    f5.number_input("* Límite de potencia de c...", min_value=0, value=0)
+                    
+                    # Row 7
+                    g1, g2, g3, g4, g5 = st.columns(5)
+                    # Duplicate power limits shown in image, need unique keys
+                    g1.number_input("* Límite de potencia de c...", key="av1_lpotc2", min_value=0, value=0) 
+                    g2.number_input("* Potencia de autoconsumo", min_value=0, value=0)
+                    g3.number_input("* Potencia de carga priorit...", min_value=0, value=0)
+                    g4.number_input("* Potencia de carga priorit...", key="av1_pcap2", min_value=0, value=0) 
+                    g5.number_input("* Potencia de inyección p...", min_value=0, value=0)
+                    
+                    # Row 8
+                    h1, h2, h3, h4, h5 = st.columns(5)
+                    h1.selectbox("* Prioridad de inyección ...", opts)
+                    # Empty placeholders for alignment
+                    h2.empty()
+                    h3.empty()
+                    h4.empty()
+                    h5.empty()
+
+                # Placeholders for missing screen (Func. Avanzadas-2)
+                with t_av2: st.info("Pestaña Func. Avanzadas-2 en desarrollo.")
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 b_esp, b_conf = st.columns([8, 2])
