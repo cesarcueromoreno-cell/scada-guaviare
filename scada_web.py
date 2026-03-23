@@ -109,12 +109,6 @@ label, label p, label div {
     letter-spacing: 1px !important;
 }
 
-/* ELEMENTOS DE INPUT NATIVOS */
-.tarjeta-planta *, input, select, textarea, button span {
-    color: #2c3e50 !important;
-    text-shadow: none !important;
-}
-
 /* ESTILIZAR EL FORMULARIO DE LOGIN COMO CRISTAL */
 [data-testid="stForm"] {
     background: rgba(255, 255, 255, 0.1) !important;
@@ -153,6 +147,23 @@ label, label p, label div {
 }
 .tarjeta-dato-pro {
     font-size: 16px !important; font-weight: bold !important; color: #2c3e50 !important; white-space: nowrap !important;
+}
+
+/* =========================================
+   DISEÑO PARA ICONOS GRISES (LÁPIZ Y PAPELERA)
+   ========================================= */
+.iconos-accion .stButton button {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: #7f8c8d !important; /* Gris oscuro profesional */
+    font-size: 20px !important;
+    transition: transform 0.2s ease, color 0.2s ease !important;
+}
+.iconos-accion .stButton button:hover {
+    color: #2c3e50 !important; /* Más oscuro al pasar el mouse */
+    transform: scale(1.1) !important;
 }
 </style>
 """
@@ -342,7 +353,6 @@ def obtener_datos_reales(planta):
     }
 
 def simular_historico_24h(planta):
-    # CORRECCIÓN DEFINITIVA: Extraer cap_val del diccionario con total seguridad
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
     try: cap_val = float(solo_numeros[0]) if solo_numeros else 5.0
@@ -414,10 +424,6 @@ if menu == "📊 Panel de Planta":
     .solarman-card { background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; }
     .solarman-val { font-size: 26px !important; font-weight: bold !important; margin-bottom: 5px !important; }
     .solarman-lbl { font-size: 13px !important; text-transform: uppercase !important; }
-    
-    /* ESCONDER BORDES Y FONDOS DE LOS BOTONES NATIVOS EN EL DIRECTORIO */
-    .stButton button { border: none !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
-    .stButton button:hover { background: transparent !important; transform: scale(1.1); }
     </style>
     """, unsafe_allow_html=True)
 
@@ -497,7 +503,6 @@ if menu == "🌐 Panorama General":
                     status_icon = "🔴"
                     alerta_html = f"<div style='position:absolute; top:5px; left:15px; background: #e74c3c; color:white; font-size:9px; padding: 2px 6px; border-radius:10px;'>{len(datos['alertas'])} Alertas</div>"
 
-                # CREACIÓN DE LA TARJETA USANDO COLUMNAS NATIVAS PARA GARANTIZAR LOS BOTONES
                 col_card, col_btns = st.columns([11, 1])
                 
                 with col_card:
@@ -537,15 +542,17 @@ if menu == "🌐 Panorama General":
                 
                 with col_btns:
                     if rol_actual == "admin":
-                        st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True) # Alineación vertical
+                        st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div class='iconos-accion'>", unsafe_allow_html=True)
                         b1, b2 = st.columns(2)
-                        # ¡BOTONES NATIVOS REALES Y FUNCIONALES!
-                        if b1.button("✏️", key=f"btn_ed_{i}", help="Editar Planta"):
+                        # BOTONES CON CARACTERES MÍNIMOS EN LUGAR DE EMOJIS INFANTILES
+                        if b1.button("✎", key=f"btn_ed_{i}", help="Editar Planta"):
                             st.session_state["editando_planta"] = i
                             st.rerun()
-                        if b2.button("🗑️", key=f"btn_dl_{i}", help="Eliminar Planta"):
+                        if b2.button("🗑", key=f"btn_dl_{i}", help="Eliminar Planta"):
                             eliminar_planta(i)
                             st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
             
         st.markdown("</div></div>", unsafe_allow_html=True) 
             
@@ -672,16 +679,33 @@ elif menu == "📊 Panel de Planta":
             with tab_control:
                 st.info(f"⚙️ Configurando el inversor **{d['inversores']}** de la planta '{d['nombre']}'. Proceda con precaución.")
                 
-                sub_t1, sub_t2, sub_t3 = st.tabs(["🔋 Parámetros BMS", "⚡ Red y Normativa", "🕒 Time of Use (TOU)"])
+                sub_t1, sub_t2, sub_t3 = st.tabs(["🔋 Configuración Baterías", "⚡ Red y Normativa", "🕒 Time of Use (TOU)"])
                 
                 with sub_t1:
-                    col_b1, col_b2 = st.columns(2)
-                    col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60)
-                    col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80)
-                    col_s1, col_s2, col_s3 = st.columns(3)
-                    col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20)
-                    col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35)
-                    col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50)
+                    st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
+                    
+                    # --- MATRIZ EXACTA DE 5 COLUMNAS COMO EN LA FOTO ---
+                    cb1, cb2, cb3, cb4, cb5 = st.columns(5)
+                    cb1.selectbox("* Tipo de Batería", ["Modo Litio", "Plomo-Ácido", "Sin Batería"], index=0)
+                    cb2.number_input("* Capacidad (Ah)", value=100)
+                    cb3.number_input("* Max A Carga", value=50)
+                    cb4.number_input("* Max A Descarga", value=50)
+                    cb5.number_input("* Desconexión %", value=10)
+                    
+                    cc1, cc2, cc3, cc4, cc5 = st.columns(5)
+                    cc1.number_input("* Reconexión %", value=35)
+                    cc2.number_input("* Batería Baja %", value=20)
+                    cc3.selectbox("* Paralelo bat1&bat2", ["Deshabilitado", "Habilitado"], index=0)
+                    cc4.selectbox("* Carga de Red", ["Deshabilitado", "Habilitado"], index=0)
+                    cc5.selectbox("* Carga Generador", ["Deshabilitado", "Habilitado"], index=0)
+                    
+                    cd1, cd2, cd3, cd4, cd5 = st.columns(5)
+                    cd1.selectbox("* Señal de Red", ["Deshabilitado", "Habilitado"], index=0)
+                    cd2.selectbox("* Señal Generador", ["Deshabilitado", "Habilitado"], index=0)
+                    cd3.selectbox("* Fuerza General", ["Deshabilitado", "Habilitado"], index=0)
+                    cd4.number_input("* Máx Tiempo Gen", value=0.0)
+                    cd5.number_input("* Tiempo parada Gen", value=0.0)
+                    # ----------------------------------------------------
 
                 with sub_t2:
                     col_g1, col_g2 = st.columns(2)
