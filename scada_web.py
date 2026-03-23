@@ -173,7 +173,6 @@ plantas_guardadas = cargar_plantas()
 st.sidebar.title("Navegación CV")
 st.sidebar.write(f"👤 Bienvenido, **{st.session_state.get('usuario_actual', 'admin')}**")
 
-# --- NUEVA OPCIÓN DE MENÚ AGREGADA ---
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "⚙️ Control de Inversores", "🏢 Gestión de Portafolio"])
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
@@ -339,47 +338,67 @@ elif menu == "📊 Monitoreo Detallado":
         )
 
 # ==========================================
-# VENTANA 3: CONTROL DE INVERSORES (NUEVO - SOLO ADMIN)
+# VENTANA 3: CONTROL DE INVERSORES (ACTUALIZADO - SOLO ADMIN)
 # ==========================================
 elif menu == "⚙️ Control de Inversores":
-    st.title("⚙️ PARAMETRIZACIÓN REMOTA")
+    st.title("⚙️ PARAMETRIZACIÓN REMOTA AVANZADA")
     st.markdown("**Control maestro de inversores - CV INGENIERIA SAS**")
     
-    # SISTEMA DE SEGURIDAD: Bloqueo a usuarios que no sean "admin"
     if st.session_state.get('usuario_actual') != 'admin':
         st.error("⛔ ACCESO DENEGADO")
-        st.warning("Esta sección es de control crítico y modifica parámetros físicos del equipo. Solo el usuario Administrador de CV INGENIERÍA SAS tiene los privilegios necesarios.")
+        st.warning("Esta sección es de control crítico y modifica parámetros físicos del equipo. Solo el usuario Administrador tiene los privilegios necesarios.")
     else:
-        st.info("🔐 Autenticado como Administrador. Proceda con precaución.")
+        st.info("🔐 Autenticado como Administrador. Proceda con precaución al modificar variables del equipo.")
         
         if not plantas_guardadas:
             st.warning("No hay plantas registradas para configurar.")
         else:
             planta_sel = st.selectbox("Seleccione Planta a configurar:", [p["nombre"] for p in plantas_guardadas])
             d = next(p for p in plantas_guardadas if p["nombre"] == planta_sel)
-            
             st.write(f"Inversor detectado: **{d['inversores']}** en {d['ubicacion']}")
             st.markdown("---")
             
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown("#### 🔋 Gestión de Baterías (SOC)")
-                soc_limite = st.slider("Límite de Descarga de Batería (%)", min_value=10, max_value=50, value=20, step=5, help="Protección de vida útil. El inversor tomará de la red si baja de este porcentaje.")
-                corriente_carga = st.number_input("Corriente máxima de carga (Amperios)", min_value=10, max_value=120, value=60)
+            # PESTAÑAS DE CONFIGURACIÓN PROFESIONAL
+            tab_bat, tab_grid, tab_tou = st.tabs(["🔋 Baterías (BMS)", "⚡ Red y Normativa (Grid)", "🕒 Franjas Horarias (TOU)"])
             
-            with c2:
-                st.markdown("#### ⚡ Modo de Trabajo")
-                modo = st.selectbox("Configuración de Inyección", ["Autoconsumo (Inyección Cero)", "Venta a la Red (Excedentes)", "Modo Respaldo (UPS)"])
-                potencia_max = st.slider("Límite de Inyección a red (%)", min_value=0, max_value=100, value=0 if "Cero" in modo else 100)
-            
+            with tab_bat:
+                st.markdown("#### Parámetros de Corriente y SOC")
+                col_b1, col_b2 = st.columns(2)
+                col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60, help="Amperaje máximo hacia las baterías")
+                col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80, help="Amperaje máximo desde las baterías")
+                
+                st.markdown("##### Límites de Estado de Carga (SOC %)")
+                col_s1, col_s2, col_s3 = st.columns(3)
+                col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20, help="El inversor se apaga si llega a este nivel")
+                col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35, help="Envía alerta de batería baja")
+                col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50, help="Nivel para volver a descargar")
+
+            with tab_grid:
+                st.markdown("#### Configuración de Red (Grid Code)")
+                col_g1, col_g2 = st.columns(2)
+                col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727", "Personalizado"])
+                col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0, help="0% = Inyección Cero. 100% = Venta total.")
+                
+                st.markdown("##### Protecciones de Voltaje (Desconexión)")
+                col_v1, col_v2 = st.columns(2)
+                col_v1.number_input("Voltaje Máx. AC (V)", min_value=220, max_value=270, value=253)
+                col_v2.number_input("Voltaje Mín. AC (V)", min_value=180, max_value=210, value=198)
+
+            with tab_tou:
+                st.markdown("#### Programación por Tiempo (Time of Use)")
+                st.checkbox("Habilitar Carga desde la Red Eléctrica (Grid Charge)")
+                
+                col_t1, col_t2 = st.columns(2)
+                col_t1.time_input("Inicio de carga forzada", value=datetime.strptime("00:00", "%H:%M"))
+                col_t2.time_input("Fin de carga forzada", value=datetime.strptime("05:00", "%H:%M"))
+                st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100)
+
             st.markdown("---")
-            st.warning("⚠️ **Advertencia:** Enviar estos parámetros alterará el funcionamiento del equipo. Asegúrese de que la configuración cumple con la norma RETIE / NTC 2050 para este proyecto.")
-            
-            if st.button("🚀 Enviar Parámetros al Inversor", use_container_width=True):
-                # Aquí irá el código de Solarman API / Modbus en el futuro
-                with st.spinner("Estableciendo conexión segura con el equipo..."):
+            st.warning("⚠️ **Advertencia:** Enviar estos parámetros alterará el funcionamiento del equipo. Asegúrese de no violar garantías ni normativas del operador de red local.")
+            if st.button("🚀 Guardar y Enviar Parámetros", use_container_width=True):
+                with st.spinner("Estableciendo conexión segura con el equipo remoto..."):
                     time.sleep(2)
-                st.success(f"¡Comandos enviados correctamente al Datalogger de la planta '{d['nombre']}'! (Modo Simulación Activo)")
+                st.success(f"¡Nuevos parámetros escritos correctamente en el Datalogger de la planta '{d['nombre']}'! (Modo Simulación)")
 
 # ==========================================
 # VENTANA 4: GESTIÓN DE PORTAFOLIO Y USUARIOS
