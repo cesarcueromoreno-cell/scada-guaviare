@@ -52,29 +52,14 @@ div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transpa
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
 
-/* =========================================
-   CORRECCIÓN DEL BOTÓN AZUL Y LOS ICONOS
-   ========================================= */
-/* Obligar al botón primario a ser Azul Solarman y no rojo */
+/* CORRECCIÓN DEL BOTÓN AZUL Y LOS ICONOS */
 div[data-testid="stButton"] button[kind="primary"] {
-    background-color: #2d8cf0 !important;
-    border-color: #2d8cf0 !important;
-    color: white !important;
-    border-radius: 4px !important;
+    background-color: #2d8cf0 !important; border-color: #2d8cf0 !important; color: white !important; border-radius: 4px !important;
 }
-div[data-testid="stButton"] button[kind="primary"]:hover {
-    background-color: #57a3f3 !important;
-}
-
-/* Botón secundario ("Mirada lasciva") con borde azul */
+div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
 div[data-testid="stButton"] button[kind="secondary"] {
-    color: #2d8cf0 !important;
-    border-color: #2d8cf0 !important;
-    border-radius: 4px !important;
-    background-color: white !important;
+    color: #2d8cf0 !important; border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important;
 }
-
-/* Iconos del Lápiz y Papelera */
 .iconos-accion .stButton button { border: none !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; color: #7f8c8d !important; font-size: 20px !important; }
 .iconos-accion .stButton button:hover { color: #2c3e50 !important; transform: scale(1.1) !important; }
 
@@ -86,7 +71,19 @@ div[data-testid="stButton"] button[kind="secondary"] {
 st.markdown(css_global, unsafe_allow_html=True)
 
 # ==========================================
-# 2. BASE DE DATOS Y LÓGICA DE USUARIOS
+# 2. BLINDAJE DE VARIABLES DE SESIÓN (NUNCA MÁS KEYERROR)
+# ==========================================
+if "autenticado" not in st.session_state: st.session_state["autenticado"] = False
+if "usuario" not in st.session_state: st.session_state["usuario"] = None
+if "rol" not in st.session_state: st.session_state["rol"] = None
+if "editando_planta" not in st.session_state: st.session_state["editando_planta"] = None
+
+# Si hay una sesión corrupta o vieja, cerramos sesión por seguridad
+if st.session_state["autenticado"] and st.session_state["usuario"] is None:
+    st.session_state["autenticado"] = False
+
+# ==========================================
+# 3. BASE DE DATOS Y LÓGICA DE USUARIOS
 # ==========================================
 ARCHIVO_PLANTAS = 'plantas.json'
 ARCHIVO_USUARIOS = 'usuarios.json'
@@ -108,9 +105,6 @@ def cargar_plantas():
     with open(ARCHIVO_PLANTAS, 'r') as f: return json.load(f)
 
 # --- LOGIN ---
-if "autenticado" not in st.session_state: st.session_state["autenticado"] = False
-if "editando_planta" not in st.session_state: st.session_state["editando_planta"] = None
-
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: white !important;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
@@ -128,11 +122,11 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 # ==========================================
-# 3. NAVEGACIÓN Y DATOS
+# 4. NAVEGACIÓN Y DATOS
 # ==========================================
 plantas = cargar_plantas()
 st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MOMISOLAR APP</h2>", unsafe_allow_html=True)
-st.sidebar.write(f"👤 **{st.session_state['usuario']}** | Rol: {'Instalador/Admin' if st.session_state['rol'] == 'admin' else 'Cliente'}")
+st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Instalador/Admin' if st.session_state.get('rol') == 'admin' else 'Cliente'}")
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"])
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state.update({"autenticado": False, "usuario": None, "rol": None})
@@ -153,7 +147,7 @@ def sim_graph():
     return df
 
 # ==========================================
-# 4. VISTA: PANORAMA GENERAL
+# 5. VISTA: PANORAMA GENERAL
 # ==========================================
 if menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL")
@@ -196,7 +190,7 @@ if menu == "🌐 Panorama General":
                 st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
-# 5. VISTA: PANEL DE PLANTA (CLON SOLARMAN)
+# 6. VISTA: PANEL DE PLANTA (CLON SOLARMAN)
 # ==========================================
 elif menu == "📊 Panel de Planta":
     if not plantas:
@@ -208,7 +202,7 @@ elif menu == "📊 Panel de Planta":
     p = next(x for x in plantas if x["nombre"] == pl_sel)
     d = get_data(p)
     
-    st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', '2412120039')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
+    st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:gray;'>| 🟢 En línea | SN: {p.get('datalogger', '2412120039')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
     # KPIs
     c1, c2, c3, c4 = st.columns(4)
@@ -220,13 +214,13 @@ elif menu == "📊 Panel de Planta":
     
     # TABS PRINCIPALES
     if st.session_state['rol'] == 'admin':
-        t_graf, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes", "🛠️ O&M"])
+        t_graf, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico", "⚙️ Control Remoto del Inversor", "📄 Reportes", "🛠️ O&M"])
     else:
-        t_graf, t_rep = st.tabs(["📈 Panel Gráfico y Flujo", "📄 Reportes"])
+        t_graf, t_rep = st.tabs(["📈 Panel Gráfico", "📄 Reportes"])
         t_ctrl, t_om = None, None
     
     with t_graf:
-        st.info("Gráfica de flujo activo.")
+        st.info("Gráfica de flujo y energía activa en la versión completa.")
         
     if t_ctrl:
         with t_ctrl:
@@ -234,87 +228,75 @@ elif menu == "📊 Panel de Planta":
             
             # SUB-TABS EXACTOS
             st_bat, st_mo1, st_mo2, st_red, st_smart, st_bas, st_av1, st_av2 = st.tabs([
-                "🔋 Configuración Baterías", "🔄 Modos de operación-1", "🔄 Modos de operación-2", 
-                "⚡ Configuración de la red", "🧠 Carga inteligente", "⚙️ Configuración Básica", 
-                "🛠️ Func. Avanzadas-1", "🛠️ Func. Avanzadas-2"
+                "🔋 Baterías", "🔄 Modos-1", "🔄 Modos-2", "⚡ Red", "🧠 SmartLoad", "⚙️ Básica", "🛠️ Avanzadas-1", "🛠️ Avanzadas-2"
             ])
             opts_sel = ["Seleccione", "Habilitado", "Deshabilitado"]
             
             with st_bat:
-                st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
                 cb1, cb2, cb3, cb4, cb5 = st.columns(5)
-                cb1.selectbox("* Tipo de Batería", ["Modo Litio", "Plomo-Ácido", "Sin Batería"], index=0)
-                cb2.number_input("* Capacidad (Ah)", value=100)
-                cb3.number_input("* Max A Carga", value=50)
-                cb4.number_input("* Max A Descarga", value=50)
-                cb5.number_input("* Desconexión %", value=10)
+                cb1.selectbox("* Tipo Batería", ["Modo Litio", "Plomo"])
+                cb2.number_input("* Capacidad (Ah)", 100)
+                cb3.number_input("* Max Carga (A)", 50)
+                cb4.number_input("* Max Descarga (A)", 50)
+                cb5.number_input("* Desconexión %", 10)
 
             with st_mo1:
-                st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
                 m1, m2, m3, m4, m5 = st.columns(5)
-                m1.selectbox("* Modos de Operación", ["Seleccione", "Autoconsumo", "Respaldo"])
+                m1.selectbox("* Modo", ["Autoconsumo", "Respaldo"])
                 with m2:
-                    st.markdown("<div style='font-size: 14px; color: #2c3e50; margin-bottom: 5px;'>* Configuración</div>", unsafe_allow_html=True)
-                    d1, d2 = st.columns(2)
-                    d1.checkbox("Domingo"); d2.checkbox("Sábado")
-                    d1.checkbox("Viernes"); d2.checkbox("Jueves")
-                    d1.checkbox("Miércoles"); d2.checkbox("Martes")
-                    d1.checkbox("Lunes")
-                m3.number_input("* Máxima Potencia Solar (W)", value=5000)
-                m4.number_input("* Máx Potencia Inyección a Red (W)", value=5000)
-                m5.selectbox("* Patrón de Energía", ["Seleccione", "Prioridad Carga", "Prioridad Batería"])
+                    st.markdown("<p style='color:#2c3e50 !important; font-size:12px; margin-bottom:5px;'>* Configuración</p>", unsafe_allow_html=True)
+                    st.checkbox("Lunes", True); st.checkbox("Martes", True)
+                m3.number_input("* Max Solar (W)", 5000)
+                m4.number_input("* Max Red (W)", 5000)
+                m5.selectbox("* Prioridad", ["Carga", "Batería"])
 
             with st_mo2:
-                st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
-                st.toggle("* FuncionamientoporPeriodos", value=False)
+                st.toggle("* FuncionamientoporPeriodos", False)
 
             with st_red:
-                st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Para configurar la red, introduzca la contraseña para desbloquear</div>", unsafe_allow_html=True)
-                st.text_input("Contraseña", type="password", label_visibility="collapsed")
-                st.button("Desbloquear")
+                st.markdown("🔒 **Introduzca la contraseña para desbloquear**")
+                st.text_input("Password", type="password", label_visibility="collapsed")
+                st.button("Desbloquear", type="secondary") # Botón blanco con borde azul para desbloquear
 
             with st_smart:
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
                 cs1, cs2, cs3 = st.columns(3)
-                cs1.selectbox("* Configuración de SmartLoad", ["Seleccione", "SmartLoad"])
-                cs2.selectbox("* Par de CA en el lado de la red", opts_sel)
-                cs3.selectbox("* Par de CA en el lado de carga", opts_sel)
-                
+                cs1.selectbox("* SmartLoad", ["Seleccione", "Habilitado"])
+                cs2.selectbox("* Par CA Red", ["Seleccione", "Habilitado"])
+                cs3.selectbox("* Par CA Carga", ["Seleccione", "Habilitado"])
+
             with st_bas:
                 st.markdown("<h4>Configuración Básica</h4>", unsafe_allow_html=True)
-                st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ Configuración general del dispositivo.</div>", unsafe_allow_html=True)
-                c_bas1, c_bas2 = st.columns(2)
-                c_bas1.toggle("Sonido zumbador", value=True)
-                c_bas2.toggle("Ahorro de energía de la pantalla", value=False)
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ Configuración general del dispositivo.</small>", unsafe_allow_html=True)
+                st.toggle("Sonido zumbador", True)
 
             with st_av1:
-                st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
-                a1, a2, a3, a4, a5 = st.columns(5)
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
+                a1, a2, a3 = st.columns(3)
                 a1.selectbox("* Configuración ARC", opts_sel)
-                a2.selectbox("* Gen Peak-afeitado", opts_sel)
-                a3.number_input("* Potencia de reducción de picos (W)", value=1000)
-                a4.selectbox("* Reducción de picos de red", opts_sel)
-                a5.number_input("* Potencia reducción de red (W)", value=1000)
+                a2.number_input("* Potencia de reducción de picos (W)", 1000)
 
-            # --- CORRECCIÓN: PESTAÑA FUNCIONES AVANZADAS-2 EXACTA ---
+            # PESTAÑA FUNCIONES AVANZADAS-2 (TURBINA EÓLICA)
             with st_av2:
-                st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
-                st.markdown("<div style='color: #2c3e50; font-weight: bold; margin-bottom: 10px;'>Configuración Baterías</div>", unsafe_allow_html=True)
-                av_c1, av_c2, av_c3 = st.columns([1, 1, 2])
+                st.markdown("<h4>Funciones Avanzadas-2</h4>", unsafe_allow_html=True)
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
+                st.markdown("<div style='color: #2c3e50; font-weight: bold; margin-bottom: 10px; margin-top: 15px;'>Configuración Baterías</div>", unsafe_allow_html=True)
+                av_col1, av_col2, av_col3 = st.columns([1.5, 1, 2])
                 with av_col1:
                     st.selectbox("* DC 1 para turbina eólica", ["Seleccione", "Habilitado", "Deshabilitado"])
-            
-            # --- CORRECCIÓN: BOTONES INFERIORES AZULES Y BIEN ALINEADOS ---
+        
+            # BOTONES INFERIORES AZULES
             st.markdown("<br><hr style='margin:10px 0;'>", unsafe_allow_html=True)
-            # Damos más espacio a las últimas dos columnas para que no se rompa el texto (6, 2, 2)
             b_col1, b_col2, b_col3 = st.columns([6, 2, 2])
             with b_col2:
-                st.button("Mirada lasciva", use_container_width=True)
+                st.button("Mirada lasciva", use_container_width=True, type="secondary")
             with b_col3:
-                # Type primary es llamado desde CSS para ser AZUL SOLARMAN
                 if st.button("Configurar", type="primary", use_container_width=True):
-                    with st.spinner("Enviando comandos al Datalogger..."):
-                        time.sleep(2)
-                    st.success("¡Configuración aplicada con éxito!")
+                    with st.spinner("Enviando comandos..."):
+                        time.sleep(1.5)
+                    st.success("¡Configuración aplicada!")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
