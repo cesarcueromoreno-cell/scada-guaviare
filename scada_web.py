@@ -149,9 +149,20 @@ def cargar_usuarios():
         db = json.load(f)
         
     datos_actualizados = False
+    
+    # Reparar cuentas viejas
     for user, data in db.items():
         if isinstance(data, str):
-            db[user] = {"pwd": data, "status": "active", "role": "viewer"}
+            # Si era la cuenta admin vieja, darle rol admin, a los demás viewer
+            rol_asignado = "admin" if user == "admin" else "viewer"
+            db[user] = {"pwd": data, "status": "active", "role": rol_asignado}
+            datos_actualizados = True
+            
+    # REGLA DE ORO: Forzar que "admin" siempre sea administrador activo
+    if "admin" in db and isinstance(db["admin"], dict):
+        if db["admin"].get("role") != "admin" or db["admin"].get("status") != "active":
+            db["admin"]["role"] = "admin"
+            db["admin"]["status"] = "active"
             datos_actualizados = True
             
     if datos_actualizados:
@@ -248,7 +259,7 @@ if not st.session_state["autenticado"]:
                 usuario_input = st.text_input("👤 Correo / Usuario")
                 contrasena_input = st.text_input("🔑 Contraseña", type="password") 
                 if st.form_submit_button("Iniciar Sesión", use_container_width=True):
-                    usuarios_bd = cargar_usuarios()
+                    usuarios_bd = cargar_usuarios() # Esto repara a 'admin' instantáneamente
                     if usuario_input in usuarios_bd and usuarios_bd[usuario_input]["pwd"] == contrasena_input:
                         user_data = usuarios_bd[usuario_input]
                         
@@ -343,7 +354,7 @@ st.sidebar.title("☀️ MOMISOLAR APP")
 rol_actual = st.session_state["rol_usuario"]
 usuario_actual = st.session_state["usuario_actual"]
 
-# CORRECCIÓN DE ETIQUETA: Regresa a "Instalador/Admin" o "Cliente"
+# AQUÍ ESTÁ EL ARREGLO: Etiqueta original
 etiqueta_rol = "Instalador/Admin" if rol_actual == "admin" else "Cliente"
 
 st.sidebar.write(f"👤 Usuario: **{usuario_actual}**\n\n🛡️ Rol: **{etiqueta_rol}**")
