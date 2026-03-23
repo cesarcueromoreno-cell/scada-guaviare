@@ -82,7 +82,7 @@ div.solarman-card span.solarman-lbl-sm { color: #7f8c8d !important; font-size: 1
 
 /* TABS ESTILO SOLARMAN BUSINESS */
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; font-weight: 600 !important; font-size: 16px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; text-shadow: none !important; font-weight: 600 !important; font-size: 16px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
@@ -434,7 +434,7 @@ elif menu == "📊 Panel de Planta":
             with st_mo2:
                 st.toggle("* FuncionamientoporPeriodos", value=False)
 
-            # --- RED: RESTAURACIÓN DE TENSIONES COMPLETAS + LÍMITE INYECCIÓN (INTACTO) ---
+            # --- RED: CON LÍMITE DE INYECCIÓN Y TIEMPOS DE DESPEJE ---
             with st_red:
                 if not st.session_state["red_desbloqueada"]:
                     st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para desbloquear</div>", unsafe_allow_html=True)
@@ -450,24 +450,29 @@ elif menu == "📊 Panel de Planta":
                     
                     r_c1, r_c2 = st.columns(2)
                     r_c1.selectbox("* Normativa Aplicada", ["Seleccione", "Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
-                    
-                    # -------------------------------------------------------------
-                    # AQUÍ ESTÁ EL LÍMITE DE INYECCIÓN A RED (%), INTACTO
-                    # -------------------------------------------------------------
                     r_c2.number_input("* Límite de Inyección a red (%)", min_value=0, max_value=100, value=100)
                     
-                    st.markdown("<div style='margin-top: 10px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V)</div>", unsafe_allow_html=True)
-                    cv1, cv2 = st.columns(2)
+                    st.markdown("<div style='margin-top: 10px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V) y Tiempos de Despeje (s)</div>", unsafe_allow_html=True)
+                    cv1, ct1, cv2, ct2 = st.columns([2, 1, 2, 1])
                     cv1.number_input("* Sobre Tensión Máx (V)", value=253.0)
+                    ct1.number_input("* Tiempo (s)", value=0.1, key="t_ov")
                     cv2.number_input("* Sub Tensión Mín (V)", value=198.0)
+                    ct2.number_input("* Tiempo (s)", value=0.2, key="t_uv")
+                    
                     cv3, cv4 = st.columns(2)
                     cv3.number_input("* Tensión Máxima de Inyección (V)", value=242.0)
                     cv4.number_input("* Tensión Mínima de Inyección (V)", value=210.0)
 
-                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz)</div>", unsafe_allow_html=True)
-                    cf1, cf2 = st.columns(2)
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz) y Tiempos de Despeje (s)</div>", unsafe_allow_html=True)
+                    cf1, cft1, cf2, cft2 = st.columns([2, 1, 2, 1])
                     cf1.number_input("* Sobre Frecuencia Máx (Hz)", value=60.5)
+                    cft1.number_input("* Tiempo (s)", value=0.2, key="t_of")
                     cf2.number_input("* Sub Frecuencia Mín (Hz)", value=59.5)
+                    cft2.number_input("* Tiempo (s)", value=0.2, key="t_uf")
+                    
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Reconexión</div>", unsafe_allow_html=True)
+                    cr1, cr2 = st.columns(2)
+                    cr1.number_input("* Tiempo de reconexión a la red (s)", value=60)
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     if st.button("🔒 Bloquear Red"):
