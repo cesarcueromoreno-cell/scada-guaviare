@@ -144,7 +144,7 @@ if not st.session_state["autenticado"]:
                     st.error("❌ Credenciales incorrectas.")
     st.stop() 
 
-# --- MOTOR DE INTEGRACIÓN SOLARMAN ---
+# --- MOTOR DE INTEGRACIÓN SOLARMAN CON ALERTAS ---
 def obtener_datos_reales(planta):
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
@@ -153,11 +153,21 @@ def obtener_datos_reales(planta):
     
     pot_simulada = int(cap_val * random.uniform(0.1, 0.8))
     energia_simulada = round((pot_simulada * random.uniform(3.5, 5.0)) / 1000, 1)
-    estado = "Simulado (Falta configurar API)" if planta.get("inversores") in ["Deye", "Sylvania"] else "Simulado"
+    estado = "Simulado (Falta API)" if planta.get("inversores") in ["Deye", "Sylvania"] else "Simulado"
+    
+    # SISTEMA DE DIAGNÓSTICO (NUEVO)
+    soc_actual = random.randint(15, 99) 
+    alertas_activas = []
+    
+    if soc_actual <= 25:
+        alertas_activas.append("⚠️ Batería Baja: Nivel de SOC crítico (<=25%). Riesgo de desconexión de cargas.")
+    if random.random() < 0.15: # 15% de probabilidad de simular un apagón de la red eléctrica
+        alertas_activas.append("🔌 Falla de Red AC: Sin voltaje detectado en la acometida. Operando en modo Off-Grid.")
 
     return {
         "solar": pot_simulada, "casa": 1750 + random.randint(-40, 40),
-        "soc": random.randint(50, 99), "energia_diaria": energia_simulada, "status": estado
+        "soc": soc_actual, "energia_diaria": energia_simulada, "status": estado,
+        "alertas": alertas_activas
     }
 
 def simular_historico_24h(planta):
@@ -196,7 +206,8 @@ st.sidebar.title("Navegación CV")
 rol_actual = "Instalador/Admin" if st.session_state.get('usuario_actual') == 'admin' else "Cliente"
 st.sidebar.write(f"👤 Usuario: **{st.session_state.get('usuario_actual', 'admin')}**\n\n🛡️ Rol: {rol_actual}")
 
-menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "⚙️ Control de Inversores", "🏢 Gestión de Portafolio"])
+# AGREGAMOS EL CENTRO DE ALERTAS AL MENÚ
+menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "⚙️ Control de Inversores", "🏢 Gestión de Portafolio", "🚨 Centro de Alertas"])
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
@@ -219,9 +230,15 @@ if menu == "🌐 Panorama General":
             solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
             cap_limpia = f"{solo_numeros[0]} kWp" if solo_numeros else "N/A"
 
+            # Aviso rápido si hay alertas en esta planta
+            alerta_html = ""
+            if datos["alertas"]:
+                alerta_html = "<div style='color:#e74c3c; font-size:12px; font-weight:bold;'>⚠️ ALERTAS ACTIVAS (Ver Centro de Alertas)</div>"
+
             tarjeta = f"""
             <div class="tarjeta-planta">
                 <div class="tarjeta-titulo">{pl['nombre']} <span style="float:right; font-size:12px; color:#95a5a6;">{datos['status']}</span></div>
+                {alerta_html}
                 <div style="display: flex; justify-content: space-between; text-align: center; margin-top: 15px;">
                     <div><div class="tarjeta-dato">{datos['solar']} W</div><div class="tarjeta-label">Energía (Potencia)</div></div>
                     <div><div class="tarjeta-dato">{datos['energia_diaria']} kWh</div><div class="tarjeta-label">Producción Diaria</div></div>
@@ -422,7 +439,7 @@ elif menu == "⚙️ Control de Inversores":
                 st.success(f"¡Nuevos parámetros escritos en el Datalogger '{d['nombre']}'!")
 
 # ==========================================
-# VENTANA 4: GESTIÓN DE PORTAFOLIO Y USUARIOS (NUEVO FLUJO)
+# VENTANA 4: GESTIÓN DE PORTAFOLIO Y USUARIOS
 # ==========================================
 elif menu == "🏢 Gestión de Portafolio":
     st.title("🏢 CONFIGURACIÓN DE PROYECTOS")
@@ -430,7 +447,6 @@ elif menu == "🏢 Gestión de Portafolio":
     
     st.markdown("### 🛠️ Flujo de Creación y Autorización")
 
-    # PASO 1: CREAR PLANTA
     with st.expander("1️⃣ Crear Proyecto (Añadir Planta)", expanded=False):
         st.write("Complete los datos técnicos del nuevo sistema solar.")
         with st.form("f_planta"):
@@ -459,7 +475,6 @@ elif menu == "🏢 Gestión de Portafolio":
                     st.success("Planta creada exitosamente en el Data Center local.")
                     st.rerun()
 
-    # PASO 2: VINCULAR DATALOGGER Y RED
     with st.expander("2️⃣ Vincular Datalogger y Configurar Red", expanded=False):
         st.write("Asocie el hardware de comunicación a la planta creada.")
         if plantas_guardadas:
@@ -479,7 +494,6 @@ elif menu == "🏢 Gestión de Portafolio":
         else:
             st.warning("Cree una planta en el Paso 1 primero.")
 
-    # PASO 3: AUTORIZAR PLANTA AL CLIENTE
     with st.expander("3️⃣ Compartir / Autorizar Planta (App Cliente)", expanded=False):
         st.write("Cree los accesos para que el usuario final visualice su sistema.")
         with st.form("f_usuario"):
@@ -506,9 +520,40 @@ elif menu == "🏢 Gestión de Portafolio":
     for i, pl in enumerate(plantas_guardadas):
         col_info, col_btn = st.columns([5, 1]) 
         with col_info:
-            # Ahora la tarjeta informativa tiene un estilo de fondo blanco para que resalte
             st.markdown(f"<div style='background: white; color: black; padding: 10px; border-radius: 5px;'><b>{pl['nombre']}</b> | {pl['ubicacion']} | Inversor: {pl['inversores']}</div>", unsafe_allow_html=True)
         with col_btn:
             if st.button("🗑️", key=f"del_btn_{i}", help="Borrar planta"):
                 eliminar_planta(i)
+                st.rerun()
+
+# ==========================================
+# VENTANA 5: CENTRO DE ALERTAS (NUEVO)
+# ==========================================
+elif menu == "🚨 Centro de Alertas":
+    st.title("🚨 CENTRO DE ALERTAS Y DIAGNÓSTICO")
+    st.markdown("**Monitor de fallos y notificaciones en tiempo real - CV INGENIERIA SAS**")
+    
+    if not plantas_guardadas:
+        st.info("No hay plantas registradas para monitorear.")
+    else:
+        alertas_totales = 0
+        
+        for pl in plantas_guardadas:
+            datos = obtener_datos_reales(pl)
+            
+            if datos.get("alertas"):
+                st.markdown(f"### 📍 Proyecto: {pl['nombre']} ({pl['ubicacion']})")
+                for alerta in datos["alertas"]:
+                    alertas_totales += 1
+                    if "Batería" in alerta:
+                        st.warning(alerta)
+                    elif "Red" in alerta:
+                        st.error(alerta)
+        
+        st.markdown("---")
+        if alertas_totales == 0:
+            st.success("✅ Excelente. Todos los sistemas están operando con normalidad. No hay alarmas activas en la red MQTT.")
+        else:
+            st.info(f"Se detectaron {alertas_totales} alerta(s) activa(s). Se recomienda revisar el histórico del inversor mediante Solarman Business o contactar al fabricante.")
+            if st.button("🔄 Refrescar Estado de Red"):
                 st.rerun()
