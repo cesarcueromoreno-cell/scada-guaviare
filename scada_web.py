@@ -289,7 +289,10 @@ if menu == "🌐 Panorama General":
             n_nom = c1.text_input("Nombre de la Planta")
             n_ubi = c2.text_input("Ubicación")
             n_cap = c1.text_input("Capacidad (Ej: 30 kWp)")
-            n_inv = c2.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Huawei", "Sylvania"])
+            
+            # ---> AQUÍ ESTÁ EL CAMBIO: Lista actualizada con Fronius <---
+            n_inv = c2.selectbox("Marca de Inversor", ["Deye", "Fronius", "GoodWe", "Huawei", "Sylvania"])
+            
             n_sn = st.text_input("SN del Datalogger")
             s1, s2 = st.columns(2)
             if s1.form_submit_button("💾 Guardar Nueva Planta"):
