@@ -21,7 +21,8 @@ except ImportError:
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y FONDO VISUAL
 # ==========================================
-st.set_page_config(page_title="Central CV Ingeniería", page_icon="⚡", layout="wide") 
+# NUEVO NOMBRE EN LA PESTAÑA DEL NAVEGADOR
+st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide") 
 
 st.markdown(
     """
@@ -69,7 +70,7 @@ st.markdown(
     }
 
     /* =========================================
-       NUEVO: DISEÑO "SORPRESA" DEL MENÚ LATERAL
+       DISEÑO "SORPRESA" DEL MENÚ LATERAL
        ========================================= */
     [data-testid="stSidebar"] {
         /* Degradado oscuro tecnológico (Midnight Blue a Slate) */
@@ -168,7 +169,10 @@ if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
 if not st.session_state["autenticado"]:
-    st.markdown("<h1 style='text-align: center;'>🔒 CENTRAL GESTIÓN DE PLANTAS</h1>", unsafe_allow_html=True)
+    # NUEVO NOMBRE EN LA PANTALLA DE LOGIN
+    st.markdown("<h1 style='text-align: center; font-size: 3.5rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
+    
     col1, col_centro, col2 = st.columns([1, 2, 1]) 
     with col_centro:
         with st.form("login_form"):
@@ -241,7 +245,8 @@ plantas_guardadas = cargar_plantas()
 # ==========================================
 # 3. NAVEGACIÓN PRINCIPAL
 # ==========================================
-st.sidebar.title("Navegación CV")
+# NUEVO NOMBRE EN EL MENÚ LATERAL
+st.sidebar.title("☀️ MOMISOLAR APP")
 rol_actual = "Instalador/Admin" if st.session_state.get('usuario_actual') == 'admin' else "Cliente"
 st.sidebar.write(f"👤 Usuario: **{st.session_state.get('usuario_actual', 'admin')}**\n\n🛡️ Rol: {rol_actual}")
 
@@ -251,15 +256,15 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
     st.rerun()
     
-# Cajíta con diseño especial
-st.sidebar.info("**CV INGENIERIA SAS**")
+# Identidad de la empresa
+st.sidebar.info("**POWERED BY:**\n\n**CV INGENIERIA SAS**")
 
 # ==========================================
 # VENTANA 1: PANORAMA GENERAL
 # ==========================================
 if menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL DEL PORTAFOLIO")
-    st.markdown("**Vista global rápida - CV INGENIERIA SAS**")
+    st.markdown("**MOMISOLAR APP - Vista global rápida**")
     
     if not plantas_guardadas:
         st.warning("No hay plantas registradas. Ve a Gestión para agregar una.")
@@ -312,7 +317,7 @@ if menu == "🌐 Panorama General":
 # ==========================================
 elif menu == "📊 Monitoreo Detallado":
     st.title("📊 MONITOREO DETALLADO POR PLANTA")
-    st.markdown("**Analiza el comportamiento individual (fetchData) - CV INGENIERIA SAS**")
+    st.markdown("**MOMISOLAR APP - Análisis de comportamiento**")
     
     if not plantas_guardadas:
         st.warning("No hay plantas registradas. Por favor, ve a Gestión para crear una.")
@@ -333,7 +338,6 @@ elif menu == "📊 Monitoreo Detallado":
         soc = datos_act["soc"]
         color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
 
-        # AQUÍ REGRESAMOS EL DIAGRAMA A 100% TRANSPARENTE
         diagrama_svg = f"""
         <div style="background: transparent; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
             <svg viewBox="0 0 400 350" width="100%">
@@ -422,7 +426,7 @@ elif menu == "📊 Monitoreo Detallado":
 # ==========================================
 elif menu == "⚙️ Control de Inversores":
     st.title("⚙️ PARAMETRIZACIÓN REMOTA AVANZADA")
-    st.markdown("**Control maestro de inversores - CV INGENIERIA SAS**")
+    st.markdown("**Control maestro de inversores - MOMISOLAR APP**")
     
     if st.session_state.get('usuario_actual') != 'admin':
         st.error("⛔ ACCESO DENEGADO")
@@ -485,7 +489,7 @@ elif menu == "⚙️ Control de Inversores":
 # ==========================================
 elif menu == "🏢 Gestión de Portafolio":
     st.title("🏢 CONFIGURACIÓN DE PROYECTOS")
-    st.markdown("**Asistente de Puesta en Marcha - CV INGENIERIA SAS**")
+    st.markdown("**Asistente de Puesta en Marcha - MOMISOLAR APP**")
     
     st.markdown("### 🛠️ Flujo de Creación y Autorización")
 
@@ -552,7 +556,7 @@ elif menu == "🏢 Gestión de Portafolio":
             if st.form_submit_button("✉️ Autorizar y Enviar Acceso"):
                 if n_usr and n_pwd:
                     guardar_usuario(n_usr, n_pwd)
-                    st.success(f"Permisos asignados. El cliente '{n_usr}' ya puede iniciar sesión en la app.")
+                    st.success(f"Permisos asignados. El cliente '{n_usr}' ya puede iniciar sesión en MOMISOLAR APP.")
                     time.sleep(2) 
                     st.rerun()
 
@@ -573,7 +577,7 @@ elif menu == "🏢 Gestión de Portafolio":
 # ==========================================
 elif menu == "🚨 Centro de Alertas":
     st.title("🚨 CENTRO DE ALERTAS Y DIAGNÓSTICO")
-    st.markdown("**Monitor de fallos y notificaciones en tiempo real - CV INGENIERIA SAS**")
+    st.markdown("**Monitor de fallos y notificaciones - MOMISOLAR APP**")
     
     if not plantas_guardadas:
         st.info("No hay plantas registradas para monitorear.")
@@ -596,6 +600,6 @@ elif menu == "🚨 Centro de Alertas":
         if alertas_totales == 0:
             st.success("✅ Excelente. Todos los sistemas están operando con normalidad. No hay alarmas activas en la red MQTT.")
         else:
-            st.info(f"Se detectaron {alertas_totales} alerta(s) activa(s). Se recomienda revisar el histórico del inversor mediante Solarman Business o contactar al fabricante.")
+            st.info(f"Se detectaron {alertas_totales} alerta(s) activa(s). Se recomienda revisar el histórico del inversor o contactar al fabricante.")
             if st.button("🔄 Refrescar Estado de Red"):
                 st.rerun()
