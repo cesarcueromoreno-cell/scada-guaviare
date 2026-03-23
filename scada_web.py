@@ -13,7 +13,7 @@ import time
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y ESTILO (CSS)
 # ==========================================
-st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide")
+st.set_page_config(page_title="MONISOLAR APP", page_icon="☀️", layout="wide")
 
 css_global = """
 <style>
@@ -211,7 +211,7 @@ if "edit" in st.query_params:
 # 4. LOGIN (PERFECTAMENTE VISIBLE)
 # ==========================================
 if not st.session_state["autenticado"]:
-    st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MONISOLAR APP</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: white !important;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     with col_l2:
@@ -248,7 +248,7 @@ if not st.session_state["autenticado"]:
 # 5. NAVEGACIÓN Y DATOS
 # ==========================================
 plantas = cargar_plantas()
-st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MOMISOLAR APP</h2>", unsafe_allow_html=True)
+st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MONISOLAR APP</h2>", unsafe_allow_html=True)
 st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Instalador/Admin' if st.session_state.get('rol') == 'admin' else 'Cliente'}")
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"])
 if st.sidebar.button("🚪 Cerrar Sesión"):
