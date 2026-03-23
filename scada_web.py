@@ -13,7 +13,7 @@ import time
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y ESTILO (CSS)
 # ==========================================
-st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide")
+st.set_page_config(page_title="MONISOLAR APP", page_icon="☀️", layout="wide")
 
 css_global = """
 <style>
