@@ -35,13 +35,16 @@ st.markdown(
     [data-testid="stHeader"] { 
         background: rgba(0,0,0,0); 
     }
-    [data-testid="stAppViewBlockContainer"] {
-        background-color: rgba(255, 255, 255, 0.92);
-        border-radius: 15px; 
-        padding: 2rem; 
-        margin-top: 20px;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    
+    /* CORRECCIÓN VISUAL: Forzamos la caja de fondo blanco para asegurar lectura perfecta */
+    .block-container, [data-testid="stMainBlockContainer"], div[data-testid="block-container"] {
+        background-color: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 15px !important; 
+        padding: 2rem !important; 
+        margin-top: 20px !important;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.3) !important;
     }
+
     .tarjeta-planta {
         background-color: #ffffff; 
         border-left: 5px solid #2ecc71;
@@ -338,7 +341,7 @@ elif menu == "📊 Monitoreo Detallado":
         )
 
 # ==========================================
-# VENTANA 3: CONTROL DE INVERSORES (ACTUALIZADO - SOLO ADMIN)
+# VENTANA 3: CONTROL DE INVERSORES
 # ==========================================
 elif menu == "⚙️ Control de Inversores":
     st.title("⚙️ PARAMETRIZACIÓN REMOTA AVANZADA")
@@ -358,7 +361,6 @@ elif menu == "⚙️ Control de Inversores":
             st.write(f"Inversor detectado: **{d['inversores']}** en {d['ubicacion']}")
             st.markdown("---")
             
-            # PESTAÑAS DE CONFIGURACIÓN PROFESIONAL
             tab_bat, tab_grid, tab_tou = st.tabs(["🔋 Baterías (BMS)", "⚡ Red y Normativa (Grid)", "🕒 Franjas Horarias (TOU)"])
             
             with tab_bat:
