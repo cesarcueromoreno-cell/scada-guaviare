@@ -36,17 +36,20 @@ st.markdown(
         background: rgba(0,0,0,0); 
     }
     
-    /* CORRECCIÓN VISUAL: Forzamos la caja de fondo blanco para asegurar lectura perfecta */
+    /* EFECTO CRISTAL (Glassmorphism): Deja ver el fondo difuminado pero resalta el texto */
     .block-container, [data-testid="stMainBlockContainer"], div[data-testid="block-container"] {
-        background-color: rgba(255, 255, 255, 0.95) !important;
+        background-color: rgba(255, 255, 255, 0.70) !important; /* Más transparente */
+        backdrop-filter: blur(8px) !important; /* Difumina el fondo para lectura perfecta */
+        -webkit-backdrop-filter: blur(8px) !important;
         border-radius: 15px !important; 
         padding: 2rem !important; 
         margin-top: 20px !important;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.3) !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+        border: 1px solid rgba(255, 255, 255, 0.4) !important;
     }
 
     .tarjeta-planta {
-        background-color: #ffffff; 
+        background-color: rgba(255, 255, 255, 0.85); 
         border-left: 5px solid #2ecc71;
         padding: 15px; 
         border-radius: 8px; 
@@ -258,7 +261,7 @@ elif menu == "📊 Monitoreo Detallado":
         color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
 
         diagrama_svg = f"""
-        <div style="background: transparent; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
+        <div style="background: rgba(255,255,255,0.8); border-radius: 15px; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
             <svg viewBox="0 0 400 350" width="100%">
                 <path d="M 100 85 V 150 H 170 M 300 85 V 150 H 230 M 170 150 H 100 V 230 M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
                 <circle r="6" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
