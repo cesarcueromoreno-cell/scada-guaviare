@@ -93,7 +93,8 @@ h1, h2, h3, h4, h5, p, span, div, label { color: #1c2434; font-family: 'Segoe UI
 .btn-volver:hover { color: #2d8cf0; }
 </style>
 """
-st.markdown(css_global, unsafe_allow_html=True)
+# CORRECCIÓN: Llamamos a la variable correcta (css_solarman)
+st.markdown(css_solarman, unsafe_allow_html=True)
 
 # ==========================================
 # 2. BASE DE DATOS Y ESTADO DE SESIÓN
@@ -171,7 +172,6 @@ menu_seleccionado = st.sidebar.radio("Navegación", menu_opciones, index=1)
 st.sidebar.markdown("---")
 st.sidebar.markdown("<div style='text-align:center; color:#c5c8ce; font-size:12px;'>POWERED BY<br><b>CV INGENIERÍA SAS</b></div>", unsafe_allow_html=True)
 
-
 if menu_seleccionado != "Monitor":
     st.info("Módulo en desarrollo para MOMISOLAR APP.")
     st.stop()
@@ -220,8 +220,6 @@ if st.session_state.vista_actual == "lista":
     for pl in plantas_guardadas:
         datos = obtener_datos_reales(pl)
         
-        # Para hacer el nombre clickable en Streamlit sin recargar toda la página feo, usamos un botón oculto o form.
-        # Aquí usamos columnas para simular la fila
         col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 0.7, 0.7, 1, 1, 1, 0.5])
         
         with col1:
@@ -251,7 +249,6 @@ elif st.session_state.vista_actual == "planta":
     planta = st.session_state.planta_seleccionada
     datos = obtener_datos_reales(planta)
     
-    # Extraer capacidad numérica para las gráficas
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
     cap_val = float(solo_numeros[0]) if solo_numeros else 5.0
@@ -286,11 +283,11 @@ elif st.session_state.vista_actual == "planta":
     </div>
     """, unsafe_allow_html=True)
 
-    # 6.4 LAYOUT PRINCIPAL DEL DASHBOARD (Gráfica Izquierda / Flujo Derecha)
+    # 6.4 LAYOUT PRINCIPAL DEL DASHBOARD
     col_izq, col_der = st.columns([7, 3])
     
     with col_izq:
-        # TARJETAS DE KPIs (Producción, Consumo, Batería)
+        # TARJETAS DE KPIs
         c1, c2 = st.columns([2, 1])
         with c1:
             st.markdown(f"""
@@ -331,7 +328,6 @@ elif st.session_state.vista_actual == "planta":
         st.markdown("<div style='background:white; padding:15px; border:1px solid #e8eaec; border-radius:4px;'>", unsafe_allow_html=True)
         df_historico = simular_historico_24h(cap_val)
         
-        # Invertir el consumo para que se vea hacia abajo (como en Solarman)
         df_historico["Consumo Negativo"] = df_historico["Consumo"] * -1
         
         fig = px.area(
@@ -350,7 +346,7 @@ elif st.session_state.vista_actual == "planta":
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col_der:
-        # PESTAÑAS LATERALES (Gráfico de flujo / Inversor / Alertas)
+        # PESTAÑAS LATERALES
         st.markdown("""
         <div style="display:flex; border-bottom:1px solid #e8eaec; margin-bottom:15px; background:white; padding-top:10px; border-radius:4px 4px 0 0; border:1px solid #e8eaec; border-bottom:none;">
             <div style="padding:10px 15px; color:#2d8cf0; border-bottom:2px solid #2d8cf0; font-weight:500; font-size:13px;">Gráfico de flujo</div>
@@ -398,7 +394,7 @@ elif st.session_state.vista_actual == "planta":
         """
         components.html(diagrama_svg, height=350)
         
-        # TARJETA DE BENEFICIOS AMBIENTALES (Abajo a la derecha)
+        # TARJETA DE BENEFICIOS AMBIENTALES
         st.markdown(f"""
         <div style="background:white; border:1px solid #e8eaec; border-radius:4px; padding:15px; margin-top:10px;">
             <div style="font-size:14px; font-weight:bold; color:#1c2434; margin-bottom:15px;">Beneficios ambientales y económicos</div>
