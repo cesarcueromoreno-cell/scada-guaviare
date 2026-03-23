@@ -23,6 +23,7 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide") 
 
+# CSS GLOBAL 
 css_global = """
 <style>
 /* FONDO DE LA APLICACIÓN */
@@ -140,16 +141,53 @@ ARCHIVO_PLANTAS = 'plantas.json'
 ARCHIVO_USUARIOS = 'usuarios.json'
 ARCHIVO_MANTENIMIENTOS = 'mantenimientos.json'
 
-# Funciones Usuarios
+# Funciones Usuarios (ACTUALIZADAS CON FLUJO DE APROBACIÓN)
 def cargar_usuarios():
+    # Nueva estructura: {"nombre": {"pwd": "...", "status": "active|pending", "role": "admin|viewer"}}
     if not os.path.exists(ARCHIVO_USUARIOS):
-        with open(ARCHIVO_USUARIOS, 'w') as f: json.dump({"admin": "solar123"}, f)
-    with open(ARCHIVO_USUARIOS, 'r') as f: return json.load(f)
+        with open(ARCHIVO_USUARIOS, 'w') as f: 
+            json.dump({"admin": {"pwd": "solar123", "status": "active", "role": "admin"}}, f)
+    
+    with open(ARCHIVO_USUARIOS, 'r') as f: 
+        db = json.load(f)
+        
+    # Migración de datos viejos si existen
+    datos_actualizados = False
+    for user, data in db.items():
+        if isinstance(data, str): # Estructura vieja {"user": "pwd"}
+            db[user] = {"pwd": data, "status": "active", "role": "viewer"}
+            datos_actualizados = True
+            
+    if datos_actualizados:
+        with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(db, f)
+            
+    return db
 
-def guardar_usuario(usuario, contrasena):
+def solicitar_usuario(usuario, contrasena):
+    # Crea un usuario en estado "pendiente" y rol visualizador
     usuarios = cargar_usuarios()
-    usuarios[usuario] = contrasena
-    with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(usuarios, f)
+    if usuario in usuarios:
+        return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
+    
+    usuarios[usuario] = {"pwd": contrasena, "status": "pending", "role": "viewer"}
+    with open(ARCHIVO_USUARIOS, 'w') as f: 
+        json.dump(usuarios, f)
+    return True, "✅ Solicitud enviada. Espere a que el Administrador de CV INGENIERÍA SAS apruebe su cuenta."
+
+def gestionar_solicitud(usuario, aprobar=True):
+    # Aprueba o rechaza una solicitud
+    usuarios = cargar_usuarios()
+    if usuario in usuarios and usuarios[usuario]["status"] == "pending":
+        if aprobar:
+            usuarios[usuario]["status"] = "active"
+            usuarios[usuario]["role"] = "viewer" # Rol por defecto para clientes
+        else:
+            del usuarios[usuario] # Rechazar es borrar la solicitud
+            
+        with open(ARCHIVO_USUARIOS, 'w') as f: 
+            json.dump(usuarios, f)
+        return True
+    return False
 
 # Funciones Plantas
 def cargar_plantas():
@@ -200,6 +238,10 @@ def eliminar_mantenimiento(planta, indice):
 # Autenticación
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
+if "usuario_actual" not in st.session_state:
+    st.session_state["usuario_actual"] = None
+if "rol_usuario" not in st.session_state:
+    st.session_state["rol_usuario"] = None
 
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 3.5rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
@@ -207,8 +249,7 @@ if not st.session_state["autenticado"]:
     
     col1, col_centro, col2 = st.columns([1, 2, 1]) 
     with col_centro:
-        # AQUI AGREGAMOS LAS PESTAÑAS DE LOGIN Y REGISTRO
-        tab_login, tab_registro = st.tabs(["🔑 Iniciar Sesión", "📝 Crear Cuenta"])
+        tab_login, tab_solicitud = st.tabs(["🔑 Iniciar Sesión COP", "📝 Solicitar Acceso COP"])
         
         with tab_login:
             with st.form("login_form"):
@@ -216,31 +257,37 @@ if not st.session_state["autenticado"]:
                 contrasena_input = st.text_input("🔑 Contraseña", type="password") 
                 if st.form_submit_button("Iniciar Sesión", use_container_width=True):
                     usuarios_bd = cargar_usuarios()
-                    if usuario_input in usuarios_bd and usuarios_bd[usuario_input] == contrasena_input:
-                        st.session_state["autenticado"] = True
-                        st.session_state["usuario_actual"] = usuario_input
-                        st.rerun() 
-                    else:
-                        st.error("❌ Credenciales incorrectas.")
+                    if usuario_input in usuarios_bd and usuarios_bd[usuario_input]["pwd"] == contrasena_input:
+                        user_data = usuarios_bd[usuario_input]
                         
-        with tab_registro:
-            with st.form("registro_form"):
-                st.write("Registra un nuevo usuario en la plataforma")
-                nuevo_usuario = st.text_input("👤 Nuevo Correo / Usuario")
-                nueva_contrasena = st.text_input("🔑 Nueva Contraseña", type="password")
+                        if user_data["status"] == "pending":
+                            st.warning("⚠️ Su cuenta aún está pendiente de aprobación por el Administrador.")
+                        else:
+                            st.session_state["autenticado"] = True
+                            st.session_state["usuario_actual"] = usuario_input
+                            st.session_state["rol_usuario"] = user_data["role"]
+                            st.rerun() 
+                    else:
+                        st.error("❌ Credenciales incorrectas o usuario no registrado.")
+                        
+        with tab_solicitud:
+            with st.form("solicitud_form"):
+                st.write("Complete los datos para solicitar su cuenta de acceso.")
+                nuevo_usuario = st.text_input("👤 Correo / Usuario Solicitado")
+                nueva_contrasena = st.text_input("🔑 Contraseña", type="password")
                 confirmar_contrasena = st.text_input("🔑 Confirmar Contraseña", type="password")
                 
-                if st.form_submit_button("Crear Cuenta", use_container_width=True):
-                    usuarios_bd = cargar_usuarios()
-                    if nuevo_usuario in usuarios_bd:
-                        st.error("⚠️ Este usuario ya existe.")
+                if st.form_submit_button("Enviar Solicitud de Registro", use_container_width=True):
+                    if not nuevo_usuario or not nueva_contrasena:
+                        st.error("⚠️ Complete todos los campos.")
                     elif nueva_contrasena != confirmar_contrasena:
                         st.error("⚠️ Las contraseñas no coinciden.")
-                    elif not nuevo_usuario or not nueva_contrasena:
-                        st.error("⚠️ Completa todos los campos.")
                     else:
-                        guardar_usuario(nuevo_usuario, nueva_contrasena)
-                        st.success("✅ Cuenta creada exitosamente. Ahora puedes iniciar sesión en la pestaña de al lado.")
+                        success, message = solicitar_usuario(nuevo_usuario, nueva_contrasena)
+                        if success:
+                            st.success(message)
+                        else:
+                            st.error(message)
     st.stop() 
 
 # --- MOTOR DE INTEGRACIÓN SOLARMAN ---
@@ -298,16 +345,31 @@ def simular_historico_24h(planta):
 plantas_guardadas = cargar_plantas()
 
 # ==========================================
-# 3. NAVEGACIÓN PRINCIPAL
+# 3. NAVEGACIÓN PRINCIPAL Y CONTROL DE ROLES
 # ==========================================
 st.sidebar.title("☀️ MOMISOLAR APP")
-rol_actual = "Instalador/Admin" if st.session_state.get('usuario_actual') == 'admin' else "Cliente"
-st.sidebar.write(f"👤 Usuario: **{st.session_state.get('usuario_actual', 'admin')}**\n\n🛡️ Rol: {rol_actual}")
+rol_actual = st.session_state["rol_usuario"]
+usuario_actual = st.session_state["usuario_actual"]
 
-menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Panel de Planta", "🏢 Gestión de Portafolio", "🚨 Centro de Alertas"])
+# Definir etiquetas de rol legibles
+etiqueta_rol = "Administrador COP" if rol_actual == "admin" else "Visualizador COP (Solo Lectura)"
+
+st.sidebar.write(f"👤 Usuario: **{usuario_actual}**\n\n🛡️ Rol: **{etiqueta_rol}**")
+
+# Definir menú base para todos
+opciones_menu = ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"]
+
+# Añadir opciones exclusivas de Admin
+if rol_actual == "admin":
+    opciones_menu.append("👥 Gestión de Usuarios")
+    opciones_menu.append("🏢 Gestión de Portafolio")
+
+menu = st.sidebar.radio("Ir a:", opciones_menu)
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
+    st.session_state["usuario_actual"] = None
+    st.session_state["rol_usuario"] = None
     st.rerun()
     
 st.sidebar.info("**POWERED BY:**\n\n**CV INGENIERIA SAS**")
@@ -371,7 +433,7 @@ if menu == "📊 Panel de Planta":
 # ==========================================
 if menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL DEL PORTAFOLIO")
-    st.markdown("**MOMISOLAR APP - Vista global rápida**")
+    st.markdown("**MOMISOLAR APP - Vista global rápida COP**")
     
     if not plantas_guardadas:
         st.warning("No hay plantas registradas. Ve a Gestión para agregar una.")
@@ -411,6 +473,20 @@ if menu == "🌐 Panorama General":
                     status_icon = "🔴"
                     alerta_html = f"<div style='position:absolute; top:5px; left:15px; background: #e74c3c; color:white; font-size:9px; padding: 2px 6px; border-radius:10px;'>{len(datos['alertas'])} Alertas</div>"
 
+                # Botones de acción ocultos para visualizadores
+                iconos_accion = ""
+                if rol_actual == "admin":
+                    iconos_accion = """
+<div style="display: flex; gap: 5px; width: 60px; flex-shrink: 0;">
+<img src="https://img.icons8.com/material-rounded/24/edit.png" style="width:18px; height:18px; cursor:pointer; opacity:0.6;"/>
+<img src="https://img.icons8.com/material-rounded/24/filled-trash.png" style="width:18px; height:18px; cursor:pointer; opacity:0.6;"/>
+</div>
+"""
+                else:
+                    iconos_accion = """
+<div style="width: 60px; flex-shrink: 0; color: #7f8c8d; font-size: 10px; text-align:center;">Solo Lectura</div>
+"""
+
                 fila_pro = f"""
 <div class="tarjeta-dash-pro" style="position:relative;">
 {alerta_html}
@@ -441,10 +517,7 @@ if menu == "🌐 Panorama General":
 <div class="tarjeta-label-pro">Producción Diaria</div>
 <div class="tarjeta-dato-pro" style="color: #27ae60 !important;">{datos['energia_diaria']} kWh</div>
 </div>
-<div style="display: flex; gap: 5px; width: 60px; flex-shrink: 0;">
-<img src="https://img.icons8.com/material-rounded/24/edit.png" style="width:18px; height:18px; cursor:pointer; opacity:0.6;"/>
-<img src="https://img.icons8.com/material-rounded/24/filled-trash.png" style="width:18px; height:18px; cursor:pointer; opacity:0.6;"/>
-</div>
+{iconos_accion}
 </div>
 """
                 st.markdown(fila_pro, unsafe_allow_html=True)
@@ -454,13 +527,14 @@ if menu == "🌐 Panorama General":
         if st.button("🔄 Actualizar Todo"): st.rerun()
 
 # ==========================================
-# VENTANA 2: PANEL DE PLANTA (WORKSPACE + O&M)
+# VENTANA 2: PANEL DE PLANTA (WORKSPACE CON BLOQUEO DE SOLO LECTURA)
 # ==========================================
 elif menu == "📊 Panel de Planta":
     
     if not plantas_guardadas:
         st.warning("No hay plantas registradas en el sistema.")
     else:
+        # Selector principal superior
         col_tit, col_sel = st.columns([2, 1])
         with col_sel:
             planta_sel = st.selectbox("Cambiar de Planta:", [p["nombre"] for p in plantas_guardadas], label_visibility="collapsed")
@@ -471,6 +545,7 @@ elif menu == "📊 Panel de Planta":
         st.markdown(f"<h2>{d['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>ID: {hashlib.md5(d['nombre'].encode()).hexdigest()[:8].upper()} | {estado_ico}</span></h2>", unsafe_allow_html=True)
         st.markdown("<hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
 
+        # MÉTRICAS SUPERIORES
         prod_solar = datos_act["energia_diaria"]
         consumo_sim = round(prod_solar * 0.45, 1)
         carga_bat = round(prod_solar * 0.2, 1)
@@ -488,7 +563,7 @@ elif menu == "📊 Panel de Planta":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        tab_monitor, tab_control, tab_reportes, tab_mantenimiento = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes y Datos", "🛠️ Agenda de Mantenimiento"])
+        tab_monitor, tab_control, tab_reportes, tab_mantenimiento = st.tabs(["📈 Panel Gráfico y Flujo COP", "⚙️ Control Remoto Inversor COP", "📄 Reportes y Datos COP", "🛠️ Agenda O&M COP"])
         
         with tab_monitor:
             col_grafica, col_flujo = st.columns([7, 3])
@@ -557,47 +632,51 @@ elif menu == "📊 Panel de Planta":
                 components.html(diagrama_svg, height=415)
 
         with tab_control:
-            if st.session_state.get('usuario_actual') != 'admin':
-                st.error("⛔ ACCESO DENEGADO")
-                st.warning("El control de parámetros es exclusivo para el Administrador de CV INGENIERIA SAS.")
+            st.info(f"⚙️ Visualizando configuración de inversor **{d['inversores']}** en '{d['nombre']}'.")
+            
+            # BLOQUEO DE SOLO LECTURA: Se deshabilitan los inputs para visualizadores
+            modo_lectura = (rol_actual != "admin")
+            
+            sub_t1, sub_t2, sub_t3 = st.tabs(["🔋 Parámetros BMS", "⚡ Red y Normativa", "🕒 Time of Use (TOU)"])
+            
+            with sub_t1:
+                col_b1, col_b2 = st.columns(2)
+                col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60, disabled=modo_lectura)
+                col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80, disabled=modo_lectura)
+                col_s1, col_s2, col_s3 = st.columns(3)
+                col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20, disabled=modo_lectura)
+                col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35, disabled=modo_lectura)
+                col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50, disabled=modo_lectura)
+
+            with sub_t2:
+                col_g1, col_g2 = st.columns(2)
+                col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"], disabled=modo_lectura)
+                col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0, disabled=modo_lectura)
+                col_v1, col_v2 = st.columns(2)
+                col_v1.number_input("Voltaje Máx. AC (V)", min_value=220, max_value=270, value=253, disabled=modo_lectura)
+                col_v2.number_input("Voltaje Mín. AC (V)", min_value=180, max_value=210, value=198, disabled=modo_lectura)
+
+            with sub_t3:
+                st.checkbox("Habilitar Carga desde la Red Eléctrica (Grid Charge)", disabled=modo_lectura)
+                col_t1, col_t2 = st.columns(2)
+                col_t1.time_input("Inicio de carga forzada", value=datetime.strptime("00:00", "%H:%M"), disabled=modo_lectura)
+                col_t2.time_input("Fin de carga forzada", value=datetime.strptime("05:00", "%H:%M"), disabled=modo_lectura)
+                st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100, disabled=modo_lectura)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Ocultar botón y mostrar advertencia para visualizadores
+            if modo_lectura:
+                st.warning("🔒 Modo solo lectura. No tiene permisos para modificar parámetros del inversor.")
             else:
-                st.info(f"⚙️ Configurando el inversor **{d['inversores']}** de la planta '{d['nombre']}'. Proceda con precaución.")
-                
-                sub_t1, sub_t2, sub_t3 = st.tabs(["🔋 Parámetros BMS", "⚡ Red y Normativa", "🕒 Time of Use (TOU)"])
-                
-                with sub_t1:
-                    col_b1, col_b2 = st.columns(2)
-                    col_b1.number_input("Max Corriente Carga (A)", min_value=10, max_value=150, value=60)
-                    col_b2.number_input("Max Corriente Descarga (A)", min_value=10, max_value=150, value=80)
-                    col_s1, col_s2, col_s3 = st.columns(3)
-                    col_s1.number_input("SOC Parada (Shutdown %)", min_value=5, max_value=40, value=20)
-                    col_s2.number_input("SOC Alarma (Low Warn %)", min_value=10, max_value=50, value=35)
-                    col_s3.number_input("SOC Reinicio (Restart %)", min_value=20, max_value=100, value=50)
-
-                with sub_t2:
-                    col_g1, col_g2 = st.columns(2)
-                    col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
-                    col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0)
-                    col_v1, col_v2 = st.columns(2)
-                    col_v1.number_input("Voltaje Máx. AC (V)", min_value=220, max_value=270, value=253)
-                    col_v2.number_input("Voltaje Mín. AC (V)", min_value=180, max_value=210, value=198)
-
-                with sub_t3:
-                    st.checkbox("Habilitar Carga desde la Red Eléctrica (Grid Charge)")
-                    col_t1, col_t2 = st.columns(2)
-                    col_t1.time_input("Inicio de carga forzada", value=datetime.strptime("00:00", "%H:%M"))
-                    col_t2.time_input("Fin de carga forzada", value=datetime.strptime("05:00", "%H:%M"))
-                    st.slider("SOC Objetivo para carga desde la red (%)", min_value=10, max_value=100, value=100)
-
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("🚀 Escribir Parámetros al Datalogger", use_container_width=True):
-                    with st.spinner("Conectando con el equipo remoto..."):
+                if st.button("🚀 Guardar y Enviar Parámetros (writeRegisters)", use_container_width=True):
+                    with st.spinner("Conectando con el datalogger remoto P2P..."):
                         time.sleep(2)
-                    st.success("¡Parámetros actualizados exitosamente!")
+                    st.success("¡Nuevos parámetros escritos exitosamente en el inversor!")
 
         with tab_reportes:
             st.markdown("### 📄 Descarga de Datos en Bruto")
-            st.write("Exporte las métricas del día actual para auditoría o informes al cliente.")
+            st.write("Exporte las métricas del día actual para auditoría COP.")
             
             fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             datos_informe = {
@@ -614,33 +693,43 @@ elif menu == "📊 Panel de Planta":
             )
 
         with tab_mantenimiento:
-            st.markdown("<h3 style='color:#2c3e50;'>📅 Agenda de O&M (Operación y Mantenimiento)</h3>", unsafe_allow_html=True)
-            st.write("Programe y lleve el control del servicio técnico y garantías para esta instalación.")
+            st.markdown("<h3 style='color:#2c3e50;'>📅 Agenda de O&M COP</h3>", unsafe_allow_html=True)
+            st.write("Programe y lleve el control del servicio técnico COP para esta instalación.")
             
-            with st.form("f_mant"):
-                mc1, mc2, mc3 = st.columns([2, 1, 1])
-                m_tipo = mc1.selectbox("Tipo de Tarea", ["💦 Limpieza de Paneles", "🔋 Revisión de Banco de Baterías", "🔌 Mantenimiento Preventivo Inversor", "🔎 Inspección Eléctrica General", "🔧 Corrección de Fallo por Garantía"])
-                m_fecha = mc2.date_input("Fecha Programada")
-                m_resp = mc3.text_input("Técnico a Cargo", placeholder="Ej: Carlos M.")
-                m_notas = st.text_input("Observaciones o Materiales Necesarios", placeholder="Ej: Llevar hidrolavadora, escalera de 3m y EPP...")
-                
-                if st.form_submit_button("➕ Agendar Mantenimiento", use_container_width=True):
-                    guardar_mantenimiento(d['nombre'], {"fecha": str(m_fecha), "tipo": m_tipo, "resp": m_resp, "notas": m_notas, "estado": "⏳ Pendiente"})
-                    st.success("¡Tarea de mantenimiento agendada exitosamente!")
-                    time.sleep(1.5)
-                    st.rerun()
+            # Ocultar formulario de agendar para visualizadores
+            if modo_lectura:
+                st.info("🔒 Modo solo lectura. Puede visualizar la agenda pero no agregar tareas ni marcar completados.")
+            else:
+                with st.form("f_mant"):
+                    mc1, mc2, mc3 = st.columns([2, 1, 1])
+                    m_tipo = mc1.selectbox("Tipo de Tarea", ["💦 Limpieza de Paneles", "🔋 Revisión de Banco de Baterías", "🔌 Mantenimiento Preventivo Inversor", "🔎 Inspección Eléctrica General", "🔧 Corrección de Fallo por Garantía"])
+                    m_fecha = mc2.date_input("Fecha Programada")
+                    m_resp = mc3.text_input("Técnico a Cargo", placeholder="Ej: Carlos M.")
+                    m_notas = st.text_input("Observaciones o Materiales Necesarios", placeholder="Ej: Llevar hidrolavadora...")
+                    
+                    if st.form_submit_button("➕ Agendar Mantenimiento", use_container_width=True):
+                        guardar_mantenimiento(d['nombre'], {"fecha": str(m_fecha), "tipo": m_tipo, "resp": m_resp, "notas": m_notas, "estado": "⏳ Pendiente"})
+                        st.success("¡Tarea de mantenimiento agendada exitosamente!")
+                        time.sleep(1.5)
+                        st.rerun()
             
-            st.markdown("<br><h4>📋 Historial de Servicios</h4>", unsafe_allow_html=True)
-            mants = cargar_mantenimientos().get(d['nombre'], [])
+            st.markdown("<br><h4>📋 Historial de Servicios COP</h4>", unsafe_allow_html=True)
+            mantenimientos_raw = cargar_mantenimientos().get(d['nombre'], [])
             
-            if not mants:
+            if not mantenimientos_raw:
                 st.info("Aún no hay mantenimientos programados para esta planta.")
             else:
-                for i, m in enumerate(reversed(mants)):
-                    real_idx = len(mants) - 1 - i
+                # Mostrar los más recientes arriba
+                for i, m in enumerate(reversed(mantenimientos_raw)):
+                    real_idx = len(mantenimientos_raw) - 1 - i
                     
                     st.markdown("<div style='background:white; padding:15px; border-radius:8px; border:1px solid #eaeaea; margin-bottom:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>", unsafe_allow_html=True)
-                    col_det, col_est, col_acc = st.columns([5, 2, 1])
+                    
+                    # Columnas ajustadas según el rol
+                    if modo_lectura:
+                        col_det, col_est = st.columns([6, 2])
+                    else:
+                        col_det, col_est, col_acc = st.columns([5, 2, 1])
                     
                     with col_det:
                         st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#2c3e50;'>{m['tipo']}</div><div style='font-size:13px; color:#7f8c8d; margin-top:5px;'>📅 Fecha: {m['fecha']} &nbsp;|&nbsp; 👨‍🔧 Responsable: {m['resp']} <br> 📝 Notas: {m['notas']}</div>", unsafe_allow_html=True)
@@ -651,101 +740,60 @@ elif menu == "📊 Panel de Planta":
                         else:
                             st.success(m['estado'])
                             
-                    with col_acc:
-                        if m['estado'] == "⏳ Pendiente":
-                            if st.button("✅ Completar", key=f"btn_ok_{real_idx}_{d['nombre']}", help="Marcar como completado"):
-                                actualizar_estado_mantenimiento(d['nombre'], real_idx, "✅ Completado")
+                    # Ocultar botones de acción para visualizadores
+                    if not modo_lectura:
+                        with col_acc:
+                            if m['estado'] == "⏳ Pendiente":
+                                if st.button("✅ Ok", key=f"btn_ok_{real_idx}_{d['nombre']}", help="Marcar como completado"):
+                                    actualizar_estado_mantenimiento(d['nombre'], real_idx, "✅ Completado")
+                                    st.rerun()
+                            if st.button("🗑️", key=f"btn_del_{real_idx}_{d['nombre']}", help="Eliminar registro"):
+                                eliminar_mantenimiento(d['nombre'], real_idx)
                                 st.rerun()
-                        if st.button("🗑️ Borrar", key=f"btn_del_{real_idx}_{d['nombre']}", help="Eliminar registro"):
-                            eliminar_mantenimiento(d['nombre'], real_idx)
-                            st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
-# VENTANA 3: GESTIÓN DE PORTAFOLIO Y USUARIOS
+# VENTANA 3: GESTIÓN DE PORTAFOLIO (ADMIN SOLO)
 # ==========================================
 elif menu == "🏢 Gestión de Portafolio":
+    # Doble check de seguridad
+    if rol_actual != "admin":
+        st.error("⛔ ACCESO DENEGADO")
+        st.stop()
+
     st.title("🏢 CONFIGURACIÓN DE PROYECTOS")
-    st.markdown("**Asistente de Puesta en Marcha - MOMISOLAR APP**")
+    st.markdown("**Asistente de Puesta en Marcha COP**")
     
-    st.markdown("### 🛠️ Flujo de Creación y Autorización")
+    st.markdown("### 🛠️ Flujo de Creación COP")
 
     with st.expander("1️⃣ Crear Proyecto (Añadir Planta)", expanded=False):
-        st.write("Complete los datos técnicos del nuevo sistema solar.")
+        st.write("Complete los datos técnicos del nuevo sistema solar COP.")
         with st.form("f_planta"):
             c1, c2 = st.columns(2)
             n_nom = c1.text_input("Nombre de la Planta")
             n_tipo = c2.selectbox("Tipo de Planta", ["Residencial", "Comercial e Industrial", "Off-Grid"])
-            
-            c3, c4 = st.columns(2)
-            n_ubi = c3.text_input("Ubicación (Ciudad/Región)")
-            n_tz = c4.selectbox("Zona Horaria y Moneda", ["GMT-5 (Bogotá) - Moneda: COP", "GMT-5 (Lima) - Moneda: USD"])
-
-            n_inv = c3.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"])
-            n_cap = c4.text_input("Capacidad (kWp)")
-            
-            st.markdown("---")
-            c5, c6 = st.columns(2)
-            n_b_m = c5.selectbox("Marca de Batería", ["Ninguna", "Pylontech", "Deye", "BYD", "Trojan", "Sylvania"])
-            n_b_t = c6.selectbox("Tecnología de Batería", ["Litio (LiFePO4)", "Plomo-Ácido", "AGM", "Gel"])
+            n_ubi = st.text_input("Ubicación (Ciudad/Región)")
+            n_inv = st.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Huawei", "Sylvania"])
+            n_cap = st.text_input("Capacidad (kWp)")
             
             if st.form_submit_button("💾 Crear Planta (createPlant)"):
                 if n_nom:
                     guardar_planta({
                         "nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, 
-                        "inversores": n_inv, "datalogger": "Pendiente", "bat_marca": n_b_m, "bat_tipo": n_b_t
+                        "inversores": n_inv, "status": "active"
                     })
-                    st.success("Planta creada exitosamente en el Data Center local.")
-                    st.rerun()
-
-    with st.expander("2️⃣ Vincular Datalogger y Configurar Red", expanded=False):
-        st.write("Asocie el hardware de comunicación a la planta creada.")
-        if plantas_guardadas:
-            p_sel = st.selectbox("Seleccione la Planta:", [p["nombre"] for p in plantas_guardadas])
-            sn_logger = st.text_input("Número de Serie (SN) del Datalogger o QR:")
-            
-            st.markdown("#### Configuración Wi-Fi (Hotspot del Inversor)")
-            cw1, cw2 = st.columns(2)
-            cw1.text_input("SSID de la Red Local")
-            cw2.text_input("Contraseña de la Red Local", type="password")
-            
-            if st.button("📡 Vincular y Conectar (bindDevice & connect)", use_container_width=True):
-                with st.spinner("Conectando al hotspot... asignando DHCP y enlazando SN..."):
-                    time.sleep(3)
-                st.success(f"Datalogger {sn_logger} vinculado a la planta '{p_sel}'. Sincronización en curso.")
-                st.info("Por favor espere de 5 a 10 minutos para la validación (fetchData).")
-        else:
-            st.warning("Cree una planta en el Paso 1 primero.")
-
-    with st.expander("3️⃣ Compartir / Autorizar Planta (App Cliente)", expanded=False):
-        st.write("Cree los accesos para que el usuario final visualice su sistema.")
-        with st.form("f_usuario"):
-            n_usr = st.text_input("Correo electrónico del Cliente")
-            n_pwd = st.text_input("Contraseña de acceso temporal", type="password")
-            
-            if plantas_guardadas:
-                p_auth = st.selectbox("Autorizar visualización de la Planta:", ["Todas (Rol Instalador/Admin)"] + [p["nombre"] for p in plantas_guardadas])
-            else:
-                p_auth = st.selectbox("Autorizar visualización de la Planta:", ["Ninguna disponible"])
-                
-            permiso = st.selectbox("Nivel de Permiso", ["Solo Lectura (Invitado)", "Edición y Control (Propietario)"])
-            
-            if st.form_submit_button("✉️ Autorizar y Enviar Acceso"):
-                if n_usr and n_pwd:
-                    guardar_usuario(n_usr, n_pwd)
-                    st.success(f"Permisos asignados. El cliente '{n_usr}' ya puede iniciar sesión en MOMISOLAR APP.")
-                    time.sleep(2) 
+                    st.success("Planta creada exitosamente COP.")
                     st.rerun()
 
     st.markdown("---")
-    st.markdown("### 📋 Directorio de Plantas Activas")
+    st.markdown("### 📋 Directorio de Plantas Activas COP")
     
     for i, pl in enumerate(plantas_guardadas):
         col_info, col_btn = st.columns([5, 1]) 
         with col_info:
-            st.markdown(f"<div style='background: white; color: black; padding: 10px; border-radius: 5px;'><b>{pl['nombre']}</b> | {pl['ubicacion']} | Inversor: {pl['inversores']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background: white; color: black; padding: 10px; border-radius: 5px; border: 1px solid #eaeaea;'><b>{pl['nombre']}</b> | {pl['ubicacion']} | {pl['capacidad']} | Inversor: {pl['inversores']}</div>", unsafe_allow_html=True)
         with col_btn:
-            if st.button("🗑️", key=f"del_btn_{i}", help="Borrar planta"):
+            if st.button("🗑️", key=f"del_pl_{i}", help="Borrar planta"):
                 eliminar_planta(i)
                 st.rerun()
 
@@ -753,30 +801,85 @@ elif menu == "🏢 Gestión de Portafolio":
 # VENTANA 4: CENTRO DE ALERTAS
 # ==========================================
 elif menu == "🚨 Centro de Alertas":
-    st.title("🚨 CENTRO DE ALERTAS Y DIAGNÓSTICO")
-    st.markdown("**Monitor de fallos y notificaciones - MOMISOLAR APP**")
+    st.title("🚨 CENTRO DE ALERTAS Y DIAGNÓSTICO COP")
+    st.markdown("**Monitor de fallos y notificaciones COP**")
     
     if not plantas_guardadas:
-        st.info("No hay plantas registradas para monitorear.")
+        st.info("No hay plantas registradas COP.")
     else:
         alertas_totales = 0
-        
         for pl in plantas_guardadas:
             datos = obtener_datos_reales(pl)
-            
             if datos.get("alertas"):
-                st.markdown(f"### 📍 Proyecto: {pl['nombre']} ({pl['ubicacion']})")
+                st.markdown(f"### 📍 Proyecto: {pl['nombre']}")
                 for alerta in datos["alertas"]:
                     alertas_totales += 1
                     if "Batería" in alerta:
                         st.warning(alerta)
-                    elif "Red" in alerta:
+                    else:
                         st.error(alerta)
         
         st.markdown("---")
         if alertas_totales == 0:
-            st.success("✅ Excelente. Todos los sistemas están operando con normalidad. No hay alarmas activas en la red MQTT.")
+            st.success("✅ Excelente. Todos los sistemas están operando con normalidad COP.")
         else:
-            st.info(f"Se detectaron {alertas_totales} alerta(s) activa(s). Se recomienda revisar el histórico del inversor o contactar al fabricante.")
-            if st.button("🔄 Refrescar Estado de Red"):
+            if st.button("🔄 Refrescar COP"):
                 st.rerun()
+
+# ==========================================
+# VENTANA 5: GESTIÓN DE USUARIOS (ADMIN SOLO - NUEVA)
+# ==========================================
+elif menu == "👥 Gestión de Usuarios":
+    # Check de seguridad
+    if rol_actual != "admin":
+        st.error("⛔ ACCESO DENEGADO")
+        st.stop()
+
+    st.title("👥 GESTIÓN DE USUARIOS Y AUTORIZACIONES COP")
+    st.markdown("**Administrador de accesos de CV INGENIERÍA SAS**")
+    
+    db_usuarios = cargar_usuarios()
+    
+    # Separar usuarios activos y pendientes
+    pendientes = [(u, d) for u, d in db_usuarios.items() if d["status"] == "pending"]
+    activos = [(u, d) for u, d in db_usuarios.items() if d["status"] == "active"]
+    
+    # 1. Panel de Solicitudes Pendientes
+    st.markdown("### 📋 Solicitudes de Registro Pendientes COP")
+    if not pendientes:
+        st.success("✅ No hay solicitudes pendientes de aprobación por COP.")
+    else:
+        st.markdown(f"Hay **{len(pendientes)}** solicitud(es) esperando autorización COP.")
+        
+        for i, (user, data) in enumerate(pendientes):
+            st.markdown(f"<div style='background:white; padding:15px; border-radius:8px; border:1px solid #e0e0e0; margin-bottom:10px;'>", unsafe_allow_html=True)
+            c1, c2, c3 = st.columns([4, 1, 1])
+            with c1:
+                st.markdown(f"<b style='color:#2c3e50;'>{user}</b> solicita acceso como Visualizador COP.")
+            with c2:
+                if st.button("✅ Aprobar", key=f"app_{i}", use_container_width=True):
+                    gestionar_solicitud(user, aprobar=True)
+                    st.success(f"Usuario {user} aprobado.")
+                    time.sleep(1)
+                    st.rerun()
+            with c3:
+                if st.button("❌ Rechazar", key=f"rej_{i}", use_container_width=True):
+                    gestionar_solicitud(user, aprobar=False)
+                    st.info(f"Solicitud de {user} eliminada.")
+                    time.sleep(1)
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    
+    # 2. Panel de Usuarios Activos
+    st.markdown("### 👥 Usuarios Autorizados Activos COP")
+    st.write("Visualizadores tienen acceso de solo lectura COP. Admin tiene control total.")
+    
+    # Convertir a DataFrame para visualización más limpia
+    df_activos = pd.DataFrame([
+        {"Usuario COP": u, "Rol COP": "Administrador" if d["role"]=="admin" else "Visualizador", "Estado COP": "Activo"}
+        for u, d in activos
+    ])
+    
+    st.dataframe(df_activos, use_container_width=True)
