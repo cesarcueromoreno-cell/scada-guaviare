@@ -71,14 +71,13 @@ div[data-testid="stButton"] button[kind="secondary"] {
 st.markdown(css_global, unsafe_allow_html=True)
 
 # ==========================================
-# 2. BLINDAJE DE VARIABLES DE SESIÓN (NUNCA MÁS KEYERROR)
+# 2. BLINDAJE DE VARIABLES DE SESIÓN
 # ==========================================
 if "autenticado" not in st.session_state: st.session_state["autenticado"] = False
 if "usuario" not in st.session_state: st.session_state["usuario"] = None
 if "rol" not in st.session_state: st.session_state["rol"] = None
 if "editando_planta" not in st.session_state: st.session_state["editando_planta"] = None
 
-# Si hay una sesión corrupta o vieja, cerramos sesión por seguridad
 if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
@@ -98,27 +97,64 @@ def cargar_usuarios():
         with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(db, f)
     return db
 
+def solicitar_usuario(usuario, contrasena):
+    usuarios = cargar_usuarios()
+    if usuario in usuarios:
+        return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
+    
+    usuarios[usuario] = {"pwd": contrasena, "status": "pending", "role": "viewer"}
+    with open(ARCHIVO_USUARIOS, 'w') as f: 
+        json.dump(usuarios, f)
+    return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
+
 def cargar_plantas():
     if not os.path.exists(ARCHIVO_PLANTAS):
         inicial = [{"nombre": "cancha las malvinas off grid", "ubicacion": "Barranquilla", "capacidad": "30 kWp", "inversores": "Deye", "datalogger": "2412120039"}]
         with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(inicial, f)
     with open(ARCHIVO_PLANTAS, 'r') as f: return json.load(f)
 
-# --- LOGIN ---
+# --- LOGIN (AHORA CON "CREAR USUARIO" RESTAURADO) ---
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: white !important;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     with col_l2:
+        # Formulario de Inicio de Sesión
         with st.form("login"):
-            u = st.text_input("Usuario")
-            p = st.text_input("Contraseña", type="password")
+            st.markdown("<div style='color:white; font-weight:bold; font-size:14px; text-shadow: 1px 1px 3px black;'>Usuario</div>", unsafe_allow_html=True)
+            u = st.text_input("Usuario", label_visibility="collapsed")
+            st.markdown("<div style='color:white; font-weight:bold; font-size:14px; margin-top:10px; text-shadow: 1px 1px 3px black;'>Contraseña</div>", unsafe_allow_html=True)
+            p = st.text_input("Contraseña", type="password", label_visibility="collapsed")
+            st.markdown("<br>", unsafe_allow_html=True)
+            
             if st.form_submit_button("Iniciar Sesión", use_container_width=True):
                 db = cargar_usuarios()
                 if u in db and db[u]["pwd"] == p:
-                    st.session_state.update({"autenticado": True, "usuario": u, "rol": db[u]["role"]})
-                    st.rerun()
-                else: st.error("Error de acceso")
+                    if db[u].get("status") == "pending":
+                        st.warning("⚠️ Su cuenta aún está pendiente de aprobación por el Administrador.")
+                    else:
+                        st.session_state.update({"autenticado": True, "usuario": u, "rol": db[u]["role"]})
+                        st.rerun()
+                else: 
+                    st.error("❌ Credenciales incorrectas o usuario no registrado.")
+        
+        # Formulario de Solicitud (Crear Usuario)
+        with st.expander("¿No tienes cuenta? Solicita acceso aquí"):
+            with st.form("solicitud_form"):
+                nuevo_usuario = st.text_input("👤 Correo / Usuario Solicitado")
+                nueva_contrasena = st.text_input("🔑 Contraseña", type="password")
+                confirmar_contrasena = st.text_input("🔑 Confirmar Contraseña", type="password")
+                if st.form_submit_button("Enviar Solicitud", use_container_width=True):
+                    if not nuevo_usuario or not nueva_contrasena:
+                        st.error("⚠️ Complete todos los campos.")
+                    elif nueva_contrasena != confirmar_contrasena:
+                        st.error("⚠️ Las contraseñas no coinciden.")
+                    else:
+                        success, message = solicitar_usuario(nuevo_usuario, nueva_contrasena)
+                        if success: 
+                            st.success(message)
+                        else: 
+                            st.error(message)
     st.stop()
 
 # ==========================================
@@ -242,7 +278,6 @@ elif menu == "📊 Panel de Planta":
                 cb5.number_input("* Desconexión %", 10)
 
             with st_mo1:
-                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
                 m1, m2, m3, m4, m5 = st.columns(5)
                 m1.selectbox("* Modo", ["Autoconsumo", "Respaldo"])
                 with m2:
@@ -258,7 +293,7 @@ elif menu == "📊 Panel de Planta":
             with st_red:
                 st.markdown("🔒 **Introduzca la contraseña para desbloquear**")
                 st.text_input("Password", type="password", label_visibility="collapsed")
-                st.button("Desbloquear", type="secondary") # Botón blanco con borde azul para desbloquear
+                st.button("Desbloquear", type="secondary") 
 
             with st_smart:
                 st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
@@ -278,7 +313,6 @@ elif menu == "📊 Panel de Planta":
                 a1.selectbox("* Configuración ARC", opts_sel)
                 a2.number_input("* Potencia de reducción de picos (W)", 1000)
 
-            # PESTAÑA FUNCIONES AVANZADAS-2 (TURBINA EÓLICA)
             with st_av2:
                 st.markdown("<h4>Funciones Avanzadas-2</h4>", unsafe_allow_html=True)
                 st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
@@ -287,7 +321,6 @@ elif menu == "📊 Panel de Planta":
                 with av_col1:
                     st.selectbox("* DC 1 para turbina eólica", ["Seleccione", "Habilitado", "Deshabilitado"])
         
-            # BOTONES INFERIORES AZULES
             st.markdown("<br><hr style='margin:10px 0;'>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns([6, 2, 2])
             with b_col2:
