@@ -240,7 +240,6 @@ st.sidebar.title("☀️ MOMISOLAR APP")
 rol_actual = "Instalador/Admin" if st.session_state.get('usuario_actual') == 'admin' else "Cliente"
 st.sidebar.write(f"👤 Usuario: **{st.session_state.get('usuario_actual', 'admin')}**\n\n🛡️ Rol: {rol_actual}")
 
-# Se consolidaron los menús porque "Control de Inversores" ahora vive DENTRO del Panel de Planta
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Panel de Planta", "🏢 Gestión de Portafolio", "🚨 Centro de Alertas"])
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
@@ -429,7 +428,6 @@ elif menu == "📊 Panel de Planta":
                 st.markdown("</div>", unsafe_allow_html=True)
 
             with col_flujo:
-                # Diagrama de flujo ajustado para fondo blanco
                 pot_solar = datos_act["solar"]
                 pot_casa = datos_act["casa"]
                 pot_bat = pot_solar - pot_casa
@@ -475,7 +473,6 @@ elif menu == "📊 Panel de Planta":
                 components.html(diagrama_svg, height=415)
 
         with tab_control:
-            # AQUÍ VIVE AHORA EL CONTROL MAESTRO DE INVERSORES
             if st.session_state.get('usuario_actual') != 'admin':
                 st.error("⛔ ACCESO DENEGADO")
                 st.warning("El control de parámetros es exclusivo para el Administrador de CV INGENIERIA SAS.")
@@ -521,7 +518,7 @@ elif menu == "📊 Panel de Planta":
             fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             datos_informe = {
                 "Fecha Consulta": [fecha_hora_actual], "Planta": [d['nombre']],
-                "Capacidad": [d['capacidad']], "Batería SOC (%)": [soc_actual],
+                "Capacidad": [d['capacidad']], "Batería SOC (%)": [datos_act['soc']],
                 "Producción Diaria (kWh)": [prod_solar]
             }
             df_informe = pd.DataFrame(datos_informe)
