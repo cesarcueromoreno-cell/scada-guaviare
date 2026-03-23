@@ -343,7 +343,8 @@ st.sidebar.title("☀️ MOMISOLAR APP")
 rol_actual = st.session_state["rol_usuario"]
 usuario_actual = st.session_state["usuario_actual"]
 
-etiqueta_rol = "Administrador" if rol_actual == "admin" else "Visualizador (Solo Lectura)"
+# CORRECCIÓN DE ETIQUETA: Regresa a "Instalador/Admin" o "Cliente"
+etiqueta_rol = "Instalador/Admin" if rol_actual == "admin" else "Cliente"
 
 st.sidebar.write(f"👤 Usuario: **{usuario_actual}**\n\n🛡️ Rol: **{etiqueta_rol}**")
 
@@ -391,10 +392,6 @@ if menu == "📊 Panel de Planta":
         color: #2c3e50 !important;
     }
 
-    /* ==========================================
-       REPARACIÓN DEFINITIVA DE LAS PESTAÑAS (st.tabs)
-       ========================================== */
-    
     /* Limpiar la lista contenedora de pestañas */
     div[data-testid="stTabs"] > div[data-baseweb="tab-list"] {
         background-color: transparent !important;
@@ -407,7 +404,7 @@ if menu == "📊 Panel de Planta":
     div[data-testid="stTabs"] button[data-baseweb="tab"] span, 
     div[data-testid="stTabs"] button[data-baseweb="tab"] div {
         color: #7f8c8d !important;
-        text-shadow: none !important; /* <--- ADIÓS SOMBRA */
+        text-shadow: none !important; 
         font-weight: 600 !important;
         font-size: 16px !important;
     }
@@ -416,13 +413,13 @@ if menu == "📊 Panel de Planta":
     div[data-testid="stTabs"] button[data-baseweb="tab"] {
         background-color: transparent !important;
         border: none !important;
-        border-bottom: 3px solid transparent !important; /* Preparar espacio para la línea */
+        border-bottom: 3px solid transparent !important; 
         border-radius: 0 !important;
         box-shadow: none !important;
         padding-bottom: 10px !important;
     }
     
-    /* Estilo de la pestaña ACTIVA (Línea roja abajo y texto negro) */
+    /* Estilo de la pestaña ACTIVA */
     div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
         border-bottom: 3px solid #e74c3c !important; /* Línea roja */
     }
@@ -431,8 +428,6 @@ if menu == "📊 Panel de Planta":
     div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] div {
         color: #2c3e50 !important; /* Texto negro */
     }
-
-    /* ========================================== */
 
     .solarval-blue { color: #3498db !important; }
     .solarval-orange { color: #e67e22 !important; }
@@ -547,7 +542,7 @@ if menu == "🌐 Panorama General":
         if st.button("🔄 Actualizar Todo"): st.rerun()
 
 # ==========================================
-# VENTANA 2: PANEL DE PLANTA (OCULTANDO PESTAÑAS SEGÚN ROL Y REPARANDO SOMBRA)
+# VENTANA 2: PANEL DE PLANTA
 # ==========================================
 elif menu == "📊 Panel de Planta":
     
@@ -861,7 +856,7 @@ elif menu == "👥 Gestión de Usuarios":
             st.markdown(f"<div style='background:white; padding:15px; border-radius:8px; border:1px solid #e0e0e0; margin-bottom:10px;'>", unsafe_allow_html=True)
             c1, c2, c3 = st.columns([4, 1, 1])
             with c1:
-                st.markdown(f"<b style='color:#2c3e50;'>{user}</b> solicita acceso como Visualizador.")
+                st.markdown(f"<b style='color:#2c3e50;'>{user}</b> solicita acceso como Cliente.")
             with c2:
                 if st.button("✅ Aprobar", key=f"app_{i}", use_container_width=True):
                     gestionar_solicitud(user, aprobar=True)
@@ -878,10 +873,10 @@ elif menu == "👥 Gestión de Usuarios":
 
     st.markdown("---")
     st.markdown("### 👥 Usuarios Autorizados Activos")
-    st.write("Visualizadores tienen acceso de solo lectura. Admin tiene control total.")
+    st.write("Clientes tienen acceso de solo lectura. Admin tiene control total.")
     
     df_activos = pd.DataFrame([
-        {"Usuario": u, "Rol": "Administrador" if d["role"]=="admin" else "Visualizador", "Estado": "Activo"}
+        {"Usuario": u, "Rol": "Instalador/Admin" if d["role"]=="admin" else "Cliente", "Estado": "Activo"}
         for u, d in activos
     ])
     st.dataframe(df_activos, use_container_width=True)
