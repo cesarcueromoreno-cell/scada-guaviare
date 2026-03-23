@@ -345,7 +345,7 @@ elif menu == "📊 Panel de Planta":
     
     st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', '2412120039')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
-    # KPIs DE BATERÍA PERFECTOS (Sin texto invisible)
+    # KPIs DE BATERÍA PERFECTOS
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#3498db !important;'>{d['hoy']} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
     c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e67e22 !important;'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
@@ -396,7 +396,7 @@ elif menu == "📊 Panel de Planta":
             """
             components.html(diagrama_svg, height=415)
             
-    # --- CONTROL REMOTO (CORREGIDO ERROR TYPEERROR Y AÑADIDA RED) ---
+    # --- CONTROL REMOTO ---
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
@@ -434,6 +434,7 @@ elif menu == "📊 Panel de Planta":
             with st_mo2:
                 st.toggle("* FuncionamientoporPeriodos", value=False)
 
+            # --- RED: RESTAURACIÓN DE TENSIONES COMPLETAS + LÍMITE INYECCIÓN (INTACTO) ---
             with st_red:
                 if not st.session_state["red_desbloqueada"]:
                     st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para desbloquear</div>", unsafe_allow_html=True)
@@ -446,12 +447,29 @@ elif menu == "📊 Panel de Planta":
                         else: st.error("❌ Contraseña incorrecta.")
                 else:
                     st.success("🔓 Panel de Red Desbloqueado")
+                    
+                    r_c1, r_c2 = st.columns(2)
+                    r_c1.selectbox("* Normativa Aplicada", ["Seleccione", "Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
+                    
+                    # -------------------------------------------------------------
+                    # AQUÍ ESTÁ EL LÍMITE DE INYECCIÓN A RED (%), INTACTO
+                    # -------------------------------------------------------------
+                    r_c2.number_input("* Límite de Inyección a red (%)", min_value=0, max_value=100, value=100)
+                    
+                    st.markdown("<div style='margin-top: 10px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V)</div>", unsafe_allow_html=True)
                     cv1, cv2 = st.columns(2)
-                    cv1.number_input("Sobre Tensión Máx (V)", value=253.0)
-                    cv2.number_input("Sub Tensión Mín (V)", value=198.0)
+                    cv1.number_input("* Sobre Tensión Máx (V)", value=253.0)
+                    cv2.number_input("* Sub Tensión Mín (V)", value=198.0)
+                    cv3, cv4 = st.columns(2)
+                    cv3.number_input("* Tensión Máxima de Inyección (V)", value=242.0)
+                    cv4.number_input("* Tensión Mínima de Inyección (V)", value=210.0)
+
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz)</div>", unsafe_allow_html=True)
                     cf1, cf2 = st.columns(2)
-                    cf1.number_input("Sobre Frecuencia Máx (Hz)", value=60.5)
-                    cf2.number_input("Sub Frecuencia Mín (Hz)", value=59.5)
+                    cf1.number_input("* Sobre Frecuencia Máx (Hz)", value=60.5)
+                    cf2.number_input("* Sub Frecuencia Mín (Hz)", value=59.5)
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
                     if st.button("🔒 Bloquear Red"):
                         st.session_state["red_desbloqueada"] = False
                         st.rerun()
@@ -465,7 +483,6 @@ elif menu == "📊 Panel de Planta":
             with st_bas:
                 st.toggle("Sonido zumbador", value=True)
 
-            # MATRIZ COMPLETA Y REPARADA DE FUNCIONES AVANZADAS 1
             with st_av1:
                 st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
                 
