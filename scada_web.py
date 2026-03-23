@@ -242,4 +242,100 @@ elif menu == "📊 Monitoreo Detallado":
                 <path d="M 100 85 V 150 H 170 M 300 85 V 150 H 230 M 170 150 H 100 V 230 M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
                 <circle r="6" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
                 <circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>
-                <circle r="6" fill="#
+                <circle r="6" fill="#e67e22"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>
+                <rect x="165" y="115" width="70" height="70" rx="12" fill="#ffffff" stroke="#3498db" stroke-width="3"/>
+                <rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/> <text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text>
+                <text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">Híbrido</text>
+                <g transform="translate(30,20)"><rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/><rect x="10" y="10" width="45" height="65" fill="#1a237e" rx="2"/><text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">FV TOTAL</text><text x="65" y="65" font-size="18" font-weight="bold" fill="#2d3436">{pot_solar} W</text></g>
+                <g transform="translate(230,20)"><rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/><text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">RED ELÉC.</text><text x="65" y="65" font-size="18" font-weight="bold" fill="#d63031">0 W</text></g>
+                <g transform="translate(30,230)"><rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/><rect x="10" y="10" width="45" height="65" rx="4" fill="#636e72"/><text x="32" y="67" text-anchor="middle" font-size="10" font-weight="bold" fill="{color_bat}">{soc}%</text><text x="65" y="35" font-size="11" fill="#636e72" font-weight="bold">BATERÍA</text><text x="65" y="65" font-size="18" font-weight="bold" fill="#27ae60">{pot_bat} W</text></g>
+                <g transform="translate(230,230)"><rect width="140" height="85" rx="12" fill="white" stroke="#f1f2f6" stroke-width="1"/><text x="75" y="35" font-size="11" fill="#636e72" font-weight="bold">CARGA</text><text x="75" y="65" font-size="18" font-weight="bold" fill="#e67e22">{pot_casa} W</text></g>
+            </svg>
+        </div>
+        """
+        components.html(diagrama_svg, height=520) 
+        
+        st.markdown("---")
+        st.markdown("### 📉 Comportamiento de Generación Vs. Consumo (Hoy)")
+        
+        df_historico = simular_historico_24h(d)
+        fig2 = px.area(df_historico, x="timestamp", y=["Generación FV", "Consumo Carga"], color_discrete_map={"Generación FV": "#e67e22", "Consumo Carga": "#e74c3c"})
+        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", legend_title_text=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), xaxis=dict(tickformat="%H:%M", dtick=2 * 3600000), yaxis_title="Potencia (kW)", margin=dict(l=20, r=20, t=20, b=20))
+        fig2.update_traces(fill='tozeroy', mode='lines', line=dict(width=2))
+        fig2.update_traces(selector=dict(name="Consumo Carga"), fill='none')
+        st.plotly_chart(fig2, use_container_width=True, key="graf_monitoreo_principal")
+
+        # --- NUEVA FUNCIÓN: DESCARGA DE INFORME SEGURO ---
+        st.markdown("---")
+        st.markdown("### 📄 Exportar Datos")
+        
+        fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        datos_informe = {
+            "Fecha/Hora Consulta": [fecha_hora_actual],
+            "Nombre de Planta": [d['nombre']],
+            "Ubicación": [d['ubicacion']],
+            "Capacidad (kWp)": [d['capacidad']],
+            "Marca Inversor": [d['inversores']],
+            "Batería": [f"{d.get('bat_marca','N/A')} ({d.get('bat_tipo','N/A')})"],
+            "Estado Conexión": [datos_act['status']],
+            "Generación FV Actual (W)": [pot_solar],
+            "Consumo Carga Actual (W)": [pot_casa],
+            "Nivel Batería SOC (%)": [soc],
+            "Producción Diaria (kWh)": [datos_act['energia_diaria']]
+        }
+        
+        df_informe = pd.DataFrame(datos_informe)
+        csv_data = df_informe.to_csv(index=False).encode('utf-8-sig') 
+        nombre_archivo = f"Reporte_Planta_{d['nombre'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+        
+        st.download_button(label="📥 Descargar Informe Técnico (CSV / Excel)", data=csv_data, file_name=nombre_archivo, mime="text/csv")
+
+# ==========================================
+# VENTANA 3: GESTIÓN DE PORTAFOLIO Y USUARIOS
+# ==========================================
+elif menu == "🏢 Gestión de Portafolio":
+    st.title("🏢 GESTIÓN DE PORTAFOLIO")
+    st.markdown("**Organiza tus plantas y accesos - CV INGENIERIA SAS**")
+    
+    with st.expander("➕ Registrar Nueva Planta", expanded=False):
+        with st.form("f_planta"):
+            c1, c2 = st.columns(2)
+            n_nom = c1.text_input("Nombre Planta")
+            n_ubi = c2.text_input("Ubicación")
+            n_inv = c1.selectbox("Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must"])
+            n_cap = c2.text_input("Capacidad (kWp)")
+            st.markdown("---")
+            c3, c4 = st.columns(2)
+            n_b_m = c3.selectbox("Batería", ["Ninguna", "Pylontech", "Deye", "BYD", "Trojan"])
+            n_b_t = c4.selectbox("Tecnología", ["Litio (LiFePO4)", "Plomo-Ácido", "AGM", "Gel"])
+            n_dl = st.text_input("📡 SN Datalogger / IP")
+            if st.form_submit_button("💾 Guardar Planta"):
+                if n_nom:
+                    guardar_planta({"nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, "inversores": n_inv, "datalogger": n_dl, "bat_marca": n_b_m, "bat_tipo": n_b_t})
+                    st.success("Planta Guardada")
+                    st.rerun()
+
+    st.markdown("### 📋 Directorio de Plantas")
+    
+    for i, pl in enumerate(plantas_guardadas):
+        col_info, col_btn = st.columns([5, 1]) 
+        with col_info:
+            st.info(f"**{pl['nombre']}** | {pl['ubicacion']} | 🔋 {pl.get('bat_marca','N/A')}")
+        with col_btn:
+            if st.button("🗑️", key=f"del_btn_{i}", help="Borrar planta"):
+                eliminar_planta(i)
+                st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 👥 Gestión de Accesos")
+    with st.expander("➕ Crear Nuevo Usuario", expanded=False):
+        with st.form("f_usuario"):
+            st.write("Crea credenciales para que tus clientes puedan ingresar.")
+            n_usr = st.text_input("Nuevo Usuario (Ej: cliente_guaviare)")
+            n_pwd = st.text_input("Contraseña", type="password")
+            if st.form_submit_button("💾 Crear Usuario"):
+                if n_usr and n_pwd:
+                    guardar_usuario(n_usr, n_pwd)
+                    st.success(f"Usuario '{n_usr}' creado correctamente. Ya puede iniciar sesión.")
+                    time.sleep(2) 
+                    st.rerun()
