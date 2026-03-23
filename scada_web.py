@@ -439,7 +439,6 @@ if menu == "📊 Panel de Planta":
     [data-testid="stMainBlockContainer"] h1, [data-testid="stMainBlockContainer"] h2, [data-testid="stMainBlockContainer"] h3, [data-testid="stMainBlockContainer"] h4, [data-testid="stMainBlockContainer"] h5, [data-testid="stMainBlockContainer"] p, [data-testid="stMainBlockContainer"] span, [data-testid="stMainBlockContainer"] label, [data-testid="stMainBlockContainer"] div {
         color: #2c3e50 !important;
     }
-    /* Estilos TABS superiores */
     div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { background-color: transparent !important; border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
     div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span, div[data-testid="stTabs"] button[data-baseweb="tab"] div { color: #7f8c8d !important; text-shadow: none !important; font-weight: 600 !important; font-size: 16px !important; }
     div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
@@ -653,8 +652,9 @@ elif menu == "📊 Panel de Planta":
                 ])
                 
                 t_bat, t_mo1, t_mo2, t_red, t_smart, t_bas, t_av1, t_av2 = tabs_inversor
+                opts_sel = ["Seleccione", "Habilitado", "Deshabilitado"]
                 
-                # --- PESTAÑA 1: Configuración Baterías (FOTO 1.18.36 PM) ---
+                # --- PESTAÑA 1: Configuración Baterías ---
                 with t_bat:
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
                     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
@@ -678,7 +678,7 @@ elif menu == "📊 Panel de Planta":
                     cd4.number_input("* Máx Tiempo Gen", value=0.0)
                     cd5.number_input("* Tiempo parada Gen", value=0.0)
 
-                # --- PESTAÑA 2: Modos de operación-1 (FOTO 1.41.43 PM) ---
+                # --- PESTAÑA 2: Modos de operación-1 ---
                 with t_mo1:
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
                     m1, m2, m3, m4, m5 = st.columns(5)
@@ -705,19 +705,19 @@ elif menu == "📊 Panel de Planta":
                     m7.selectbox("* Función de Límite Duro", ["Seleccione", "Habilitado", "Deshabilitado"])
                     m8.number_input("* Potencia de límite fijo (%)", min_value=0.1, max_value=100.0, value=100.0)
 
-                # --- PESTAÑA 3: Modos de operación-2 (FOTO 1.44.33 PM) ---
+                # --- PESTAÑA 3: Modos de operación-2 ---
                 with t_mo2:
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
                     st.toggle("* FuncionamientoporPeriodos", value=False)
 
-                # --- PESTAÑA 4: Configuración de la red (FOTO 1.45.09 PM) ---
+                # --- PESTAÑA 4: Configuración de la red ---
                 with t_red:
                     st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Para configurar la red, introduzca la contraseña para desbloquear</div>", unsafe_allow_html=True)
                     c_pw1, c_pw2 = st.columns([1, 4])
                     c_pw1.text_input("Contraseña", placeholder="Introduce la contraseña", label_visibility="collapsed", type="password")
                     st.button("Desbloquear", type="primary")
 
-                # --- PESTAÑA 5: Carga inteligente (FOTO 1.45.44 PM) ---
+                # --- PESTAÑA 5: Carga inteligente ---
                 with t_smart:
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
                     cs1, cs2, cs3 = st.columns(3)
@@ -725,7 +725,7 @@ elif menu == "📊 Panel de Planta":
                     cs2.selectbox("* Par de CA en el lado de la red", ["Seleccione", "Habilitar", "Deshabilitar"])
                     cs3.selectbox("* Par de CA en el lado de carga", ["Seleccione", "Habilitar", "Deshabilitar"])
 
-                # --- PESTAÑA 6: Configuración Básica (FOTO 2.06.41 PM) ---
+                # --- PESTAÑA 6: Configuración Básica ---
                 with t_bas:
                     st.markdown("<h4>Configuración Básica</h4>", unsafe_allow_html=True)
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ Configuración general del dispositivo.</div>", unsafe_allow_html=True)
@@ -736,83 +736,37 @@ elif menu == "📊 Panel de Planta":
                     col_b2.toggle("Interruptor inteligente", value=False)
                     col_b1.toggle("Carga inalámbrica", value=False)
 
-                # --- PESTAÑA 7: Func. Avanzadas-1 (FOTO 2.07.02 PM) ---
+                # --- PESTAÑA 7: Func. Avanzadas-1 ---
                 with t_av1:
-                    st.markdown("<h4>Funciones Avanzadas-1</h4>", unsafe_allow_html=True)
                     st.markdown("<div style='font-size:12px; color:#7f8c8d; margin-bottom:15px;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</div>", unsafe_allow_html=True)
-                    
-                    # Placeholder options for selectors
-                    opts = ["Seleccione", "Habilitado", "Deshabilitado"]
-                    
-                    # Row 1
                     a1, a2, a3, a4, a5 = st.columns(5)
-                    # Label cut off in image, assuming text input based on 'm...'
-                    a1.text_input("* Compensación de la batería (m...", placeholder="Introduce valor")
-                    a2.selectbox("* Control de Batería Externo", opts)
-                    a3.selectbox("* Señal BMS", opts)
-                    a4.selectbox("* Despierta BMS", opts)
-                    a5.selectbox("* Control de Batería", opts)
+                    a1.selectbox("* Configuración ARC", opts_sel)
+                    a2.selectbox("* Gen Peak-afeitado", opts_sel)
+                    a3.number_input("* Potencia de reducción de picos de generación (W)", min_value=1000, max_value=120000, value=1000)
+                    a4.selectbox("* Reducción de picos de la red", opts_sel)
+                    a5.number_input("* potencia de reducción de picos de la red (W)", min_value=1000, max_value=120000, value=1000)
                     
-                    # Row 2
                     b1, b2, b3, b4, b5 = st.columns(5)
-                    b1.selectbox("* Puerto COM GNC", opts)
-                    b2.selectbox("* Funciones de red", opts)
-                    b3.selectbox("* Carga de derivación de f...", opts)
-                    b4.selectbox("* Modo de seguridad de la red", opts)
-                    b5.selectbox("* Conexión a tierra de f...", opts)
+                    b1.selectbox("* Paralelo", opts_sel)
+                    b2.selectbox("* Modo (Maestro Esclavo)", ["Seleccione", "Maestro", "Esclavo"])
+                    b3.number_input("* Modbus SN", min_value=0, max_value=16, value=1)
+                    b4.selectbox("* DRM", opts_sel)
+                    b5.selectbox("* Modo Isla de Señal", opts_sel)
                     
-                    # Row 3
                     c1, c2, c3, c4, c5 = st.columns(5)
-                    c1.selectbox("* Prueba de autocomproba...", opts)
-                    c2.selectbox("* DRMO", opts)
-                    c3.selectbox("* Desvío de carga", opts)
-                    c4.selectbox("* Salida de CA", opts)
-                    c5.selectbox("* Verificación de la red", opts)
+                    c1.number_input("* Retraso de respaldo", min_value=0, max_value=30000, value=0)
+                    c2.number_input("* relación CT", min_value=100, max_value=100000, value=1000)
+                    c3.selectbox("* EX_MeterCT", opts_sel)
+                    c4.selectbox("* Medidor de conexión a la red2", opts_sel)
+                    c5.selectbox("* Escaneo multipunto MPPT", opts_sel)
                     
-                    # Row 4
                     d1, d2, d3, d4, d5 = st.columns(5)
-                    d1.selectbox("* Inyección a red monofá...", opts)
-                    d2.selectbox("* Relé principal en el la...", opts)
-                    d3.selectbox("* Relé principal en el la...", key="av1_relay_main_load", opts=opts) # Unique key
-                    d4.selectbox("* Relé de derivación en e...", opts)
-                    d5.selectbox("* Relé de derivación en e...", key="av1_relay_bypass_load", opts=opts) # Unique key
-                    
-                    # Row 5
-                    e1, e2, e3, e4, e5 = st.columns(5)
-                    e1.selectbox("* Modo de funcionamiento...", opts)
-                    e2.selectbox("* Modo de funcionamiento...", key="av1_op_mode2", opts=opts) # Unique key
-                    e3.selectbox("* Calentador de batería", opts)
-                    e4.selectbox("* Verificación de la bate...", opts)
-                    # Límite current/volt/power usually number inputs
-                    e5.number_input("* Límite de corriente de d...", min_value=0, value=0)
-                    
-                    # Row 6
-                    f1, f2, f3, f4, f5 = st.columns(5)
-                    f1.number_input("* Límite de tensión de des...", min_value=0.0, value=0.0, step=0.1)
-                    f2.number_input("* Límite de potencia de d...", min_value=0, value=0)
-                    f3.number_input("* Límite de corriente de c...", min_value=0, value=0)
-                    f4.number_input("* Límite de tensión de car...", min_value=0.0, value=0.0, step=0.1)
-                    f5.number_input("* Límite de potencia de c...", min_value=0, value=0)
-                    
-                    # Row 7
-                    g1, g2, g3, g4, g5 = st.columns(5)
-                    # Duplicate power limits shown in image, need unique keys
-                    g1.number_input("* Límite de potencia de c...", key="av1_lpotc2", min_value=0, value=0) 
-                    g2.number_input("* Potencia de autoconsumo", min_value=0, value=0)
-                    g3.number_input("* Potencia de carga priorit...", min_value=0, value=0)
-                    g4.number_input("* Potencia de carga priorit...", key="av1_pcap2", min_value=0, value=0) 
-                    g5.number_input("* Potencia de inyección p...", min_value=0, value=0)
-                    
-                    # Row 8
-                    h1, h2, h3, h4, h5 = st.columns(5)
-                    h1.selectbox("* Prioridad de inyección ...", opts)
-                    # Empty placeholders for alignment
-                    h2.empty()
-                    h3.empty()
-                    h4.empty()
-                    h5.empty()
+                    d1.selectbox("* Seleccionar Medidor", opts_sel)
+                    d2.selectbox("* Alimentación de fases asimétrica", opts_sel)
+                    d3.empty()
+                    d4.empty()
+                    d5.empty()
 
-                # Placeholders for missing screen (Func. Avanzadas-2)
                 with t_av2: st.info("Pestaña Func. Avanzadas-2 en desarrollo.")
 
                 st.markdown("<br>", unsafe_allow_html=True)
