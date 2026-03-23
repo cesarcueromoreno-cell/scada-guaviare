@@ -23,9 +23,10 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide") 
 
-# CSS GLOBAL (Fondo transparente y letras blancas para la app en general)
+# CSS GLOBAL 
 css_global = """
 <style>
+/* FONDO DE LA APLICACIÓN */
 [data-testid="stAppViewContainer"] {
     background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
     background-size: cover; 
@@ -34,6 +35,7 @@ css_global = """
 }
 [data-testid="stHeader"] { background: rgba(0,0,0,0); }
 
+/* CONTENEDOR CENTRAL TRANSPARENTE */
 .block-container, [data-testid="stMainBlockContainer"], div[data-testid="block-container"] {
     background-color: transparent !important;
     border: none !important;
@@ -41,16 +43,17 @@ css_global = """
     backdrop-filter: none !important;
 }
 
+/* TEXTO BLANCO CON SOMBRA NEGRA POR DEFECTO PARA EL PAISAJE */
 h1, h2, h3, h4, h5, p, .stMarkdown span {
     color: #ffffff !important;
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
 }
-
 label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {
     color: #ffffff !important;
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
 }
 
+/* CAJAS DE INFORMACIÓN CENTRALES (ALERTAS) */
 [data-testid="stAlert"] {
     background-color: rgba(255, 255, 255, 0.95) !important;
     border-radius: 10px !important;
@@ -61,6 +64,16 @@ label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="ta
     text-shadow: none !important;
 }
 
+/* CORRECCIÓN: FORZAR TEXTO NEGRO DENTRO DE LOS FORMULARIOS BLANCOS (EXPANDERS) */
+[data-testid="stExpanderDetails"] {
+    background-color: #ffffff !important;
+}
+[data-testid="stExpanderDetails"] * {
+    color: #2c3e50 !important;
+    text-shadow: none !important;
+}
+
+/* DISEÑO DEL MENÚ LATERAL (OSCURO) */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%) !important;
     border-right: 1px solid #4ca1af !important;
@@ -81,11 +94,13 @@ label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="ta
     letter-spacing: 1px !important;
 }
 
+/* ELEMENTOS DE INPUT NATIVOS */
 .tarjeta-planta *, input, select, textarea, button span {
     color: #2c3e50 !important;
     text-shadow: none !important;
 }
 
+/* ESTILO DASHBOARD PRO (LISTA DE PLANTAS) */
 .dashboard-dash-base {
     background-color: #f0f2f5 !important; 
     border-radius: 15px !important;
@@ -97,7 +112,6 @@ label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="ta
     color: #2c3e50 !important;
     text-shadow: none !important;
 }
-
 .tarjeta-dash-pro {
     background-color: #ffffff !important; 
     padding: 15px !important; 
@@ -179,7 +193,7 @@ if not st.session_state["autenticado"]:
                     st.error("❌ Credenciales incorrectas.")
     st.stop() 
 
-# --- MOTOR DE INTEGRACIÓN SOLARMAN CON ALERTAS ---
+# --- MOTOR DE INTEGRACIÓN SOLARMAN ---
 def obtener_datos_reales(planta):
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
@@ -249,33 +263,50 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
 st.sidebar.info("**POWERED BY:**\n\n**CV INGENIERIA SAS**")
 
 # ==========================================
-# INYECCIÓN DE CSS DINÁMICO (MODO DASHBOARD BLANCO PARA EL PANEL DE PLANTA)
+# CSS DINÁMICO (FORZAR TEXTOS NEGROS EN EL PANEL BLANCO)
 # ==========================================
 if menu == "📊 Panel de Planta":
     st.markdown("""
     <style>
-    /* Transformar el fondo en un espacio de trabajo limpio tipo Solarman */
     .block-container, [data-testid="stMainBlockContainer"] {
         background-color: #f4f7f9 !important;
         backdrop-filter: none !important;
         border-radius: 0px !important;
     }
-    /* Forzar todos los textos principales a oscuros */
-    h1, h2, h3, h4, h5, p, span, label, div {
-        color: #2c3e50 !important;
+    
+    /* Matar la sombra y forzar color oscuro a TODOS los textos del área blanca */
+    [data-testid="stMainBlockContainer"] * {
         text-shadow: none !important;
     }
-    /* Tarjetas de métricas superiores */
-    .solarman-card {
-        background: #ffffff;
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-        text-align: center;
-        border: 1px solid #eaeaea;
+    [data-testid="stMainBlockContainer"] h1, 
+    [data-testid="stMainBlockContainer"] h2, 
+    [data-testid="stMainBlockContainer"] h3, 
+    [data-testid="stMainBlockContainer"] h4, 
+    [data-testid="stMainBlockContainer"] h5, 
+    [data-testid="stMainBlockContainer"] p, 
+    [data-testid="stMainBlockContainer"] span, 
+    [data-testid="stMainBlockContainer"] label,
+    [data-testid="stMainBlockContainer"] div {
+        color: #2c3e50 !important;
     }
-    .solarman-val { font-size: 26px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
-    .solarman-lbl { font-size: 13px; color: #7f8c8d; text-transform: uppercase; }
+
+    /* Colores específicos para que las tarjetas no queden totalmente grises */
+    .solarval-blue { color: #3498db !important; }
+    .solarval-orange { color: #e67e22 !important; }
+    .solarlbl-gray { color: #7f8c8d !important; }
+    .solarlbl-green { color: #27ae60 !important; }
+    .solarlbl-red { color: #e74c3c !important; }
+
+    .solarman-card {
+        background: #ffffff !important;
+        border-radius: 8px !important;
+        padding: 20px !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
+        text-align: center !important;
+        border: 1px solid #eaeaea !important;
+    }
+    .solarman-val { font-size: 26px !important; font-weight: bold !important; margin-bottom: 5px !important; }
+    .solarman-lbl { font-size: 13px !important; text-transform: uppercase !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -385,7 +416,7 @@ elif menu == "📊 Panel de Planta":
         st.markdown(f"<h2>{d['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>ID: {hashlib.md5(d['nombre'].encode()).hexdigest()[:8].upper()} | {estado_ico}</span></h2>", unsafe_allow_html=True)
         st.markdown("<hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
 
-        # MÉTRICAS SUPERIORES ESTILO SOLARMAN
+        # MÉTRICAS SUPERIORES ESTILO SOLARMAN (Con clases especiales para recuperar su color)
         prod_solar = datos_act["energia_diaria"]
         consumo_sim = round(prod_solar * 0.45, 1)
         carga_bat = round(prod_solar * 0.2, 1)
@@ -393,17 +424,16 @@ elif menu == "📊 Panel de Planta":
         
         c1, c2, c3, c4 = st.columns([1.5, 1.5, 1, 1])
         with c1:
-            st.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#3498db;'>{prod_solar} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='solarman-card'><div class='solarman-val solarval-blue'>{prod_solar} kWh</div><div class='solarman-lbl solarlbl-gray'>Producción Solar</div></div>", unsafe_allow_html=True)
         with c2:
-            st.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e67e22;'>{consumo_sim} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='solarman-card'><div class='solarman-val solarval-orange'>{consumo_sim} kWh</div><div class='solarman-lbl solarlbl-gray'>Consumo</div></div>", unsafe_allow_html=True)
         with c3:
-            st.markdown(f"<div class='solarman-card'><div style='font-size:14px; font-weight:bold;'>🔋 {carga_bat} kWh <span style='color:#7f8c8d; font-size:10px;'>Cargar</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px;'>🔋 {descarga_bat} kWh <span style='color:#7f8c8d; font-size:10px;'>Descargar</span></div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='solarman-card'><div style='font-size:14px; font-weight:bold;'>🔋 {carga_bat} kWh <span class='solarlbl-gray' style='font-size:10px;'>Cargar</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px;'>🔋 {descarga_bat} kWh <span class='solarlbl-gray' style='font-size:10px;'>Descargar</span></div></div>", unsafe_allow_html=True)
         with c4:
-            st.markdown(f"<div class='solarman-card'><div style='font-size:14px; font-weight:bold;'>⚡ 0 kWh <span style='color:#7f8c8d; font-size:10px;'>Alimentado</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px;'>⚡ 0 kWh <span style='color:#7f8c8d; font-size:10px;'>Desde Red</span></div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='solarman-card'><div style='font-size:14px; font-weight:bold;'>⚡ 0 kWh <span class='solarlbl-gray' style='font-size:10px;'>A Red</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px;'>⚡ 0 kWh <span class='solarlbl-gray' style='font-size:10px;'>De Red</span></div></div>", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # ÁREA PRINCIPAL DIVIDIDA EN PESTAÑAS (Aquí se integra el Control de Inversores)
         tab_monitor, tab_control, tab_reportes = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes y Datos"])
         
         with tab_monitor:
