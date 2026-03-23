@@ -26,6 +26,7 @@ st.set_page_config(page_title="Central CV Ingeniería", page_icon="⚡", layout=
 st.markdown(
     """
     <style>
+    /* FONDO DE LA APLICACIÓN */
     [data-testid="stAppViewContainer"] {
         background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
         background-size: cover; 
@@ -36,29 +37,38 @@ st.markdown(
         background: rgba(0,0,0,0); 
     }
     
-    /* EFECTO CRISTAL (Glassmorphism): Deja ver el fondo difuminado pero resalta el texto */
+    /* HACER EL CONTENEDOR TOTALMENTE TRANSPARENTE */
     .block-container, [data-testid="stMainBlockContainer"], div[data-testid="block-container"] {
-        background-color: rgba(255, 255, 255, 0.70) !important; /* Más transparente */
-        backdrop-filter: blur(8px) !important; /* Difumina el fondo para lectura perfecta */
-        -webkit-backdrop-filter: blur(8px) !important;
-        border-radius: 15px !important; 
-        padding: 2rem !important; 
-        margin-top: 20px !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
-        border: 1px solid rgba(255, 255, 255, 0.4) !important;
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
     }
 
-    .tarjeta-planta {
-        background-color: rgba(255, 255, 255, 0.85); 
-        border-left: 5px solid #2ecc71;
-        padding: 15px; 
-        border-radius: 8px; 
-        margin-bottom: 5px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    /* TEXTO BLANCO CON SOMBRA NEGRA PARA LEER SOBRE LA FOTO */
+    h1, h2, h3, h4, h5, p, label, li, .stMarkdown span {
+        color: #ffffff !important;
+        text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important;
     }
-    .tarjeta-titulo { color: #2c3e50; font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-    .tarjeta-dato { font-size: 22px; font-weight: bold; color: #34495e; }
-    .tarjeta-label { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
+
+    /* EXCEPCIONES: Textos que deben mantener su color oscuro para no dañarse (Tarjetas, Inputs, Botones) */
+    .tarjeta-planta *, input, select, textarea, button span, .stAlert p {
+        color: #2c3e50 !important;
+        text-shadow: none !important;
+    }
+
+    /* DISEÑO ORIGINAL DE LAS TARJETAS */
+    .tarjeta-planta {
+        background-color: #ffffff !important; 
+        border-left: 5px solid #2ecc71 !important;
+        padding: 15px !important; 
+        border-radius: 8px !important; 
+        margin-bottom: 5px !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+    }
+    .tarjeta-titulo { font-size: 18px !important; font-weight: bold !important; margin-bottom: 10px !important; }
+    .tarjeta-dato { font-size: 22px !important; font-weight: bold !important; color: #34495e !important; }
+    .tarjeta-label { font-size: 12px !important; color: #7f8c8d !important; text-transform: uppercase !important; }
     </style>
     """,
     unsafe_allow_html=True
@@ -221,7 +231,7 @@ if menu == "🌐 Panorama General":
                     color_discrete_map={"Generación FV": "#e67e22", "Consumo Carga": "#e74c3c"}
                 )
                 fig.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(255,255,255,0.9)", 
                     legend_title_text=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
                     xaxis=dict(tickformat="%H:%M"), yaxis_title="Potencia (kW)", margin=dict(l=20, r=20, t=10, b=20), height=300
                 )
@@ -261,7 +271,7 @@ elif menu == "📊 Monitoreo Detallado":
         color_bat = "#2ecc71" if soc > 20 else "#e74c3c"
 
         diagrama_svg = f"""
-        <div style="background: rgba(255,255,255,0.8); border-radius: 15px; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
+        <div style="background: rgba(255,255,255,0.9); border-radius: 15px; padding: 20px; width: 100%; max-width: 500px; margin: auto; font-family: sans-serif;">
             <svg viewBox="0 0 400 350" width="100%">
                 <path d="M 100 85 V 150 H 170 M 300 85 V 150 H 230 M 170 150 H 100 V 230 M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
                 <circle r="6" fill="#f1c40f"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
@@ -313,7 +323,7 @@ elif menu == "📊 Monitoreo Detallado":
             color_discrete_map={"Generación FV": "#e67e22", "Consumo Carga": "#e74c3c"}
         )
         fig2.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(255,255,255,0.9)", 
             legend_title_text=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
             xaxis=dict(tickformat="%H:%M", dtick=2 * 3600000), yaxis_title="Potencia (kW)", margin=dict(l=20, r=20, t=20, b=20)
         )
