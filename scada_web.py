@@ -15,60 +15,22 @@ import time
 # ==========================================
 st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide")
 
-css_global = """
+# Estilos globales base (Fondo de paneles solares)
+css_fondo = """
 <style>
-/* FONDO DE LA APLICACIÓN */
 [data-testid="stAppViewContainer"] {
     background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
     background-size: cover; background-position: center; background-attachment: fixed;
 }
 [data-testid="stHeader"] { background: rgba(0,0,0,0); }
-
-/* CONTENEDOR CENTRAL TRANSPARENTE */
-.block-container { background-color: transparent !important; }
-
-/* TEXTOS Y LABELS */
-h1, h2, h3, h4, h5, p, span, label { color: #ffffff !important; text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important; }
-
-/* SIDEBAR OSCURO */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #112027 0%, #1a323c 50%, #162a33 100%) !important;
     border-right: 1px solid #2c5364 !important;
 }
 [data-testid="stSidebar"] * { color: #ffffff !important; text-shadow: none !important; }
-
-/* ESTILO PANELES BLANCOS (VISTA PLANTA) */
-.white-panel {
-    background-color: #f4f7f9 !important; padding: 20px; border-radius: 0px;
-}
-.white-panel h2, .white-panel h3, .white-panel p, .white-panel span, .white-panel label, .white-panel div {
-    color: #2c3e50 !important; text-shadow: none !important;
-}
-
-/* TABS ESTILO SOLARMAN BUSINESS */
-div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { background-color: transparent !important; border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; text-shadow: none !important; font-weight: 600 !important; font-size: 16px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
-
-/* CORRECCIÓN DEL BOTÓN AZUL Y LOS ICONOS */
-div[data-testid="stButton"] button[kind="primary"] {
-    background-color: #2d8cf0 !important; border-color: #2d8cf0 !important; color: white !important; border-radius: 4px !important;
-}
-div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
-div[data-testid="stButton"] button[kind="secondary"] {
-    color: #2d8cf0 !important; border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important;
-}
-.iconos-accion .stButton button { border: none !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; color: #7f8c8d !important; font-size: 20px !important; }
-.iconos-accion .stButton button:hover { color: #2c3e50 !important; transform: scale(1.1) !important; }
-
-.solarman-card { background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; }
-.solarman-val { font-size: 26px !important; font-weight: bold !important; margin-bottom: 5px !important; }
-.solarman-lbl { font-size: 13px !important; text-transform: uppercase !important; }
 </style>
 """
-st.markdown(css_global, unsafe_allow_html=True)
+st.markdown(css_fondo, unsafe_allow_html=True)
 
 # ==========================================
 # 2. BLINDAJE DE VARIABLES DE SESIÓN
@@ -88,6 +50,7 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
 # ==========================================
 ARCHIVO_PLANTAS = 'plantas.json'
 ARCHIVO_USUARIOS = 'usuarios.json'
+ARCHIVO_MANTENIMIENTOS = 'mantenimientos.json'
 
 def cargar_usuarios():
     if not os.path.exists(ARCHIVO_USUARIOS):
@@ -101,12 +64,9 @@ def cargar_usuarios():
 
 def solicitar_usuario(usuario, contrasena):
     usuarios = cargar_usuarios()
-    if usuario in usuarios:
-        return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
-    
+    if usuario in usuarios: return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
     usuarios[usuario] = {"pwd": contrasena, "status": "pending", "role": "viewer"}
-    with open(ARCHIVO_USUARIOS, 'w') as f: 
-        json.dump(usuarios, f)
+    with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(usuarios, f)
     return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
 
 def cargar_plantas():
@@ -119,6 +79,29 @@ def guardar_planta(nueva):
     plantas = cargar_plantas()
     plantas.append(nueva)
     with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
+
+def cargar_mantenimientos():
+    if not os.path.exists(ARCHIVO_MANTENIMIENTOS):
+        with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump({}, f)
+    with open(ARCHIVO_MANTENIMIENTOS, 'r') as f: return json.load(f)
+
+def guardar_mantenimiento(planta, datos_mant):
+    mants = cargar_mantenimientos()
+    if planta not in mants: mants[planta] = []
+    mants[planta].append(datos_mant)
+    with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
+
+def actualizar_estado_mantenimiento(planta, indice, nuevo_estado):
+    mants = cargar_mantenimientos()
+    if planta in mants and 0 <= indice < len(mants[planta]):
+        mants[planta][indice]["estado"] = nuevo_estado
+        with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
+
+def eliminar_mantenimiento(planta, indice):
+    mants = cargar_mantenimientos()
+    if planta in mants and 0 <= indice < len(mants[planta]):
+        mants[planta].pop(indice)
+        with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
 
 # --- MANEJO DE ACCIONES POR QUERY PARAMS (LÁPIZ/PAPELERA) ---
 if "delete" in st.query_params:
@@ -138,8 +121,21 @@ if "edit" in st.query_params:
         st.query_params.clear()
     except: pass
 
-# --- LOGIN ---
+# ==========================================
+# 4. LOGIN Y CSS CONDICIONAL
+# ==========================================
 if not st.session_state["autenticado"]:
+    # CSS específico para Login (Textos blancos con sombra)
+    st.markdown("""
+    <style>
+    .block-container { background-color: transparent !important; }
+    h1, h2, h3, h4, h5, p, span, label { color: #ffffff !important; text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important; }
+    [data-testid="stForm"] { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; }
+    [data-testid="stExpanderDetails"] { background: rgba(255, 255, 255, 0.9) !important; }
+    [data-testid="stExpanderDetails"] * { color: #2c3e50 !important; text-shadow: none !important; }
+    </style>
+    """, unsafe_allow_html=True)
+    
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MOMISOLAR APP</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: white !important;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
@@ -150,17 +146,14 @@ if not st.session_state["autenticado"]:
             st.markdown("<div style='color:white; font-weight:bold; font-size:14px; margin-top:10px; text-shadow: 1px 1px 3px black;'>Contraseña</div>", unsafe_allow_html=True)
             p = st.text_input("Contraseña", type="password", label_visibility="collapsed")
             st.markdown("<br>", unsafe_allow_html=True)
-            
             if st.form_submit_button("Iniciar Sesión", use_container_width=True):
                 db = cargar_usuarios()
                 if u in db and db[u]["pwd"] == p:
-                    if db[u].get("status") == "pending":
-                        st.warning("⚠️ Su cuenta aún está pendiente de aprobación por el Administrador.")
+                    if db[u].get("status") == "pending": st.warning("⚠️ Cuenta pendiente de aprobación.")
                     else:
                         st.session_state.update({"autenticado": True, "usuario": u, "rol": db[u]["role"]})
                         st.rerun()
-                else: 
-                    st.error("❌ Credenciales incorrectas o usuario no registrado.")
+                else: st.error("❌ Credenciales incorrectas.")
         
         with st.expander("¿No tienes cuenta? Solicita acceso aquí"):
             with st.form("solicitud_form"):
@@ -176,8 +169,46 @@ if not st.session_state["autenticado"]:
                         else: st.error(message)
     st.stop()
 
+# --- CSS PARA USUARIO AUTENTICADO (Fondo blanco nítido para lectura) ---
+st.markdown("""
+<style>
+/* Contenedor principal con fondo blanco translúcido para que todo se lea perfecto */
+.block-container { 
+    background-color: rgba(244, 247, 249, 0.95) !important; 
+    padding: 2rem !important; 
+    border-radius: 12px; 
+    margin-top: 2rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+/* Quitar sombras a todos los textos adentro del panel y forzar color oscuro */
+.block-container * { text-shadow: none !important; color: #2c3e50 !important; }
+
+/* Estilos de las pestañas */
+div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; font-weight: 600 !important; font-size: 16px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
+
+/* Botón Azul Solarman */
+div[data-testid="stButton"] button[kind="primary"] { background-color: #2d8cf0 !important; border-color: #2d8cf0 !important; color: white !important; border-radius: 4px !important; }
+div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
+div[data-testid="stButton"] button[kind="secondary"] { color: #2d8cf0 !important; border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
+
+/* Tarjetas KPI sin wrap de texto */
+.solarman-card { background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.solarman-val { font-size: 24px !important; font-weight: bold !important; margin-bottom: 5px !important; }
+.solarman-lbl { font-size: 12px !important; text-transform: uppercase !important; color: #7f8c8d !important;}
+
+/* Lista de Plantas */
+.tarjeta-dash-pro { background-color: #ffffff !important; padding: 15px !important; border-radius: 8px !important; margin-bottom: 10px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; display: flex !important; align-items: center !important; justify-content: space-between !important; }
+.tarjeta-label-pro { font-size: 11px !important; color: #7f8c8d !important; text-transform: uppercase !important; margin-bottom: 2px !important; white-space: nowrap !important; }
+.tarjeta-dato-pro { font-size: 16px !important; font-weight: bold !important; color: #2c3e50 !important; white-space: nowrap !important; }
+</style>
+""", unsafe_allow_html=True)
+
 # ==========================================
-# 4. NAVEGACIÓN Y DATOS
+# 5. NAVEGACIÓN Y DATOS
 # ==========================================
 plantas = cargar_plantas()
 st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MOMISOLAR APP</h2>", unsafe_allow_html=True)
@@ -195,24 +226,28 @@ def get_data(pl):
     soc = random.randint(15, 99) 
     return {"solar": p_sol, "casa": 1750 + random.randint(-40, 40), "soc": soc, "hoy": e_dia, "alertas": []}
 
-def sim_graph():
-    df = pd.DataFrame({"timestamp": [datetime.now().replace(hour=h, minute=0) for h in range(24)], 
-                       "Generación FV": [10 * math.sin(h*math.pi/12) if 6<h<18 else 0 for h in range(24)],
-                       "Consumo Carga": [random.randint(2, 5) for _ in range(24)]})
-    return df
+def simular_historico_24h(planta):
+    cap_val = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(planta.get("capacidad", "5")))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(planta.get("capacidad", "5"))) else 5.0
+    inicio_dia = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    datos = []
+    for m in range(0, 24 * 60, 15):
+        t = inicio_dia + timedelta(minutes=m)
+        h = t.hour
+        gen = max(0, (cap_val * 0.9) * math.sin((h - 6) / 12 * math.pi) * random.uniform(0.95, 1.05)) if 6 <= h <= 18 else 0
+        con = max(cap_val * 0.1, cap_val * 0.2 + (cap_val * 0.3 * math.sin((h-7)/2 * math.pi) if 7<=h<=9 else (cap_val * 0.4 * math.sin((h-18)/3 * math.pi) if 18<=h<=21 else 0)))
+        datos.append({"timestamp": t, "Generación FV": round(gen, 2), "Consumo Carga": round(con, 2)})
+    return pd.DataFrame(datos)
 
 # ==========================================
-# 5. VISTA: PANORAMA GENERAL
+# 6. VISTA: PANORAMA GENERAL
 # ==========================================
 if menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL")
     
-    # --- FORMULARIO DE EDICIÓN ---
     if st.session_state["editando_planta"] is not None:
         idx = st.session_state["editando_planta"]
         p_edit = plantas[idx]
-        st.markdown("<div style='background:rgba(255,255,255,0.95); padding:20px; border-radius:10px; margin-bottom:20px;'>", unsafe_allow_html=True)
-        st.markdown(f"<h3 style='color:#2c3e50 !important; text-shadow:none !important;'>✏️ Editar Parámetros: {p_edit['nombre']}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3>✏️ Editar Parámetros: {p_edit['nombre']}</h3>", unsafe_allow_html=True)
         with st.form("edit"):
             c1, c2 = st.columns(2)
             n = c1.text_input("Nombre", p_edit['nombre'])
@@ -224,12 +259,9 @@ if menu == "🌐 Panorama General":
                 with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
                 st.session_state["editando_planta"] = None
                 st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- RESTAURADO: FORMULARIO DE CREAR PLANTA ---
     if st.session_state.get("mostrar_crear") and st.session_state['rol'] == 'admin':
-        st.markdown("<div style='background:rgba(255,255,255,0.95); padding:20px; border-radius:10px; margin-bottom:20px;'>", unsafe_allow_html=True)
-        st.markdown("<h3 style='color:#2c3e50 !important; text-shadow:none !important;'>➕ Crear Nueva Planta</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>➕ Crear Nueva Planta</h3>", unsafe_allow_html=True)
         with st.form("crear_planta_form"):
             c1, c2 = st.columns(2)
             n_nom = c1.text_input("Nombre de la Planta")
@@ -246,12 +278,9 @@ if menu == "🌐 Panorama General":
             if s2.form_submit_button("❌ Cancelar"):
                 st.session_state["mostrar_crear"] = False
                 st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- RESTAURADO: BUSCADOR Y BOTÓN CREAR ---
     col_bus, col_btn = st.columns([8, 2])
-    with col_bus:
-        c_bus = st.text_input("🔍 Buscar planta", placeholder="Por favor, ingrese el nombre de la planta", label_visibility="collapsed")
+    with col_bus: c_bus = st.text_input("🔍 Buscar planta", placeholder="Buscar por nombre o ciudad", label_visibility="collapsed")
     with col_btn:
         if st.session_state['rol'] == 'admin':
             if st.button("Crear una planta", type="primary", use_container_width=True):
@@ -259,51 +288,47 @@ if menu == "🌐 Panorama General":
                 st.rerun()
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if not plantas:
-        st.warning("No hay plantas registradas.")
+    if not plantas: st.warning("No hay plantas registradas.")
     else:
         filtradas = [pl for pl in plantas if c_bus.lower() in pl['nombre'].lower() or c_bus.lower() in pl['ubicacion'].lower()]
-        st.markdown('<div style="overflow-x: auto; padding-bottom: 15px;"><div style="min-width: 1050px;">', unsafe_allow_html=True)
+        st.markdown('<div style="overflow-x: auto;"><div style="min-width: 1050px;">', unsafe_allow_html=True)
         for i, pl in enumerate(filtradas):
             dat = get_data(pl)
             col_card, col_btns = st.columns([11, 1])
             with col_card:
                 st.markdown(f"""
-                <div class="tarjeta-dash-pro" style="position:relative; margin-bottom:0px;">
-                <div style="display:flex; align-items:center; width: 320px; flex-shrink: 0;"><img src="https://img.icons8.com/color/48/solar-panel.png" style="width: 32px; margin-right:15px;"/><div style="font-size: 15px; font-weight: bold; color: #2c3e50;">{pl['nombre']}</div></div>
+                <div class="tarjeta-dash-pro" style="margin-bottom:0px;">
+                <div style="display:flex; align-items:center; width: 320px; flex-shrink: 0;"><img src="https://img.icons8.com/color/48/solar-panel.png" style="width: 32px; margin-right:15px;"/><div style="font-size: 15px; font-weight: bold;">{pl['nombre']}</div></div>
                 <div class="tarjeta-dash-item"><div class="tarjeta-label-pro">Potencia Solar</div><div class="tarjeta-dato-pro">{dat['solar']} W</div></div>
                 <div class="tarjeta-dash-item"><div class="tarjeta-label-pro">Energía Hoy</div><div class="tarjeta-dato-pro" style="color:#27ae60 !important;">{dat['hoy']} kWh</div></div>
                 </div>""", unsafe_allow_html=True)
             with col_btns:
                 if st.session_state['rol'] == 'admin':
-                    st.markdown("<div style='height:15px;'></div><div class='iconos-accion'>", unsafe_allow_html=True)
-                    b1, b2 = st.columns(2)
-                    # Enlaces Query Params para editar/eliminar funcionales
-                    st.markdown(f'<a href="?edit={i}" target="_self" title="Editar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/edit.png" style="width:20px; margin-right:5px; cursor:pointer;"/></a><a href="?delete={i}" target="_self" title="Eliminar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/filled-trash.png" style="width:20px; cursor:pointer;"/></a>', unsafe_allow_html=True)
+                    st.markdown("<div style='height:15px;'></div><div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
+                    st.markdown(f'<a href="?edit={i}" title="Editar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/edit.png" width="24"/></a> <a href="?delete={i}" title="Eliminar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/filled-trash.png" width="24"/></a>', unsafe_allow_html=True)
                     st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div></div>", unsafe_allow_html=True)
 
 # ==========================================
-# 6. VISTA: PANEL DE PLANTA (CLON SOLARMAN)
+# 7. VISTA: PANEL DE PLANTA (RESTURACIÓN COMPLETA)
 # ==========================================
 elif menu == "📊 Panel de Planta":
     if not plantas:
         st.warning("No hay plantas registradas.")
         st.stop()
         
-    st.markdown('<div class="white-panel">', unsafe_allow_html=True)
     pl_sel = st.selectbox("Seleccionar Planta:", [p["nombre"] for p in plantas], label_visibility="collapsed")
     p = next(x for x in plantas if x["nombre"] == pl_sel)
     d = get_data(p)
     
-    st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:gray;'>| 🟢 En línea | SN: {p.get('datalogger', '2412120039')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
+    st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', '2412120039')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
-    # KPIs
+    # KPIs (NÚMEROS ARREGLADOS, SIN WRAP NI SOMBRAS)
     c1, c2, c3, c4 = st.columns(4)
-    c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#3498db;'>{d['hoy']} kWh</div><div class='solarman-lbl' style='color:#7f8c8d;'>Producción Solar</div></div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e67e22;'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl' style='color:#7f8c8d;'>Consumo</div></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='solarman-card'><div style='font-size:14px; font-weight:bold; color:#2c3e50;'>🔋 {round(d['hoy']*0.2,1)} kWh <span style='color:#7f8c8d; font-size:10px;'>Cargar</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px; color:#2c3e50;'>🔋 {round(d['hoy']*0.1,1)} kWh <span style='color:#7f8c8d; font-size:10px;'>Descargar</span></div></div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='solarman-card'><div style='font-size:14px; font-weight:bold; color:#2c3e50;'>⚡ 0 kWh <span style='color:#7f8c8d; font-size:10px;'>A Red</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px; color:#2c3e50;'>⚡ 0 kWh <span style='color:#7f8c8d; font-size:10px;'>De Red</span></div></div>", unsafe_allow_html=True)
+    c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#3498db !important;'>{d['hoy']} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
+    c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e67e22 !important;'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
+    c3.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold;'>🔋 {round(d['hoy']*0.2,1)} kWh <span class='solarman-lbl'>Cargar</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px;'>🔋 {round(d['hoy']*0.1,1)} kWh <span class='solarman-lbl'>Descargar</span></div></div>", unsafe_allow_html=True)
+    c4.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold;'>⚡ 0 kWh <span class='solarman-lbl'>A Red</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px;'>⚡ 0 kWh <span class='solarman-lbl'>De Red</span></div></div>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
     # TABS PRINCIPALES
@@ -313,14 +338,46 @@ elif menu == "📊 Panel de Planta":
         t_graf, t_rep = st.tabs(["📈 Panel Gráfico", "📄 Reportes"])
         t_ctrl, t_om = None, None
     
+    # --- RESTAURACIÓN: GRÁFICA Y FLUJO ---
     with t_graf:
-        st.info("Gráfica de flujo y energía activa en la versión completa.")
-        
+        col_grafica, col_flujo = st.columns([7, 3])
+        with col_grafica:
+            st.markdown("<div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea;'>", unsafe_allow_html=True)
+            df_historico = simular_historico_24h(p)
+            fig2 = px.area(df_historico, x="timestamp", y=["Generación FV", "Consumo Carga"], color_discrete_map={"Generación FV": "#3498db", "Consumo Carga": "#e74c3c"})
+            fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", legend_title_text=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), xaxis=dict(tickformat="%H:%M", dtick=2 * 3600000, gridcolor="#f0f0f0"), yaxis=dict(gridcolor="#f0f0f0"), yaxis_title="kW", margin=dict(l=10, r=10, t=10, b=10), height=380)
+            fig2.update_traces(fill='tozeroy', mode='lines', line=dict(width=2))
+            fig2.update_traces(selector=dict(name="Consumo Carga"), fill='none')
+            st.plotly_chart(fig2, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_flujo:
+            pot_bat = d["solar"] - d["casa"]
+            color_bat = "#2ecc71" if d["soc"] > 20 else "#e74c3c"
+            diagrama_svg = f"""
+            <div style="background: white; border-radius: 8px; padding: 20px; border: 1px solid #eaeaea; height: 100%; display: flex; align-items: center;">
+                <svg viewBox="0 0 400 350" width="100%">
+                    <path d="M 100 85 V 150 H 170 M 300 85 V 150 H 230 M 170 150 H 100 V 230 M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
+                    <circle r="6" fill="#3498db"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
+                    <circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>
+                    <circle r="6" fill="#e74c3c"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>
+                    <rect x="165" y="115" width="70" height="70" rx="12" fill="#f8f9fa" stroke="#3498db" stroke-width="3"/>
+                    <rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/> 
+                    <text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text>
+                    <text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">Híbrido</text>
+                    <g transform="translate(60,30)"><image href="https://img.icons8.com/color/48/solar-panel.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#3498db" text-anchor="middle">{d['solar']} W</text></g>
+                    <g transform="translate(260,30)"><image href="https://img.icons8.com/fluency/48/electrical.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#7f8c8d" text-anchor="middle">0 W</text></g>
+                    <g transform="translate(60,260)"><image href="https://img.icons8.com/color/48/car-battery.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#27ae60" text-anchor="middle">{pot_bat} W</text><text x="5" y="55" font-size="11" font-weight="bold" fill="{color_bat}" text-anchor="middle">SOC: {d['soc']}%</text></g>
+                    <g transform="translate(260,260)"><image href="https://img.icons8.com/color/48/home.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#e74c3c" text-anchor="middle">{d['casa']} W</text></g>
+                </svg>
+            </div>
+            """
+            components.html(diagrama_svg, height=415)
+            
+    # --- CONTROL REMOTO ---
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
-            
-            # SUB-TABS EXACTOS
             st_bat, st_mo1, st_mo2, st_red, st_smart, st_bas, st_av1, st_av2 = st.tabs([
                 "🔋 Baterías", "🔄 Modos-1", "🔄 Modos-2", "⚡ Red", "🧠 SmartLoad", "⚙️ Básica", "🛠️ Avanzadas-1", "🛠️ Avanzadas-2"
             ])
@@ -340,7 +397,7 @@ elif menu == "📊 Panel de Planta":
                 m1, m2, m3, m4, m5 = st.columns(5)
                 m1.selectbox("* Modo", ["Autoconsumo", "Respaldo"])
                 with m2:
-                    st.markdown("<p style='color:#2c3e50 !important; font-size:12px; margin-bottom:5px;'>* Configuración</p>", unsafe_allow_html=True)
+                    st.markdown("<p style='font-size:12px; margin-bottom:5px;'>* Configuración</p>", unsafe_allow_html=True)
                     st.checkbox("Lunes", True); st.checkbox("Martes", True)
                 m3.number_input("* Max Solar (W)", 5000)
                 m4.number_input("* Max Red (W)", 5000)
@@ -349,72 +406,90 @@ elif menu == "📊 Panel de Planta":
             with st_mo2:
                 st.toggle("* FuncionamientoporPeriodos", False)
 
-            # --- FUNCIONALIDAD REAL DEL DESBLOQUEO DE RED (CONTRASEÑA: admin123) ---
             with st_red:
-                if not st.session_state.get("red_desbloqueada", False):
-                    st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Para configurar la red, introduzca la contraseña para desbloquear</div>", unsafe_allow_html=True)
+                if not st.session_state["red_desbloqueada"]:
+                    st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para desbloquear</div>", unsafe_allow_html=True)
                     c_pw1, c_pw2 = st.columns([2, 3])
                     pwd = c_pw1.text_input("Contraseña", type="password", label_visibility="collapsed")
                     if c_pw1.button("Desbloquear", type="secondary"):
                         if pwd == "admin123":
                             st.session_state["red_desbloqueada"] = True
                             st.rerun()
-                        else:
-                            st.error("❌ Contraseña incorrecta. Intente de nuevo.")
+                        else: st.error("❌ Contraseña incorrecta.")
                 else:
-                    st.success("🔓 Panel de Red Desbloqueado Exitosamente")
-                    st.markdown("<div style='margin-top: 10px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V)</div>", unsafe_allow_html=True)
-                    col_v1, col_v2 = st.columns(2)
-                    col_v1.number_input("Sobre Tensión Máx (Over-voltage V)", min_value=220.0, max_value=280.0, value=253.0, step=1.0)
-                    col_v2.number_input("Sub Tensión Mín (Under-voltage V)", min_value=170.0, max_value=220.0, value=198.0, step=1.0)
-
-                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz)</div>", unsafe_allow_html=True)
-                    col_f1, col_f2 = st.columns(2)
-                    col_f1.number_input("Sobre Frecuencia Máx (Over-frequency Hz)", min_value=60.0, max_value=65.0, value=60.5, step=0.1)
-                    col_f2.number_input("Sub Frecuencia Mín (Under-frequency Hz)", min_value=55.0, max_value=60.0, value=59.5, step=0.1)
-                    
-                    if st.button("🔒 Bloquear Panel de Red"):
+                    st.success("🔓 Panel de Red Desbloqueado")
+                    cv1, cv2 = st.columns(2)
+                    cv1.number_input("Sobre Tensión Máx (V)", value=253.0)
+                    cv2.number_input("Sub Tensión Mín (V)", value=198.0)
+                    cf1, cf2 = st.columns(2)
+                    cf1.number_input("Sobre Frecuencia Máx (Hz)", value=60.5)
+                    cf2.number_input("Sub Frecuencia Mín (Hz)", value=59.5)
+                    if st.button("🔒 Bloquear"):
                         st.session_state["red_desbloqueada"] = False
                         st.rerun()
-            # ----------------------------------------------------------------------
 
             with st_smart:
-                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
                 cs1, cs2, cs3 = st.columns(3)
                 cs1.selectbox("* SmartLoad", ["Seleccione", "Habilitado"])
-                cs2.selectbox("* Par CA Red", ["Seleccione", "Habilitado"])
-                cs3.selectbox("* Par CA Carga", ["Seleccione", "Habilitado"])
+                cs2.selectbox("* Par CA Red", opts_sel)
+                cs3.selectbox("* Par CA Carga", opts_sel)
 
             with st_bas:
-                st.markdown("<h4>Configuración Básica</h4>", unsafe_allow_html=True)
-                st.markdown("<small style='color:#7f8c8d;'>ⓘ Configuración general del dispositivo.</small>", unsafe_allow_html=True)
                 st.toggle("Sonido zumbador", True)
 
             with st_av1:
-                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
                 a1, a2, a3 = st.columns(3)
                 a1.selectbox("* Configuración ARC", opts_sel)
-                a2.number_input("* Potencia de reducción de picos (W)", 1000)
+                a2.number_input("* Potencia reducción de picos (W)", 1000)
 
             with st_av2:
-                st.markdown("<h4>Funciones Avanzadas-2</h4>", unsafe_allow_html=True)
-                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
-                st.markdown("<div style='color: #2c3e50; font-weight: bold; margin-bottom: 10px; margin-top: 15px;'>Configuración Baterías</div>", unsafe_allow_html=True)
-                av_col1, av_col2, av_col3 = st.columns([1.5, 1, 2])
-                with av_col1:
-                    st.selectbox("* DC 1 para turbina eólica", ["Seleccione", "Habilitado", "Deshabilitado"])
+                av_col1, _, _ = st.columns([1.5, 1, 2])
+                av_col1.selectbox("* DC 1 para turbina eólica", opts_sel)
         
             st.markdown("<br><hr style='margin:10px 0;'>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns([6, 2, 2])
-            with b_col2:
-                st.button("Mirada lasciva", use_container_width=True, type="secondary")
+            with b_col2: st.button("Mirada lasciva", use_container_width=True, type="secondary")
             with b_col3:
                 if st.button("Configurar", type="primary", use_container_width=True):
-                    with st.spinner("Enviando comandos..."):
-                        time.sleep(1.5)
+                    with st.spinner("Enviando..."): time.sleep(1.5)
                     st.success("¡Configuración aplicada!")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    # --- RESTAURACIÓN: REPORTES Y DESCARGA CSV ---
+    with t_rep:
+        st.markdown("### 📄 Descarga de Datos Históricos")
+        st.write("Exporte las métricas del día actual a Excel.")
+        df_informe = pd.DataFrame({"Fecha Consulta": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")], "Planta": [p['nombre']], "Producción Diaria (kWh)": [d['hoy']]})
+        csv_data = df_informe.to_csv(index=False).encode('utf-8-sig') 
+        st.download_button(label="📥 Descargar Informe CSV", data=csv_data, file_name=f"Reporte_{p['nombre']}.csv", mime="text/csv")
+
+    # --- RESTAURACIÓN: O&M (AGENDA DE MANTENIMIENTO) ---
+    if t_om:
+        with t_om:
+            st.markdown("### 📅 Agenda de Mantenimiento")
+            with st.form("f_mant"):
+                mc1, mc2, mc3 = st.columns([2, 1, 1])
+                m_tipo = mc1.selectbox("Tipo de Tarea", ["💦 Limpieza Paneles", "🔋 Revisión Baterías", "🔌 Revisión Inversor"])
+                m_fecha = mc2.date_input("Fecha")
+                m_resp = mc3.text_input("Técnico")
+                m_notas = st.text_input("Observaciones")
+                if st.form_submit_button("➕ Agendar"):
+                    guardar_mantenimiento(p['nombre'], {"fecha": str(m_fecha), "tipo": m_tipo, "resp": m_resp, "notas": m_notas, "estado": "⏳ Pendiente"})
+                    st.rerun()
+            
+            st.markdown("<br><h4>📋 Historial</h4>", unsafe_allow_html=True)
+            mantenimientos = cargar_mantenimientos().get(p['nombre'], [])
+            if not mantenimientos: st.info("No hay mantenimientos programados.")
+            else:
+                for i, m in enumerate(reversed(mantenimientos)):
+                    real_idx = len(mantenimientos) - 1 - i
+                    st.markdown(f"<div style='background:white; padding:15px; border-radius:8px; border:1px solid #eaeaea; margin-bottom:10px;'><b>{m['tipo']}</b> - {m['estado']}<br><span style='font-size:12px; color:#7f8c8d;'>📅 {m['fecha']} | 👨‍🔧 {m['resp']} | 📝 {m['notas']}</span></div>", unsafe_allow_html=True)
+                    c_btn1, c_btn2, _ = st.columns([1,1,8])
+                    if m['estado'] == "⏳ Pendiente" and c_btn1.button("✅", key=f"ok_{real_idx}"):
+                        actualizar_estado_mantenimiento(p['nombre'], real_idx, "✅ Completado")
+                        st.rerun()
+                    if c_btn2.button("🗑️", key=f"del_{real_idx}"):
+                        eliminar_mantenimiento(p['nombre'], real_idx)
+                        st.rerun()
 
 elif menu == "🚨 Centro de Alertas":
     st.title("🚨 ALERTAS")
