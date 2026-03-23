@@ -447,7 +447,7 @@ if menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL DEL PORTAFOLIO")
     st.markdown("**MOMISOLAR APP - Vista global rápida**")
     
-    # --- FORMULARIO DE EDICIÓN (SE ABRE AL CLICKEAR EL LÁPIZ) ---
+    # --- FORMULARIO DE EDICIÓN ---
     if st.session_state.get("editando_planta") is not None:
         idx_edit = st.session_state["editando_planta"]
         if idx_edit < len(plantas_guardadas):
@@ -462,9 +462,7 @@ if menu == "🌐 Panorama General":
                 new_cap = c1.text_input("Capacidad (kWp)", value=p_edit["capacidad"])
                 new_inv = c2.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"], index=["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"].index(p_edit["inversores"]) if p_edit["inversores"] in ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"] else 0)
                 
-                # --- NUEVO CAMPO: SN DEL DATALOGGER EN LA EDICIÓN ---
                 new_sn = st.text_input("SN del Datalogger (Wifi/LAN)", value=p_edit.get("datalogger", ""))
-                # ----------------------------------------------------
                 
                 sub1, sub2 = st.columns(2)
                 if sub1.form_submit_button("💾 Guardar Cambios"):
@@ -479,7 +477,6 @@ if menu == "🌐 Panorama General":
                     st.session_state["editando_planta"] = None
                     st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-    # -------------------------------------------------------------
 
     if not plantas_guardadas:
         st.warning("No hay plantas registradas. Ve a Gestión para agregar una.")
@@ -585,10 +582,8 @@ elif menu == "📊 Panel de Planta":
         
         estado_ico = "🟢 En línea" if not datos_act["alertas"] else "🔴 Con Alertas"
         
-        # --- SE MUESTRA EL SN DEL DATALOGGER EN LA CABECERA DE LA PLANTA ---
         sn_info = f" | SN: {d.get('datalogger', 'No asignado')}" if d.get('datalogger') else ""
         st.markdown(f"<h2>{d['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| {estado_ico}{sn_info}</span></h2>", unsafe_allow_html=True)
-        # -------------------------------------------------------------------
         
         st.markdown("<hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
 
@@ -707,9 +702,18 @@ elif menu == "📊 Panel de Planta":
                     col_g1, col_g2 = st.columns(2)
                     col_g1.selectbox("Normativa Aplicada", ["Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
                     col_g2.slider("Límite de Inyección a red (%) - Zero Export", min_value=0, max_value=100, value=0)
+                    
+                    # --- NUEVOS PARÁMETROS: PROTECCIONES DE RED (TENSIÓN Y FRECUENCIA) ---
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V)</div>", unsafe_allow_html=True)
                     col_v1, col_v2 = st.columns(2)
-                    col_v1.number_input("Voltaje Máx. AC (V)", min_value=220, max_value=270, value=253)
-                    col_v2.number_input("Voltaje Mín. AC (V)", min_value=180, max_value=210, value=198)
+                    col_v1.number_input("Sobre Tensión Máx (Over-voltage V)", min_value=220.0, max_value=280.0, value=253.0, step=1.0)
+                    col_v2.number_input("Sub Tensión Mín (Under-voltage V)", min_value=170.0, max_value=220.0, value=198.0, step=1.0)
+
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz)</div>", unsafe_allow_html=True)
+                    col_f1, col_f2 = st.columns(2)
+                    col_f1.number_input("Sobre Frecuencia Máx (Over-frequency Hz)", min_value=60.0, max_value=65.0, value=60.5, step=0.1)
+                    col_f2.number_input("Sub Frecuencia Mín (Under-frequency Hz)", min_value=55.0, max_value=60.0, value=59.5, step=0.1)
+                    # ---------------------------------------------------------------------
 
                 with sub_t3:
                     st.checkbox("Habilitar Carga desde la Red Eléctrica (Grid Charge)")
@@ -817,9 +821,7 @@ elif menu == "🏢 Gestión de Portafolio":
             
             c5, c6 = st.columns(2)
             n_inv = c5.selectbox("Marca de Inversor", ["Deye", "GoodWe", "Huawei", "Sylvania"])
-            # --- NUEVO CAMPO: SN DEL DATALOGGER EN LA CREACIÓN ---
             n_sn = c6.text_input("SN del Datalogger (Opcional)")
-            # -----------------------------------------------------
             
             if st.form_submit_button("💾 Crear Planta (createPlant)"):
                 if n_nom:
