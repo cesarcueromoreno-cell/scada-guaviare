@@ -23,7 +23,6 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="MOMISOLAR APP", page_icon="☀️", layout="wide") 
 
-# CSS GLOBAL 
 css_global = """
 <style>
 /* FONDO DE LA APLICACIÓN */
@@ -135,11 +134,13 @@ label, label p, label div, button[data-baseweb="tab"] p, button[data-baseweb="ta
 st.markdown(css_global, unsafe_allow_html=True)
 
 # ==========================================
-# 2. BASE DE DATOS (PLANTAS Y USUARIOS)
+# 2. BASE DE DATOS (PLANTAS, USUARIOS Y MANTENIMIENTOS)
 # ==========================================
 ARCHIVO_PLANTAS = 'plantas.json'
 ARCHIVO_USUARIOS = 'usuarios.json'
+ARCHIVO_MANTENIMIENTOS = 'mantenimientos.json' # NUEVA BASE DE DATOS
 
+# Funciones Usuarios
 def cargar_usuarios():
     if not os.path.exists(ARCHIVO_USUARIOS):
         with open(ARCHIVO_USUARIOS, 'w') as f: json.dump({"admin": "solar123"}, f)
@@ -150,6 +151,7 @@ def guardar_usuario(usuario, contrasena):
     usuarios[usuario] = contrasena
     with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(usuarios, f)
 
+# Funciones Plantas
 def cargar_plantas():
     if not os.path.exists(ARCHIVO_PLANTAS):
         inicial = [{
@@ -171,6 +173,31 @@ def eliminar_planta(indice):
         plantas.pop(indice)
         with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
 
+# Funciones Mantenimiento (NUEVO)
+def cargar_mantenimientos():
+    if not os.path.exists(ARCHIVO_MANTENIMIENTOS):
+        with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump({}, f)
+    with open(ARCHIVO_MANTENIMIENTOS, 'r') as f: return json.load(f)
+
+def guardar_mantenimiento(planta, datos_mant):
+    mants = cargar_mantenimientos()
+    if planta not in mants: mants[planta] = []
+    mants[planta].append(datos_mant)
+    with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
+
+def actualizar_estado_mantenimiento(planta, indice, nuevo_estado):
+    mants = cargar_mantenimientos()
+    if planta in mants and 0 <= indice < len(mants[planta]):
+        mants[planta][indice]["estado"] = nuevo_estado
+        with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
+
+def eliminar_mantenimiento(planta, indice):
+    mants = cargar_mantenimientos()
+    if planta in mants and 0 <= indice < len(mants[planta]):
+        mants[planta].pop(indice)
+        with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
+
+# Autenticación
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
@@ -274,7 +301,6 @@ if menu == "📊 Panel de Planta":
         border-radius: 0px !important;
     }
     
-    /* Matar la sombra y forzar color oscuro a TODOS los textos del área blanca */
     [data-testid="stMainBlockContainer"] * {
         text-shadow: none !important;
     }
@@ -290,7 +316,6 @@ if menu == "📊 Panel de Planta":
         color: #2c3e50 !important;
     }
 
-    /* CORRECCIÓN DE PESTAÑAS: Obligar a los tabs a perder la sombra y ser oscuros */
     button[data-baseweb="tab"] p, 
     button[data-baseweb="tab"] span, 
     button[data-baseweb="tab"] div {
@@ -299,7 +324,6 @@ if menu == "📊 Panel de Planta":
         font-weight: bold !important;
     }
 
-    /* Colores específicos para que las tarjetas no queden totalmente grises */
     .solarval-blue { color: #3498db !important; }
     .solarval-orange { color: #e67e22 !important; }
     .solarlbl-gray { color: #7f8c8d !important; }
@@ -407,14 +431,13 @@ if menu == "🌐 Panorama General":
         if st.button("🔄 Actualizar Todo"): st.rerun()
 
 # ==========================================
-# VENTANA 2: PANEL DE PLANTA (EL NUEVO WORKSPACE BLANCO)
+# VENTANA 2: PANEL DE PLANTA (WORKSPACE + O&M)
 # ==========================================
 elif menu == "📊 Panel de Planta":
     
     if not plantas_guardadas:
         st.warning("No hay plantas registradas en el sistema.")
     else:
-        # Selector principal superior
         col_tit, col_sel = st.columns([2, 1])
         with col_sel:
             planta_sel = st.selectbox("Cambiar de Planta:", [p["nombre"] for p in plantas_guardadas], label_visibility="collapsed")
@@ -425,7 +448,6 @@ elif menu == "📊 Panel de Planta":
         st.markdown(f"<h2>{d['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>ID: {hashlib.md5(d['nombre'].encode()).hexdigest()[:8].upper()} | {estado_ico}</span></h2>", unsafe_allow_html=True)
         st.markdown("<hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
 
-        # MÉTRICAS SUPERIORES
         prod_solar = datos_act["energia_diaria"]
         consumo_sim = round(prod_solar * 0.45, 1)
         carga_bat = round(prod_solar * 0.2, 1)
@@ -443,7 +465,8 @@ elif menu == "📊 Panel de Planta":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        tab_monitor, tab_control, tab_reportes = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes y Datos"])
+        # NUEVA PESTAÑA DE MANTENIMIENTO AÑADIDA AQUÍ
+        tab_monitor, tab_control, tab_reportes, tab_mantenimiento = st.tabs(["📈 Panel Gráfico y Flujo", "⚙️ Control Remoto del Inversor", "📄 Reportes y Datos", "🛠️ Agenda de Mantenimiento"])
         
         with tab_monitor:
             col_grafica, col_flujo = st.columns([7, 3])
@@ -567,6 +590,56 @@ elif menu == "📊 Panel de Planta":
                 label="📥 Descargar Informe CSV", data=csv_data, 
                 file_name=f"Reporte_{d['nombre'].replace(' ', '_')}.csv", mime="text/csv"
             )
+
+        # --- SECCIÓN NUEVA: MANTENIMIENTO ---
+        with tab_mantenimiento:
+            st.markdown("<h3 style='color:#2c3e50;'>📅 Agenda de O&M (Operación y Mantenimiento)</h3>", unsafe_allow_html=True)
+            st.write("Programe y lleve el control del servicio técnico y garantías para esta instalación.")
+            
+            with st.form("f_mant"):
+                mc1, mc2, mc3 = st.columns([2, 1, 1])
+                m_tipo = mc1.selectbox("Tipo de Tarea", ["💦 Limpieza de Paneles", "🔋 Revisión de Banco de Baterías", "🔌 Mantenimiento Preventivo Inversor", "🔎 Inspección Eléctrica General", "🔧 Corrección de Fallo por Garantía"])
+                m_fecha = mc2.date_input("Fecha Programada")
+                m_resp = mc3.text_input("Técnico a Cargo", placeholder="Ej: Carlos M.")
+                m_notas = st.text_input("Observaciones o Materiales Necesarios", placeholder="Ej: Llevar hidrolavadora, escalera de 3m y EPP...")
+                
+                if st.form_submit_button("➕ Agendar Mantenimiento", use_container_width=True):
+                    guardar_mantenimiento(d['nombre'], {"fecha": str(m_fecha), "tipo": m_tipo, "resp": m_resp, "notas": m_notas, "estado": "⏳ Pendiente"})
+                    st.success("¡Tarea de mantenimiento agendada exitosamente!")
+                    time.sleep(1.5)
+                    st.rerun()
+            
+            st.markdown("<br><h4>📋 Historial de Servicios</h4>", unsafe_allow_html=True)
+            mants = cargar_mantenimientos().get(d['nombre'], [])
+            
+            if not mants:
+                st.info("Aún no hay mantenimientos programados para esta planta.")
+            else:
+                # Mostrar los más recientes arriba
+                for i, m in enumerate(reversed(mants)):
+                    real_idx = len(mants) - 1 - i
+                    
+                    st.markdown("<div style='background:white; padding:15px; border-radius:8px; border:1px solid #eaeaea; margin-bottom:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>", unsafe_allow_html=True)
+                    col_det, col_est, col_acc = st.columns([5, 2, 1])
+                    
+                    with col_det:
+                        st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#2c3e50;'>{m['tipo']}</div><div style='font-size:13px; color:#7f8c8d; margin-top:5px;'>📅 Fecha: {m['fecha']} &nbsp;|&nbsp; 👨‍🔧 Responsable: {m['resp']} <br> 📝 Notas: {m['notas']}</div>", unsafe_allow_html=True)
+                    
+                    with col_est:
+                        if m['estado'] == "⏳ Pendiente":
+                            st.warning(m['estado'])
+                        else:
+                            st.success(m['estado'])
+                            
+                    with col_acc:
+                        if m['estado'] == "⏳ Pendiente":
+                            if st.button("✅ Completar", key=f"btn_ok_{real_idx}_{d['nombre']}", help="Marcar como completado"):
+                                actualizar_estado_mantenimiento(d['nombre'], real_idx, "✅ Completado")
+                                st.rerun()
+                        if st.button("🗑️ Borrar", key=f"btn_del_{real_idx}_{d['nombre']}", help="Eliminar registro"):
+                            eliminar_mantenimiento(d['nombre'], real_idx)
+                            st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
 # VENTANA 3: GESTIÓN DE PORTAFOLIO Y USUARIOS
