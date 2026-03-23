@@ -50,22 +50,9 @@ st.markdown(
         margin-bottom: 5px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
-    .tarjeta-titulo { 
-        color: #2c3e50; 
-        font-size: 18px; 
-        font-weight: bold; 
-        margin-bottom: 10px; 
-    }
-    .tarjeta-dato { 
-        font-size: 22px; 
-        font-weight: bold; 
-        color: #34495e; 
-    }
-    .tarjeta-label { 
-        font-size: 12px; 
-        color: #7f8c8d; 
-        text-transform: uppercase; 
-    }
+    .tarjeta-titulo { color: #2c3e50; font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+    .tarjeta-dato { font-size: 22px; font-weight: bold; color: #34495e; }
+    .tarjeta-label { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
     </style>
     """,
     unsafe_allow_html=True
@@ -93,13 +80,9 @@ def guardar_usuario(usuario, contrasena):
 def cargar_plantas():
     if not os.path.exists(ARCHIVO_PLANTAS):
         inicial = [{
-            "nombre": "Planta Principal", 
-            "ubicacion": "Guaviare", 
-            "capacidad": "13.92 kWp", 
-            "inversores": "Híbrido Multimarca", 
-            "datalogger": "SN: CV-001", 
-            "bat_marca": "Deye/Pylontech", 
-            "bat_tipo": "Litio (LiFePO4)"
+            "nombre": "Planta Principal", "ubicacion": "Guaviare", "capacidad": "13.92 kWp", 
+            "inversores": "Híbrido Multimarca", "datalogger": "SN: CV-001", 
+            "bat_marca": "Deye/Pylontech", "bat_tipo": "Litio (LiFePO4)"
         }]
         with open(ARCHIVO_PLANTAS, 'w') as f: 
             json.dump(inicial, f)
@@ -140,41 +123,26 @@ if not st.session_state["autenticado"]:
     st.stop() 
 
 # --- MOTOR DE INTEGRACIÓN SOLARMAN ---
-SOLARMAN_APP_ID = "TU_APP_ID_AQUI"
-SOLARMAN_APP_SECRET = "TU_APP_SECRET_AQUI"
-SOLARMAN_EMAIL = "correo@cvingenieria.com"
-SOLARMAN_PASSWORD = "tu_password"
-
-def obtener_token_solarman():
-    return None
-
 def obtener_datos_reales(planta):
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
-    try: 
-        cap_val = float(solo_numeros[0]) * 1000 if solo_numeros else 5000 
-    except: 
-        cap_val = 5000 
+    try: cap_val = float(solo_numeros[0]) * 1000 if solo_numeros else 5000 
+    except: cap_val = 5000 
     
     pot_simulada = int(cap_val * random.uniform(0.1, 0.8))
     energia_simulada = round((pot_simulada * random.uniform(3.5, 5.0)) / 1000, 1)
-    estado = "Simulado (Falta configurar API)" if planta.get("inversores") == "Deye" else "Simulado"
+    estado = "Simulado (Falta configurar API)" if planta.get("inversores") in ["Deye", "Sylvania"] else "Simulado"
 
     return {
-        "solar": pot_simulada,
-        "casa": 1750 + random.randint(-40, 40),
-        "soc": random.randint(50, 99),
-        "energia_diaria": energia_simulada,
-        "status": estado
+        "solar": pot_simulada, "casa": 1750 + random.randint(-40, 40),
+        "soc": random.randint(50, 99), "energia_diaria": energia_simulada, "status": estado
     }
 
 def simular_historico_24h(planta):
     cap_texto = str(planta.get("capacidad", "5"))
     solo_numeros = re.findall(r"[-+]?\d*\.\d+|\d+", cap_texto)
-    try: 
-        cap_val = float(solo_numeros[0]) if solo_numeros else 5.0
-    except: 
-        cap_val = 5.0
+    try: cap_val = float(solo_numeros[0]) if solo_numeros else 5.0
+    except: cap_val = 5.0
 
     hora_actual = datetime.now()
     inicio_dia = hora_actual.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -190,20 +158,10 @@ def simular_historico_24h(planta):
             generacion = max(0, (cap_val * 0.9) * math.sin(x) * random.uniform(0.95, 1.05))
             
         base_consumo = cap_val * 0.2
-        if 7 <= hora <= 9:
-            pico_consumo = cap_val * 0.3 * math.sin((hora-7)/2 * math.pi)
-        elif 18 <= hora <= 21:
-            pico_consumo = cap_val * 0.4 * math.sin((hora-18)/3 * math.pi)
-        else:
-            pico_consumo = 0
-            
+        pico_consumo = cap_val * 0.3 * math.sin((hora-7)/2 * math.pi) if 7 <= hora <= 9 else (cap_val * 0.4 * math.sin((hora-18)/3 * math.pi) if 18 <= hora <= 21 else 0)
         consumo = max(cap_val * 0.1, base_consumo + pico_consumo + (cap_val * 0.05 * random.uniform(-1, 1)))
         
-        datos.append({
-            "timestamp": timestamp, 
-            "Generación FV": round(generacion, 2), 
-            "Consumo Carga": round(consumo, 2)
-        })
+        datos.append({"timestamp": timestamp, "Generación FV": round(generacion, 2), "Consumo Carga": round(consumo, 2)})
         
     return pd.DataFrame(datos)
 
@@ -215,7 +173,8 @@ plantas_guardadas = cargar_plantas()
 st.sidebar.title("Navegación CV")
 st.sidebar.write(f"👤 Bienvenido, **{st.session_state.get('usuario_actual', 'admin')}**")
 
-menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "🏢 Gestión de Portafolio"])
+# --- NUEVA OPCIÓN DE MENÚ AGREGADA ---
+menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Monitoreo Detallado", "⚙️ Control de Inversores", "🏢 Gestión de Portafolio"])
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state["autenticado"] = False
@@ -253,20 +212,13 @@ if menu == "🌐 Panorama General":
             with st.expander(f"📉 Ver gráfica de comportamiento: {pl['nombre']}", expanded=False):
                 df_historico = simular_historico_24h(pl)
                 fig = px.area(
-                    df_historico, 
-                    x="timestamp", 
-                    y=["Generación FV", "Consumo Carga"], 
+                    df_historico, x="timestamp", y=["Generación FV", "Consumo Carga"], 
                     color_discrete_map={"Generación FV": "#e67e22", "Consumo Carga": "#e74c3c"}
                 )
                 fig.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)", 
-                    plot_bgcolor="rgba(0,0,0,0)", 
-                    legend_title_text=None, 
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
-                    xaxis=dict(tickformat="%H:%M"), 
-                    yaxis_title="Potencia (kW)", 
-                    margin=dict(l=20, r=20, t=10, b=20), 
-                    height=300
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                    legend_title_text=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
+                    xaxis=dict(tickformat="%H:%M"), yaxis_title="Potencia (kW)", margin=dict(l=20, r=20, t=10, b=20), height=300
                 )
                 fig.update_traces(fill='tozeroy', mode='lines', line=dict(width=2))
                 fig.update_traces(selector=dict(name="Consumo Carga"), fill='none')
@@ -278,7 +230,7 @@ if menu == "🌐 Panorama General":
             st.rerun()
 
 # ==========================================
-# VENTANA 2: MONITOREO DETALLADO Y REPORTE
+# VENTANA 2: MONITOREO DETALLADO
 # ==========================================
 elif menu == "📊 Monitoreo Detallado":
     st.title("📊 MONITOREO DETALLADO POR PLANTA")
@@ -352,19 +304,13 @@ elif menu == "📊 Monitoreo Detallado":
         
         df_historico = simular_historico_24h(d)
         fig2 = px.area(
-            df_historico, 
-            x="timestamp", 
-            y=["Generación FV", "Consumo Carga"], 
+            df_historico, x="timestamp", y=["Generación FV", "Consumo Carga"], 
             color_discrete_map={"Generación FV": "#e67e22", "Consumo Carga": "#e74c3c"}
         )
         fig2.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", 
-            plot_bgcolor="rgba(0,0,0,0)", 
-            legend_title_text=None, 
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
-            xaxis=dict(tickformat="%H:%M", dtick=2 * 3600000), 
-            yaxis_title="Potencia (kW)", 
-            margin=dict(l=20, r=20, t=20, b=20)
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+            legend_title_text=None, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
+            xaxis=dict(tickformat="%H:%M", dtick=2 * 3600000), yaxis_title="Potencia (kW)", margin=dict(l=20, r=20, t=20, b=20)
         )
         fig2.update_traces(fill='tozeroy', mode='lines', line=dict(width=2))
         fig2.update_traces(selector=dict(name="Consumo Carga"), fill='none')
@@ -375,16 +321,11 @@ elif menu == "📊 Monitoreo Detallado":
         
         fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         datos_informe = {
-            "Fecha/Hora Consulta": [fecha_hora_actual],
-            "Nombre de Planta": [d['nombre']],
-            "Ubicación": [d['ubicacion']],
-            "Capacidad (kWp)": [d['capacidad']],
-            "Marca Inversor": [d['inversores']],
-            "Batería": [f"{d.get('bat_marca','N/A')} ({d.get('bat_tipo','N/A')})"],
-            "Estado Conexión": [datos_act['status']],
-            "Generación FV Actual (W)": [pot_solar],
-            "Consumo Carga Actual (W)": [pot_casa],
-            "Nivel Batería SOC (%)": [soc],
+            "Fecha/Hora Consulta": [fecha_hora_actual], "Nombre de Planta": [d['nombre']],
+            "Ubicación": [d['ubicacion']], "Capacidad (kWp)": [d['capacidad']],
+            "Marca Inversor": [d['inversores']], "Batería": [f"{d.get('bat_marca','N/A')} ({d.get('bat_tipo','N/A')})"],
+            "Estado Conexión": [datos_act['status']], "Generación FV Actual (W)": [pot_solar],
+            "Consumo Carga Actual (W)": [pot_casa], "Nivel Batería SOC (%)": [soc],
             "Producción Diaria (kWh)": [datos_act['energia_diaria']]
         }
         
@@ -393,14 +334,55 @@ elif menu == "📊 Monitoreo Detallado":
         nombre_archivo = f"Reporte_Planta_{d['nombre'].replace(' ', '_')}.csv"
         
         st.download_button(
-            label="📥 Descargar Informe Técnico (CSV / Excel)", 
-            data=csv_data, 
-            file_name=nombre_archivo, 
-            mime="text/csv"
+            label="📥 Descargar Informe Técnico (CSV / Excel)", data=csv_data, 
+            file_name=nombre_archivo, mime="text/csv"
         )
 
 # ==========================================
-# VENTANA 3: GESTIÓN DE PORTAFOLIO Y USUARIOS
+# VENTANA 3: CONTROL DE INVERSORES (NUEVO - SOLO ADMIN)
+# ==========================================
+elif menu == "⚙️ Control de Inversores":
+    st.title("⚙️ PARAMETRIZACIÓN REMOTA")
+    st.markdown("**Control maestro de inversores - CV INGENIERIA SAS**")
+    
+    # SISTEMA DE SEGURIDAD: Bloqueo a usuarios que no sean "admin"
+    if st.session_state.get('usuario_actual') != 'admin':
+        st.error("⛔ ACCESO DENEGADO")
+        st.warning("Esta sección es de control crítico y modifica parámetros físicos del equipo. Solo el usuario Administrador de CV INGENIERÍA SAS tiene los privilegios necesarios.")
+    else:
+        st.info("🔐 Autenticado como Administrador. Proceda con precaución.")
+        
+        if not plantas_guardadas:
+            st.warning("No hay plantas registradas para configurar.")
+        else:
+            planta_sel = st.selectbox("Seleccione Planta a configurar:", [p["nombre"] for p in plantas_guardadas])
+            d = next(p for p in plantas_guardadas if p["nombre"] == planta_sel)
+            
+            st.write(f"Inversor detectado: **{d['inversores']}** en {d['ubicacion']}")
+            st.markdown("---")
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("#### 🔋 Gestión de Baterías (SOC)")
+                soc_limite = st.slider("Límite de Descarga de Batería (%)", min_value=10, max_value=50, value=20, step=5, help="Protección de vida útil. El inversor tomará de la red si baja de este porcentaje.")
+                corriente_carga = st.number_input("Corriente máxima de carga (Amperios)", min_value=10, max_value=120, value=60)
+            
+            with c2:
+                st.markdown("#### ⚡ Modo de Trabajo")
+                modo = st.selectbox("Configuración de Inyección", ["Autoconsumo (Inyección Cero)", "Venta a la Red (Excedentes)", "Modo Respaldo (UPS)"])
+                potencia_max = st.slider("Límite de Inyección a red (%)", min_value=0, max_value=100, value=0 if "Cero" in modo else 100)
+            
+            st.markdown("---")
+            st.warning("⚠️ **Advertencia:** Enviar estos parámetros alterará el funcionamiento del equipo. Asegúrese de que la configuración cumple con la norma RETIE / NTC 2050 para este proyecto.")
+            
+            if st.button("🚀 Enviar Parámetros al Inversor", use_container_width=True):
+                # Aquí irá el código de Solarman API / Modbus en el futuro
+                with st.spinner("Estableciendo conexión segura con el equipo..."):
+                    time.sleep(2)
+                st.success(f"¡Comandos enviados correctamente al Datalogger de la planta '{d['nombre']}'! (Modo Simulación Activo)")
+
+# ==========================================
+# VENTANA 4: GESTIÓN DE PORTAFOLIO Y USUARIOS
 # ==========================================
 elif menu == "🏢 Gestión de Portafolio":
     st.title("🏢 GESTIÓN DE PORTAFOLIO")
@@ -411,34 +393,20 @@ elif menu == "🏢 Gestión de Portafolio":
             c1, c2 = st.columns(2)
             n_nom = c1.text_input("Nombre Planta")
             n_ubi = c2.text_input("Ubicación")
-            n_inv = c1.selectbox(
-                "Inversor", 
-                ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"]
-            )
+            n_inv = c1.selectbox("Inversor", ["Deye", "GoodWe", "Fronius", "Huawei", "Growatt", "Must", "Sylvania"])
             n_cap = c2.text_input("Capacidad (kWp)")
             
             st.markdown("---")
             c3, c4 = st.columns(2)
-            n_b_m = c3.selectbox(
-                "Batería", 
-                ["Ninguna", "Pylontech", "Deye", "BYD", "Trojan", "Sylvania"]
-            )
-            n_b_t = c4.selectbox(
-                "Tecnología", 
-                ["Litio (LiFePO4)", "Plomo-Ácido", "AGM", "Gel"]
-            )
+            n_b_m = c3.selectbox("Batería", ["Ninguna", "Pylontech", "Deye", "BYD", "Trojan", "Sylvania"])
+            n_b_t = c4.selectbox("Tecnología", ["Litio (LiFePO4)", "Plomo-Ácido", "AGM", "Gel"])
             n_dl = st.text_input("📡 SN Datalogger / IP")
             
             if st.form_submit_button("💾 Guardar Planta"):
                 if n_nom:
                     guardar_planta({
-                        "nombre": n_nom, 
-                        "ubicacion": n_ubi, 
-                        "capacidad": n_cap, 
-                        "inversores": n_inv, 
-                        "datalogger": n_dl, 
-                        "bat_marca": n_b_m, 
-                        "bat_tipo": n_b_t
+                        "nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, 
+                        "inversores": n_inv, "datalogger": n_dl, "bat_marca": n_b_m, "bat_tipo": n_b_t
                     })
                     st.success("Planta Guardada")
                     st.rerun()
