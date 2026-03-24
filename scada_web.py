@@ -189,7 +189,7 @@ def eliminar_mantenimiento(planta, indice):
         mants[planta].pop(indice)
         with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
 
-# --- MANEJO DE ACCIONES POR QUERY PARAMS (LÁPIZ/PAPELERA) ---
+# --- MANEJO DE ACCIONES POR QUERY PARAMS ---
 if "delete" in st.query_params:
     try:
         idx = int(st.query_params["delete"])
@@ -251,6 +251,10 @@ plantas = cargar_plantas()
 st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MONISOLAR APP</h2>", unsafe_allow_html=True)
 st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Instalador/Admin' if st.session_state.get('rol') == 'admin' else 'Cliente'}")
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"])
+
+# =========================================================
+# BOTÓN DE CERRAR SESIÓN ARREGLADO (Para que no de TypeError)
+# =========================================================
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "red_desbloqueada": False})
     st.rerun()
@@ -452,7 +456,7 @@ elif menu == "📊 Panel de Planta":
             with st_mo2:
                 st.toggle("* FuncionamientoporPeriodos", value=False)
 
-            # --- RED: LÍMITE DE INYECCIÓN Y TIEMPOS DE DESPEJE INTACTOS ---
+            # --- RED: CON LÍMITE DE INYECCIÓN Y TIEMPOS DE DESPEJE ---
             with st_red:
                 if not st.session_state["red_desbloqueada"]:
                     st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para desbloquear</div>", unsafe_allow_html=True)
@@ -602,12 +606,13 @@ elif menu == "🚨 Centro de Alertas":
         c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#f1c40f !important;'>0</div><div class='solarman-lbl'>Advertencias</div></div>", unsafe_allow_html=True)
         c3.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#2ecc71 !important;'>{len(plantas)}</div><div class='solarman-lbl'>Plantas Online</div></div>", unsafe_allow_html=True)
         
-        st.markdown("<br>### Registro de Eventos (Simulado)", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### Registro de Eventos (Simulado)")
         
         # Generar una alerta simulada aleatoria para dar realismo a la interfaz
         if random.random() > 0.5:
             planta_alerta = random.choice(plantas)['nombre']
-            st.error(f"**[CRÍTICA] - {planta_alerta}** | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br>Fallo de comunicación con el inversor (Time Out). Verifique la conexión a internet del datalogger.", icon="🚨")
+            st.error(f"**[CRÍTICA] - {planta_alerta}** | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\nFallo de comunicación con el inversor (Time Out). Verifique la conexión a internet del datalogger.", icon="🚨")
         else:
             st.success("✅ Todos los sistemas operando dentro de los parámetros normales. No hay alarmas activas.")
             
@@ -616,6 +621,6 @@ elif menu == "🚨 Centro de Alertas":
         <div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea; margin-top:20px;'>
             <b style='color:#2c3e50;'>Últimos Eventos Resueltos:</b><br>
             <span style='font-size:13px; color:#7f8c8d;'>• [INFO] Cancha las Malvinas - Actualización de firmware completada (Ayer)</span><br>
-            <span style='font-size:13px; color:#7f8c8d;'>• [WARN] Cancha las Malvinas - Alta temperatura en inversor resolvida (Hace 2 días)</span>
+            <span style='font-size:13px; color:#7f8c8d;'>• [WARN] Cancha las Malvinas - Alta temperatura en inversor resuelta (Hace 2 días)</span>
         </div>
         """, unsafe_allow_html=True)
