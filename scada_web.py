@@ -9,6 +9,8 @@ import re
 from datetime import datetime, timedelta
 import plotly.express as px
 import time
+import gspread
+from google.oauth2.service_account import Credentials
 
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y ESTILO (CSS)
@@ -24,14 +26,14 @@ css_global = """
 }
 [data-testid="stHeader"] { background: rgba(0,0,0,0); }
 
-/* Textos blancos SOLO para las partes que están directo sobre el paisaje (Login y Títulos fuera del panel) */
+/* Textos blancos SOLO para las partes que están directo sobre el paisaje */
 .stApp > header + div > div > div > div > h1, 
 .stApp > header + div > div > div > div > h3 { 
     color: #ffffff !important; 
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important; 
 }
 
-/* SIDEBAR OSCURO Y BOTÓN DE SALIR VISIBLE */
+/* SIDEBAR OSCURO */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #112027 0%, #1a323c 50%, #162a33 100%) !important;
     border-right: 1px solid #2c5364 !important;
@@ -41,7 +43,7 @@ css_global = """
 [data-testid="stSidebar"] button p { color: #ffffff !important; font-weight: bold !important; }
 [data-testid="stSidebar"] button:hover { background-color: rgba(231, 76, 60, 0.8) !important; }
 
-/* PANEL CENTRAL (Fondo blanco translúcido) */
+/* PANEL CENTRAL */
 .block-container { 
     background-color: rgba(244, 247, 249, 0.95) !important; 
     padding: 2rem !important; 
@@ -50,7 +52,6 @@ css_global = """
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
-/* OBLIGAMOS a que el texto dentro del panel blanco sea oscuro y sin sombra */
 .block-container h1, .block-container h2, .block-container h3, .block-container h4, 
 .block-container h5, .block-container p, .block-container span, .block-container label, 
 .block-container div {
@@ -58,14 +59,10 @@ css_global = """
     text-shadow: none !important;
 }
 
-/* ==============================================================
-   SOLUCIÓN AL PROBLEMA DEL TEXTO INVISIBLE EN EL FORMULARIO
-   ============================================================== */
-/* 1. Estilo Cristal SOLO para el formulario de Login (Fuera del panel) */
+/* ESTILOS DE FORMULARIO ARREGLADOS */
 [data-testid="stForm"] { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; }
 [data-testid="stForm"] p, [data-testid="stForm"] label { color: white !important; text-shadow: 1px 1px 3px black !important; }
 
-/* 2. Reseteamos el estilo para los formularios que están DENTRO del panel blanco (Crear Planta, etc.) */
 .block-container [data-testid="stForm"] {
     background: #ffffff !important;
     backdrop-filter: none !important;
@@ -79,10 +76,7 @@ css_global = """
     color: #2c3e50 !important;
     text-shadow: none !important;
 }
-/* Mantenemos el texto del botón azul primario en blanco */
 .block-container button[kind="primary"] p { color: white !important; }
-/* ============================================================== */
-
 
 /* TARJETAS KPI */
 div.solarman-card { 
@@ -98,20 +92,18 @@ div.solarman-card span.solarman-lbl-sm { color: #7f8c8d !important; font-size: 1
 .tarjeta-label-pro { font-size: 11px !important; color: #7f8c8d !important; text-transform: uppercase !important; margin-bottom: 2px !important; white-space: nowrap !important; }
 .tarjeta-dato-pro { font-size: 16px !important; font-weight: bold !important; color: #2c3e50 !important; white-space: nowrap !important; }
 
-/* TABS ESTILO SOLARMAN BUSINESS */
+/* TABS Y BOTONES */
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; font-weight: 600 !important; font-size: 16px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
 
-/* BOTONES AZULES */
 div[data-testid="stButton"] button[kind="primary"] { background-color: #2d8cf0 !important; border-color: #2d8cf0 !important; border-radius: 4px !important; }
 div[data-testid="stButton"] button[kind="primary"] p { color: white !important; }
 div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
 div[data-testid="stButton"] button[kind="secondary"] { border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
 div[data-testid="stButton"] button[kind="secondary"] p { color: #2d8cf0 !important; }
-
 [data-testid="stExpanderDetails"] { background: rgba(255, 255, 255, 0.95) !important; }
 [data-testid="stExpanderDetails"] p { color: #2c3e50 !important; text-shadow: none !important; }
 </style>
@@ -132,71 +124,131 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
 # ==========================================
-# 3. BASE DE DATOS Y LÓGICA DE USUARIOS
+# 3. BASE DE DATOS EN LA NUBE (GOOGLE SHEETS)
 # ==========================================
-ARCHIVO_PLANTAS = 'plantas.json'
-ARCHIVO_USUARIOS = 'usuarios.json'
-ARCHIVO_MANTENIMIENTOS = 'mantenimientos.json'
+@st.cache_resource(ttl=600)
+def init_gsheets():
+    if "GOOGLE_JSON" in st.secrets:
+        try:
+            creds_dict = json.loads(st.secrets["GOOGLE_JSON"], strict=False)
+            scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+            return gspread.authorize(creds).open("BD_MONISOLAR")
+        except Exception as e:
+            st.error(f"⚠️ Error conectando a Google Sheets: {e}")
+    return None
+
+db_sheet = init_gsheets()
+
+def check_headers(sheet, headers):
+    if not sheet.row_values(1):
+        sheet.append_row(headers)
 
 def cargar_usuarios():
-    if not os.path.exists(ARCHIVO_USUARIOS):
-        with open(ARCHIVO_USUARIOS, 'w') as f: json.dump({"admin": {"pwd": "solar123", "status": "active", "role": "admin"}}, f)
-    with open(ARCHIVO_USUARIOS, 'r') as f: db = json.load(f)
-    if "admin" in db and isinstance(db["admin"], dict):
-        db["admin"]["role"] = "admin"
-        db["admin"]["status"] = "active"
-        with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(db, f)
-    return db
+    if not db_sheet: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin"}}
+    try:
+        sheet = db_sheet.worksheet("usuarios")
+        check_headers(sheet, ["usuario", "pwd", "status", "role"])
+        records = sheet.get_all_records()
+        if not records:
+            sheet.append_row(["admin", "solar123", "active", "admin"])
+            return {"admin": {"pwd": "solar123", "status": "active", "role": "admin"}}
+        return {str(r["usuario"]): {"pwd": str(r["pwd"]), "status": str(r["status"]), "role": str(r["role"])} for r in records}
+    except: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin"}}
 
 def solicitar_usuario(usuario, contrasena):
-    usuarios = cargar_usuarios()
-    if usuario in usuarios: return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
-    usuarios[usuario] = {"pwd": contrasena, "status": "pending", "role": "viewer"}
-    with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(usuarios, f)
-    return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
+    db = cargar_usuarios()
+    if usuario in db: return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
+    if db_sheet:
+        try:
+            db_sheet.worksheet("usuarios").append_row([usuario, contrasena, "pending", "viewer"])
+            return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
+        except: pass
+    return False, "❌ Error de conexión a la base de datos."
 
 def cargar_plantas():
-    if not os.path.exists(ARCHIVO_PLANTAS):
-        inicial = [{"nombre": "cancha las malvinas off grid", "ubicacion": "Barranquilla", "capacidad": "30 kWp", "inversores": "Deye", "datalogger": "2412120039"}]
-        with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(inicial, f)
-    with open(ARCHIVO_PLANTAS, 'r') as f: return json.load(f)
+    if not db_sheet: return []
+    try:
+        sheet = db_sheet.worksheet("plantas")
+        check_headers(sheet, ["nombre", "ubicacion", "capacidad", "inversores", "datalogger"])
+        return sheet.get_all_records()
+    except: return []
 
 def guardar_planta(nueva):
-    plantas = cargar_plantas()
-    plantas.append(nueva)
-    with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
+    if db_sheet:
+        try:
+            sheet = db_sheet.worksheet("plantas")
+            sheet.append_row([nueva.get("nombre",""), nueva.get("ubicacion",""), nueva.get("capacidad",""), nueva.get("inversores",""), nueva.get("datalogger","")])
+        except: pass
+
+def actualizar_planta(idx, p_edit):
+    if db_sheet:
+        try:
+            sheet = db_sheet.worksheet("plantas")
+            row_idx = idx + 2
+            cell_list = sheet.range(f"A{row_idx}:E{row_idx}")
+            vals = [p_edit.get("nombre",""), p_edit.get("ubicacion",""), p_edit.get("capacidad",""), p_edit.get("inversores",""), p_edit.get("datalogger","")]
+            for i, val in enumerate(vals): cell_list[i].value = str(val)
+            sheet.update_cells(cell_list)
+        except: pass
+
+def eliminar_planta(idx):
+    if db_sheet:
+        try: db_sheet.worksheet("plantas").delete_rows(idx + 2)
+        except: pass
 
 def cargar_mantenimientos():
-    if not os.path.exists(ARCHIVO_MANTENIMIENTOS):
-        with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump({}, f)
-    with open(ARCHIVO_MANTENIMIENTOS, 'r') as f: return json.load(f)
+    if not db_sheet: return {}
+    try:
+        sheet = db_sheet.worksheet("mantenimientos")
+        check_headers(sheet, ["planta", "fecha", "tipo", "resp", "notas", "estado"])
+        records = sheet.get_all_records()
+        mants = {}
+        for r in records:
+            planta = str(r["planta"])
+            if planta not in mants: mants[planta] = []
+            mants[planta].append({"fecha": str(r["fecha"]), "tipo": str(r["tipo"]), "resp": str(r["resp"]), "notas": str(r["notas"]), "estado": str(r["estado"])})
+        return mants
+    except: return {}
 
 def guardar_mantenimiento(planta, datos_mant):
-    mants = cargar_mantenimientos()
-    if planta not in mants: mants[planta] = []
-    mants[planta].append(datos_mant)
-    with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
+    if db_sheet:
+        try: db_sheet.worksheet("mantenimientos").append_row([planta, datos_mant["fecha"], datos_mant["tipo"], datos_mant["resp"], datos_mant["notas"], datos_mant["estado"]])
+        except: pass
 
 def actualizar_estado_mantenimiento(planta, indice, nuevo_estado):
-    mants = cargar_mantenimientos()
-    if planta in mants and 0 <= indice < len(mants[planta]):
-        mants[planta][indice]["estado"] = nuevo_estado
-        with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
+    if db_sheet:
+        try:
+            sheet = db_sheet.worksheet("mantenimientos")
+            records = sheet.get_all_records()
+            count = 0
+            for i, r in enumerate(records):
+                if str(r["planta"]) == planta:
+                    if count == indice:
+                        sheet.update_cell(i + 2, 6, nuevo_estado)
+                        break
+                    count += 1
+        except: pass
 
 def eliminar_mantenimiento(planta, indice):
-    mants = cargar_mantenimientos()
-    if planta in mants and 0 <= indice < len(mants[planta]):
-        mants[planta].pop(indice)
-        with open(ARCHIVO_MANTENIMIENTOS, 'w') as f: json.dump(mants, f)
+    if db_sheet:
+        try:
+            sheet = db_sheet.worksheet("mantenimientos")
+            records = sheet.get_all_records()
+            count = 0
+            for i, r in enumerate(records):
+                if str(r["planta"]) == planta:
+                    if count == indice:
+                        sheet.delete_rows(i + 2)
+                        break
+                    count += 1
+        except: pass
 
 # --- MANEJO DE ACCIONES POR QUERY PARAMS ---
 if "delete" in st.query_params:
     try:
         idx = int(st.query_params["delete"])
-        pl = cargar_plantas()
-        if 0 <= idx < len(pl):
-            pl.pop(idx)
-            with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(pl, f)
+        eliminar_planta(idx)
         st.query_params.clear()
     except: pass
 
@@ -252,30 +304,29 @@ st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; t
 st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Instalador/Admin' if st.session_state.get('rol') == 'admin' else 'Cliente'}")
 menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"])
 
-# =========================================================
-# BOTÓN DE CERRAR SESIÓN ARREGLADO (Para que no de TypeError)
-# =========================================================
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "red_desbloqueada": False})
     st.rerun()
 
 # --- FUNCIONES DE SIMULACIÓN ---
 def get_data(pl):
-    cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(pl.get("capacidad", "5")))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(pl.get("capacidad", "5"))) else 5000
+    cap_val = pl.get("capacidad", "5")
+    cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
     p_sol = int(cap * random.uniform(0.1, 0.8))
     e_dia = round((p_sol * random.uniform(3.5, 5.0)) / 1000, 1)
     soc = random.randint(15, 99) 
     return {"solar": p_sol, "casa": 1750 + random.randint(-40, 40), "soc": soc, "hoy": e_dia, "alertas": []}
 
 def simular_historico_24h(planta):
-    cap_val = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(planta.get("capacidad", "5")))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(planta.get("capacidad", "5"))) else 5.0
+    cap_val = planta.get("capacidad", "5")
+    cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5.0
     inicio_dia = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     datos = []
     for m in range(0, 24 * 60, 15):
         t = inicio_dia + timedelta(minutes=m)
         h = t.hour
-        gen = max(0, (cap_val * 0.9) * math.sin((h - 6) / 12 * math.pi) * random.uniform(0.95, 1.05)) if 6 <= h <= 18 else 0
-        con = max(cap_val * 0.1, cap_val * 0.2 + (cap_val * 0.3 * math.sin((h-7)/2 * math.pi) if 7<=h<=9 else (cap_val * 0.4 * math.sin((h-18)/3 * math.pi) if 18<=h<=21 else 0)))
+        gen = max(0, (cap * 0.9) * math.sin((h - 6) / 12 * math.pi) * random.uniform(0.95, 1.05)) if 6 <= h <= 18 else 0
+        con = max(cap * 0.1, cap * 0.2 + (cap * 0.3 * math.sin((h-7)/2 * math.pi) if 7<=h<=9 else (cap * 0.4 * math.sin((h-18)/3 * math.pi) if 18<=h<=21 else 0)))
         datos.append({"timestamp": t, "Generación FV": round(gen, 2), "Consumo Carga": round(con, 2)})
     return pd.DataFrame(datos)
 
@@ -293,11 +344,11 @@ if menu == "🌐 Panorama General":
             c1, c2 = st.columns(2)
             n = c1.text_input("Nombre", p_edit['nombre'])
             u = c2.text_input("Ubicación", p_edit['ubicacion'])
-            c = c1.text_input("Capacidad", p_edit.get('capacidad', ''))
-            sn = c2.text_input("SN Datalogger", p_edit.get('datalogger', ''))
+            c = c1.text_input("Capacidad", str(p_edit.get('capacidad', '')))
+            sn = c2.text_input("SN Datalogger", str(p_edit.get('datalogger', '')))
             if st.form_submit_button("💾 Guardar Cambios"):
-                plantas[idx].update({"nombre": n, "ubicacion": u, "capacidad": c, "datalogger": sn})
-                with open(ARCHIVO_PLANTAS, 'w') as f: json.dump(plantas, f)
+                p_edit.update({"nombre": n, "ubicacion": u, "capacidad": c, "datalogger": sn})
+                actualizar_planta(idx, p_edit)
                 st.session_state["editando_planta"] = None
                 st.rerun()
 
@@ -308,10 +359,7 @@ if menu == "🌐 Panorama General":
             n_nom = c1.text_input("Nombre de la Planta")
             n_ubi = c2.text_input("Ubicación")
             n_cap = c1.text_input("Capacidad (Ej: 30 kWp)")
-            
-            # --- LISTA COMPLETA CON FRONIUS Y SYLVANIA INTACTA ---
             n_inv = c2.selectbox("Marca de Inversor", ["Deye", "Fronius", "GoodWe", "Huawei", "Sylvania"])
-            
             n_sn = st.text_input("SN del Datalogger")
             s1, s2 = st.columns(2)
             if s1.form_submit_button("💾 Guardar Nueva Planta"):
@@ -332,9 +380,9 @@ if menu == "🌐 Panorama General":
                 st.rerun()
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if not plantas: st.warning("No hay plantas registradas.")
+    if not plantas: st.warning("No hay plantas registradas. ¡Agregue una nueva!")
     else:
-        filtradas = [pl for pl in plantas if c_bus.lower() in pl['nombre'].lower() or c_bus.lower() in pl['ubicacion'].lower()]
+        filtradas = [pl for pl in plantas if c_bus.lower() in str(pl.get('nombre','')).lower() or c_bus.lower() in str(pl.get('ubicacion','')).lower()]
         st.markdown('<div style="overflow-x: auto;"><div style="min-width: 1050px;">', unsafe_allow_html=True)
         for i, pl in enumerate(filtradas):
             dat = get_data(pl)
@@ -342,7 +390,7 @@ if menu == "🌐 Panorama General":
             with col_card:
                 st.markdown(f"""
                 <div class="tarjeta-dash-pro" style="margin-bottom:0px;">
-                <div style="display:flex; align-items:center; width: 320px; flex-shrink: 0;"><img src="https://img.icons8.com/color/48/solar-panel.png" style="width: 32px; margin-right:15px;"/><div style="font-size: 15px; font-weight: bold;">{pl['nombre']}</div></div>
+                <div style="display:flex; align-items:center; width: 320px; flex-shrink: 0;"><img src="https://img.icons8.com/color/48/solar-panel.png" style="width: 32px; margin-right:15px;"/><div style="font-size: 15px; font-weight: bold;">{pl.get('nombre','N/A')}</div></div>
                 <div class="tarjeta-dash-item"><div class="tarjeta-label-pro">Potencia Solar</div><div class="tarjeta-dato-pro">{dat['solar']} W</div></div>
                 <div class="tarjeta-dash-item"><div class="tarjeta-label-pro">Energía Hoy</div><div class="tarjeta-dato-pro" style="color:#27ae60 !important;">{dat['hoy']} kWh</div></div>
                 </div>""", unsafe_allow_html=True)
@@ -365,7 +413,7 @@ elif menu == "📊 Panel de Planta":
     p = next(x for x in plantas if x["nombre"] == pl_sel)
     d = get_data(p)
     
-    st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', '2412120039')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
+    st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', 'N/A')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
     # KPIs DE BATERÍA PERFECTOS
     c1, c2, c3, c4 = st.columns(4)
@@ -382,7 +430,7 @@ elif menu == "📊 Panel de Planta":
         t_graf, t_rep = st.tabs(["📈 Panel Gráfico", "📄 Reportes"])
         t_ctrl, t_om = None, None
     
-    # --- GRÁFICA Y FLUJO (CON EL SVG ANIMADO HD ORIGINAL) ---
+    # --- GRÁFICA Y FLUJO ---
     with t_graf:
         col_grafica, col_flujo = st.columns([7, 3])
         with col_grafica:
@@ -456,7 +504,6 @@ elif menu == "📊 Panel de Planta":
             with st_mo2:
                 st.toggle("* FuncionamientoporPeriodos", value=False)
 
-            # --- RED: CON LÍMITE DE INYECCIÓN Y TIEMPOS DE DESPEJE ---
             with st_red:
                 if not st.session_state["red_desbloqueada"]:
                     st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para desbloquear</div>", unsafe_allow_html=True)
@@ -609,14 +656,12 @@ elif menu == "🚨 Centro de Alertas":
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### Registro de Eventos (Simulado)")
         
-        # Generar una alerta simulada aleatoria para dar realismo a la interfaz
         if random.random() > 0.5:
-            planta_alerta = random.choice(plantas)['nombre']
+            planta_alerta = random.choice(plantas).get('nombre', 'Desconocida')
             st.error(f"**[CRÍTICA] - {planta_alerta}** | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\nFallo de comunicación con el inversor (Time Out). Verifique la conexión a internet del datalogger.", icon="🚨")
         else:
             st.success("✅ Todos los sistemas operando dentro de los parámetros normales. No hay alarmas activas.")
             
-        # Historial de eventos simulados
         st.markdown("""
         <div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea; margin-top:20px;'>
             <b style='color:#2c3e50;'>Últimos Eventos Resueltos:</b><br>
