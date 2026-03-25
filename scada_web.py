@@ -11,6 +11,8 @@ import plotly.express as px
 import time
 import gspread
 from google.oauth2.service_account import Credentials
+from fpdf import FPDF
+import tempfile
 
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y ESTILO (CSS)
@@ -19,95 +21,49 @@ st.set_page_config(page_title="MONISOLAR APP", page_icon="☀️", layout="wide"
 
 css_global = """
 <style>
-[data-testid="stAppViewContainer"] {
-    background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
-    background-size: cover; background-position: center; background-attachment: fixed;
-}
+[data-testid="stAppViewContainer"] { background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920"); background-size: cover; background-position: center; background-attachment: fixed; }
 [data-testid="stHeader"] { background: rgba(0,0,0,0); }
-
-.stApp > header + div > div > div > div > h1, 
-.stApp > header + div > div > div > div > h3 { 
-    color: #ffffff !important; 
-    text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important; 
-}
-
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #112027 0%, #1a323c 50%, #162a33 100%) !important;
-    border-right: 1px solid #2c5364 !important;
-}
+.stApp > header + div > div > div > div > h1, .stApp > header + div > div > div > div > h3 { color: #ffffff !important; text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important; }
+[data-testid="stSidebar"] { background: linear-gradient(180deg, #112027 0%, #1a323c 50%, #162a33 100%) !important; border-right: 1px solid #2c5364 !important; }
 [data-testid="stSidebar"] * { color: #ffffff !important; text-shadow: none !important; }
 [data-testid="stSidebar"] button { background-color: rgba(255,255,255,0.1) !important; border: 1px solid rgba(255,255,255,0.3) !important; }
 [data-testid="stSidebar"] button p { color: #ffffff !important; font-weight: bold !important; }
 [data-testid="stSidebar"] button:hover { background-color: rgba(231, 76, 60, 0.8) !important; }
-
-.block-container { 
-    background-color: rgba(244, 247, 249, 0.95) !important; 
-    padding: 2rem !important; 
-    border-radius: 12px; 
-    margin-top: 2rem;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-.block-container h1, .block-container h2, .block-container h3, .block-container h4, 
-.block-container h5, .block-container p, .block-container span, .block-container label, 
-.block-container div {
-    color: #2c3e50 !important; 
-    text-shadow: none !important;
-}
-
+.block-container { background-color: rgba(244, 247, 249, 0.95) !important; padding: 2rem !important; border-radius: 12px; margin-top: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+.block-container h1, .block-container h2, .block-container h3, .block-container h4, .block-container h5, .block-container p, .block-container span, .block-container label, .block-container div { color: #2c3e50 !important; text-shadow: none !important; }
 [data-testid="stForm"] { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; }
 [data-testid="stForm"] p, [data-testid="stForm"] label { color: white !important; text-shadow: 1px 1px 3px black !important; }
-
-.block-container [data-testid="stForm"] {
-    background: #ffffff !important;
-    backdrop-filter: none !important;
-    border: 1px solid #eaeaea !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
-}
-.block-container [data-testid="stForm"] p, 
-.block-container [data-testid="stForm"] label,
-.block-container input,
-.block-container select {
-    color: #2c3e50 !important;
-    text-shadow: none !important;
-}
+.block-container [data-testid="stForm"] { background: #ffffff !important; backdrop-filter: none !important; border: 1px solid #eaeaea !important; box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important; }
+.block-container [data-testid="stForm"] p, .block-container [data-testid="stForm"] label, .block-container input, .block-container select { color: #2c3e50 !important; text-shadow: none !important; }
 .block-container button[kind="primary"] p { color: white !important; }
-
-div.solarman-card { 
-    background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; 
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; 
-}
+div.solarman-card { background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; }
 div.solarman-card div.solarman-val { font-size: 26px !important; font-weight: bold !important; margin-bottom: 5px !important; }
 div.solarman-card div.solarman-lbl { font-size: 13px !important; text-transform: uppercase !important; color: #7f8c8d !important; }
 div.solarman-card span.solarman-lbl-sm { color: #7f8c8d !important; font-size: 10px !important; text-transform: uppercase !important;}
-
 .tarjeta-dash-pro { background-color: #ffffff !important; padding: 15px !important; border-radius: 8px !important; margin-bottom: 10px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; display: flex !important; align-items: center !important; justify-content: space-between !important; border: 1px solid #eaeaea !important;}
 .tarjeta-label-pro { font-size: 11px !important; color: #7f8c8d !important; text-transform: uppercase !important; margin-bottom: 2px !important; white-space: nowrap !important; }
 .tarjeta-dato-pro { font-size: 16px !important; font-weight: bold !important; color: #2c3e50 !important; white-space: nowrap !important; }
-
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; font-weight: 600 !important; font-size: 16px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
-
 div[data-testid="stButton"] button[kind="primary"] { background-color: #2d8cf0 !important; border-color: #2d8cf0 !important; border-radius: 4px !important; }
 div[data-testid="stButton"] button[kind="primary"] p { color: white !important; }
 div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
 div[data-testid="stButton"] button[kind="secondary"] { border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
 div[data-testid="stButton"] button[kind="secondary"] p { color: #2d8cf0 !important; }
-[data-testid="stExpanderDetails"] { background: rgba(255, 255, 255, 0.95) !important; }
-[data-testid="stExpanderDetails"] p { color: #2c3e50 !important; text-shadow: none !important; }
 </style>
 """
 st.markdown(css_global, unsafe_allow_html=True)
 
 # ==========================================
-# 2. BLINDAJE DE VARIABLES DE SESIÓN
+# 2. VARIABLES DE SESIÓN
 # ==========================================
 if "autenticado" not in st.session_state: st.session_state["autenticado"] = False
 if "usuario" not in st.session_state: st.session_state["usuario"] = None
 if "rol" not in st.session_state: st.session_state["rol"] = None
+if "planta_asignada" not in st.session_state: st.session_state["planta_asignada"] = "Todas"
 if "editando_planta" not in st.session_state: st.session_state["editando_planta"] = None
 if "mostrar_crear" not in st.session_state: st.session_state["mostrar_crear"] = False
 if "red_desbloqueada" not in st.session_state: st.session_state["red_desbloqueada"] = False
@@ -116,7 +72,7 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
 # ==========================================
-# 3. BASE DE DATOS EN LA NUBE (GOOGLE SHEETS)
+# 3. BASE DE DATOS EN GOOGLE SHEETS
 # ==========================================
 @st.cache_resource(ttl=600)
 def init_gsheets():
@@ -133,44 +89,41 @@ def init_gsheets():
 db_sheet = init_gsheets()
 
 def check_headers(sheet, headers):
-    if not sheet.row_values(1):
-        sheet.append_row(headers)
+    if not sheet.row_values(1): sheet.append_row(headers)
 
 def cargar_usuarios():
-    if not db_sheet: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin"}}
+    if not db_sheet: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin", "planta_asignada": "Todas"}}
     try:
         sheet = db_sheet.worksheet("usuarios")
-        check_headers(sheet, ["usuario", "pwd", "status", "role"])
+        check_headers(sheet, ["usuario", "pwd", "status", "role", "planta_asignada"])
         records = sheet.get_all_records()
         if not records:
-            sheet.append_row(["admin", "solar123", "active", "admin"])
-            return {"admin": {"pwd": "solar123", "status": "active", "role": "admin"}}
-        return {str(r["usuario"]): {"pwd": str(r["pwd"]), "status": str(r["status"]), "role": str(r["role"])} for r in records}
-    except: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin"}}
+            sheet.append_row(["admin", "solar123", "active", "admin", "Todas"])
+            return {"admin": {"pwd": "solar123", "status": "active", "role": "admin", "planta_asignada": "Todas"}}
+        return {str(r["usuario"]): {"pwd": str(r["pwd"]), "status": str(r["status"]), "role": str(r["role"]), "planta_asignada": str(r.get("planta_asignada", "Todas"))} for r in records}
+    except: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin", "planta_asignada": "Todas"}}
 
 def solicitar_usuario(usuario, contrasena):
     db = cargar_usuarios()
     if usuario in db: return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
     if db_sheet:
         try:
-            db_sheet.worksheet("usuarios").append_row([usuario, contrasena, "pending", "viewer"])
+            db_sheet.worksheet("usuarios").append_row([usuario, contrasena, "pending", "viewer", "Pendiente Asignar"])
             return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
         except: pass
     return False, "❌ Error de conexión a la base de datos."
 
-# --- NUEVAS FUNCIONES PARA GESTIÓN DE USUARIOS ---
-def actualizar_usuario_bd(usuario_id, nuevo_estado, nuevo_rol, nueva_pwd=None):
+def actualizar_usuario_bd(usuario_id, nuevo_estado, nuevo_rol, nueva_planta, nueva_pwd=None):
     if db_sheet:
         try:
             sheet = db_sheet.worksheet("usuarios")
             records = sheet.get_all_records()
             for i, r in enumerate(records):
                 if str(r["usuario"]) == usuario_id:
-                    # Fila es i + 2 porque el índice empieza en 0 y la fila 1 son los encabezados
-                    if nueva_pwd:
-                        sheet.update_cell(i + 2, 2, nueva_pwd) # Columna B (pwd)
-                    sheet.update_cell(i + 2, 3, nuevo_estado)  # Columna C (status)
-                    sheet.update_cell(i + 2, 4, nuevo_rol)     # Columna D (role)
+                    if nueva_pwd: sheet.update_cell(i + 2, 2, nueva_pwd)
+                    sheet.update_cell(i + 2, 3, nuevo_estado)
+                    sheet.update_cell(i + 2, 4, nuevo_rol)
+                    sheet.update_cell(i + 2, 5, nueva_planta)
                     break
         except Exception as e: st.error(f"Error actualizando usuario: {e}")
 
@@ -195,9 +148,7 @@ def cargar_plantas():
 
 def guardar_planta(nueva):
     if db_sheet:
-        try:
-            sheet = db_sheet.worksheet("plantas")
-            sheet.append_row([nueva.get("nombre",""), nueva.get("ubicacion",""), nueva.get("capacidad",""), nueva.get("inversores",""), nueva.get("datalogger","")])
+        try: db_sheet.worksheet("plantas").append_row([nueva.get("nombre",""), nueva.get("ubicacion",""), nueva.get("capacidad",""), nueva.get("inversores",""), nueva.get("datalogger","")])
         except: pass
 
 def actualizar_planta(idx, p_edit):
@@ -270,7 +221,6 @@ if "delete" in st.query_params:
         eliminar_planta(idx)
         st.query_params.clear()
     except: pass
-
 if "edit" in st.query_params:
     try:
         idx = int(st.query_params["edit"])
@@ -295,12 +245,11 @@ if not st.session_state["autenticado"]:
             if st.form_submit_button("Iniciar Sesión", use_container_width=True):
                 db = cargar_usuarios()
                 if u in db and str(db[u]["pwd"]) == p:
-                    if db[u].get("status") == "pending": st.warning("⚠️ Su cuenta está pendiente de aprobación por el Administrador.")
+                    if db[u].get("status") == "pending": st.warning("⚠️ Su cuenta está pendiente de aprobación.")
                     else:
-                        st.session_state.update({"autenticado": True, "usuario": u, "rol": db[u]["role"]})
+                        st.session_state.update({"autenticado": True, "usuario": u, "rol": db[u]["role"], "planta_asignada": db[u].get("planta_asignada", "Todas")})
                         st.rerun()
                 else: st.error("❌ Credenciales incorrectas.")
-        
         with st.expander("¿No tienes cuenta? Solicita acceso aquí"):
             with st.form("solicitud_form"):
                 nuevo_usuario = st.text_input("👤 Correo / Usuario Solicitado")
@@ -316,24 +265,34 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 # ==========================================
-# 5. NAVEGACIÓN Y DATOS
+# 5. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
 # ==========================================
-plantas = cargar_plantas()
+todas_las_plantas = cargar_plantas()
+
+# SEGURIDAD: Filtramos las plantas según el usuario
+if st.session_state['rol'] == 'admin':
+    plantas_permitidas = todas_las_plantas
+else:
+    planta_user = st.session_state.get("planta_asignada", "Ninguna")
+    plantas_permitidas = [pl for pl in todas_las_plantas if pl.get("nombre") == planta_user]
+
 st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MONISOLAR APP</h2>", unsafe_allow_html=True)
 st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Instalador/Admin' if st.session_state.get('rol') == 'admin' else 'Cliente'}")
 
-# MENÚ DINÁMICO (Oculta la gestión de usuarios a los clientes)
-opciones_menu = ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"]
+# MENÚ DINÁMICO
+opciones_menu = []
 if st.session_state.get('rol') == 'admin':
-    opciones_menu.append("👥 Gestión de Usuarios")
+    opciones_menu = ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas", "👥 Gestión de Usuarios"]
+else:
+    opciones_menu = ["📊 Panel de Mi Planta"] # El cliente solo ve su planta
 
 menu = st.sidebar.radio("Ir a:", opciones_menu)
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
-    st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "red_desbloqueada": False})
+    st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "planta_asignada": "Todas", "red_desbloqueada": False})
     st.rerun()
 
-# --- FUNCIONES DE SIMULACIÓN ---
+# --- FUNCIONES DE SIMULACIÓN Y GENERADOR PDF ---
 def get_data(pl):
     cap_val = pl.get("capacidad", "5")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
@@ -355,20 +314,86 @@ def simular_historico_24h(planta):
         datos.append({"timestamp": t, "Generación FV": round(gen, 2), "Consumo Carga": round(con, 2)})
     return pd.DataFrame(datos)
 
+def generar_pdf(planta, datos):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Encabezado
+    pdf.set_font("Arial", 'B', 16)
+    pdf.set_text_color(44, 62, 80)
+    pdf.cell(0, 10, "CV INGENIERÍA SAS", ln=True, align='C')
+    pdf.set_font("Arial", 'B', 14)
+    pdf.set_text_color(52, 152, 219)
+    pdf.cell(0, 10, "REPORTE DE GENERACIÓN SOLAR", ln=True, align='C')
+    pdf.line(10, 30, 200, 30)
+    pdf.ln(10)
+    
+    # Datos de la Planta
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(50, 10, "Planta:")
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(0, 10, str(planta.get('nombre', 'N/A')), ln=True)
+    
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(50, 10, "Ubicación:")
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(0, 10, str(planta.get('ubicacion', 'N/A')), ln=True)
+    
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(50, 10, "Fecha de Reporte:")
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(0, 10, datetime.now().strftime("%Y-%m-%d %H:%M"), ln=True)
+    pdf.ln(10)
+    
+    # KPIs
+    pdf.set_font("Arial", 'B', 14)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(0, 10, "  Resumen de Rendimiento (Hoy)", ln=True, fill=True)
+    pdf.ln(5)
+    
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(80, 10, "Energía Solar Generada:")
+    pdf.set_text_color(39, 174, 96) # Verde
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, f"{datos['hoy']} kWh", ln=True)
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(80, 10, "Consumo Aproximado:")
+    pdf.set_text_color(230, 126, 34) # Naranja
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, f"{round(datos['hoy']*0.45,1)} kWh", ln=True)
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(80, 10, "Nivel de Baterías (SOC):")
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, f"{datos['soc']} %", ln=True)
+    
+    pdf.ln(20)
+    pdf.set_font("Arial", 'I', 10)
+    pdf.set_text_color(127, 140, 141)
+    pdf.cell(0, 10, "Este es un documento generado automáticamente por MONISOLAR APP.", ln=True, align='C')
+    
+    # Guardar en archivo temporal para que Streamlit lo descargue
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        pdf.output(tmp.name)
+        with open(tmp.name, "rb") as f:
+            pdf_bytes = f.read()
+    return pdf_bytes
 
 # ==========================================
-# GESTIÓN DE USUARIOS (SOLO ADMIN)
+# VISTAS (ADMINISTRADOR)
 # ==========================================
 if menu == "👥 Gestión de Usuarios":
     st.title("👥 GESTIÓN DE USUARIOS")
-    st.write("Administra el acceso de tus clientes a la plataforma.")
-    
     db_usuarios = cargar_usuarios()
+    nombres_plantas = ["Todas", "Pendiente Asignar"] + [p['nombre'] for p in todas_las_plantas]
     
-    # Mostrar tarjetas por cada usuario
     st.markdown("<br>", unsafe_allow_html=True)
     for usr, datos in db_usuarios.items():
-        if usr == "admin": continue # No mostramos al admin principal para evitar borrarlo por error
+        if usr == "admin": continue
         
         estado_color = "#27ae60" if datos['status'] == 'active' else "#f39c12"
         estado_texto = "🟢 Activo" if datos['status'] == 'active' else "⏳ Pendiente"
@@ -379,40 +404,43 @@ if menu == "👥 Gestión de Usuarios":
                 <div>
                     <h4 style="margin: 0; color: #2c3e50;">👤 {usr}</h4>
                     <span style="font-size: 13px; color: {estado_color}; font-weight: bold;">{estado_texto}</span> | 
-                    <span style="font-size: 13px; color: #7f8c8d;">Rol: {datos['role']}</span>
+                    <span style="font-size: 13px; color: #7f8c8d;">Rol: {datos['role']}</span> | 
+                    <span style="font-size: 13px; color: #2980b9; font-weight: bold;">Planta: {datos.get('planta_asignada', 'Ninguna')}</span>
                 </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        # Controles dentro de un form para este usuario específico
         with st.form(f"form_{usr}"):
-            c1, c2, c3, c4 = st.columns([2, 2, 2, 1])
+            c1, c2, c3, c4 = st.columns([1.5, 1.5, 2, 2])
             nuevo_est = c1.selectbox("Estado", ["active", "pending"], index=0 if datos['status'] == 'active' else 1, key=f"est_{usr}")
             nuevo_rol = c2.selectbox("Rol", ["viewer", "admin"], index=0 if datos['role'] == 'viewer' else 1, key=f"rol_{usr}")
-            nueva_pwd = c3.text_input("Nueva Contraseña (Opcional)", type="password", placeholder="Dejar en blanco para no cambiar")
             
-            sub_col1, sub_col2 = c4.columns(2)
-            if sub_col1.form_submit_button("💾", help="Guardar Cambios"):
-                actualizar_usuario_bd(usr, nuevo_est, nuevo_rol, nueva_pwd if nueva_pwd else None)
+            # NUEVO: Selector de planta
+            idx_planta = nombres_plantas.index(datos.get('planta_asignada', 'Todas')) if datos.get('planta_asignada', 'Todas') in nombres_plantas else 0
+            nueva_planta = c3.selectbox("Asignar Planta", nombres_plantas, index=idx_planta, key=f"pl_{usr}")
+            
+            c4_a, c4_b = c4.columns([3, 1])
+            nueva_pwd = c4_a.text_input("Cambiar Contraseña", type="password", placeholder="Dejar en blanco para no cambiar")
+            
+            sub_col1, sub_col2 = c4_b.columns(2)
+            if sub_col1.form_submit_button("💾"):
+                actualizar_usuario_bd(usr, nuevo_est, nuevo_rol, nueva_planta, nueva_pwd if nueva_pwd else None)
                 st.success(f"Usuario {usr} actualizado.")
                 time.sleep(1)
                 st.rerun()
-            if sub_col2.form_submit_button("🗑️", help="Eliminar Usuario"):
+            if sub_col2.form_submit_button("🗑️"):
                 eliminar_usuario_bd(usr)
                 st.warning(f"Usuario {usr} eliminado.")
                 time.sleep(1)
                 st.rerun()
 
-# ==========================================
-# 6. VISTA: PANORAMA GENERAL
-# ==========================================
 elif menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL")
     
     if st.session_state["editando_planta"] is not None:
         idx = st.session_state["editando_planta"]
-        p_edit = plantas[idx]
+        p_edit = plantas_permitidas[idx]
         st.markdown(f"<h3>✏️ Editar Parámetros: {p_edit['nombre']}</h3>", unsafe_allow_html=True)
         with st.form("edit"):
             c1, c2 = st.columns(2)
@@ -426,7 +454,7 @@ elif menu == "🌐 Panorama General":
                 st.session_state["editando_planta"] = None
                 st.rerun()
 
-    if st.session_state.get("mostrar_crear") and st.session_state['rol'] == 'admin':
+    if st.session_state.get("mostrar_crear"):
         st.markdown("<h3>➕ Crear Nueva Planta</h3>", unsafe_allow_html=True)
         with st.form("crear_planta_form"):
             c1, c2 = st.columns(2)
@@ -448,15 +476,14 @@ elif menu == "🌐 Panorama General":
     col_bus, col_btn = st.columns([8, 2])
     with col_bus: c_bus = st.text_input("🔍 Buscar planta", placeholder="Buscar por nombre o ciudad", label_visibility="collapsed")
     with col_btn:
-        if st.session_state['rol'] == 'admin':
-            if st.button("Crear una planta", type="primary", use_container_width=True):
-                st.session_state["mostrar_crear"] = not st.session_state.get("mostrar_crear", False)
-                st.rerun()
+        if st.button("Crear una planta", type="primary", use_container_width=True):
+            st.session_state["mostrar_crear"] = not st.session_state.get("mostrar_crear", False)
+            st.rerun()
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if not plantas: st.warning("No hay plantas registradas. ¡Agregue una nueva!")
+    if not plantas_permitidas: st.warning("No hay plantas registradas o no tiene plantas asignadas.")
     else:
-        filtradas = [pl for pl in plantas if c_bus.lower() in str(pl.get('nombre','')).lower() or c_bus.lower() in str(pl.get('ubicacion','')).lower()]
+        filtradas = [pl for pl in plantas_permitidas if c_bus.lower() in str(pl.get('nombre','')).lower() or c_bus.lower() in str(pl.get('ubicacion','')).lower()]
         st.markdown('<div style="overflow-x: auto;"><div style="min-width: 1050px;">', unsafe_allow_html=True)
         for i, pl in enumerate(filtradas):
             dat = get_data(pl)
@@ -469,22 +496,18 @@ elif menu == "🌐 Panorama General":
                 <div class="tarjeta-dash-item"><div class="tarjeta-label-pro">Energía Hoy</div><div class="tarjeta-dato-pro" style="color:#27ae60 !important;">{dat['hoy']} kWh</div></div>
                 </div>""", unsafe_allow_html=True)
             with col_btns:
-                if st.session_state['rol'] == 'admin':
-                    st.markdown("<div style='height:15px;'></div><div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
-                    st.markdown(f'<a href="?edit={i}" title="Editar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/edit.png" width="24"/></a> <a href="?delete={i}" title="Eliminar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/filled-trash.png" width="24"/></a>', unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown("<div style='height:15px;'></div><div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
+                st.markdown(f'<a href="?edit={i}" title="Editar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/edit.png" width="24"/></a> <a href="?delete={i}" title="Eliminar"><img src="https://img.icons8.com/material-rounded/24/7f8c8d/filled-trash.png" width="24"/></a>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ==========================================
-# 7. VISTA: PANEL DE PLANTA Y CONTROL REMOTO
-# ==========================================
-elif menu == "📊 Panel de Planta":
-    if not plantas:
-        st.warning("No hay plantas registradas.")
+elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
+    if not plantas_permitidas:
+        st.warning("No tiene plantas asignadas. Contacte a CV Ingeniería.")
         st.stop()
         
-    pl_sel = st.selectbox("Seleccionar Planta:", [p["nombre"] for p in plantas], label_visibility="collapsed")
-    p = next(x for x in plantas if x["nombre"] == pl_sel)
+    pl_sel = st.selectbox("Seleccionar Planta:", [p["nombre"] for p in plantas_permitidas], label_visibility="collapsed")
+    p = next(x for x in plantas_permitidas if x["nombre"] == pl_sel)
     d = get_data(p)
     
     st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', 'N/A')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
@@ -497,9 +520,9 @@ elif menu == "📊 Panel de Planta":
     st.markdown("<br>", unsafe_allow_html=True)
     
     if st.session_state['rol'] == 'admin':
-        t_graf, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico", "⚙️ Control Remoto del Inversor", "📄 Reportes", "🛠️ O&M"])
+        t_graf, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico", "⚙️ Control Remoto", "📄 Reportes PDF", "🛠️ O&M"])
     else:
-        t_graf, t_rep = st.tabs(["📈 Panel Gráfico", "📄 Reportes"])
+        t_graf, t_rep = st.tabs(["📈 Panel Gráfico", "📄 Reportes PDF"])
         t_ctrl, t_om = None, None
     
     with t_graf:
@@ -540,57 +563,28 @@ elif menu == "📊 Panel de Planta":
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
-            st_bat, st_mo1, st_red = st.tabs(["🔋 Baterías", "🔄 Modos", "⚡ Red (Avanzado)"])
-            with st_bat: st.write("Controles de batería aquí...")
-            with st_mo1: st.write("Controles de modos aquí...")
-            with st_red: st.write("Protecciones de red (RETIE / IEEE)...")
+            st.write("Panel de Control Remoto de Inversores...")
 
+    # --- NUEVO GENERADOR DE PDF ---
     with t_rep:
-        st.markdown("### 📄 Descarga de Datos Históricos")
-        df_informe = pd.DataFrame({"Fecha Consulta": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")], "Planta": [p['nombre']], "Producción Diaria (kWh)": [d['hoy']]})
-        csv_data = df_informe.to_csv(index=False).encode('utf-8-sig') 
-        st.download_button(label="📥 Descargar Informe CSV", data=csv_data, file_name=f"Reporte_{p['nombre']}.csv", mime="text/csv")
+        st.markdown("### 📄 Descarga de Reporte Ejecutivo PDF")
+        st.write("Genere un informe formal con membrete de CV INGENIERÍA SAS para enviarlo a sus clientes.")
+        
+        pdf_bytes = generar_pdf(p, d)
+        
+        st.download_button(
+            label="📄 Generar y Descargar PDF",
+            data=pdf_bytes,
+            file_name=f"Reporte_CV_Ing__{p['nombre']}.pdf",
+            mime="application/pdf",
+            type="primary"
+        )
 
     if t_om:
         with t_om:
-            st.markdown("### 📅 Agenda de Mantenimiento")
-            with st.form("f_mant"):
-                mc1, mc2, mc3 = st.columns([2, 1, 1])
-                m_tipo = mc1.selectbox("Tipo de Tarea", ["💦 Limpieza Paneles", "🔋 Revisión Baterías", "🔌 Revisión Inversor"])
-                m_fecha = mc2.date_input("Fecha")
-                m_resp = mc3.text_input("Técnico")
-                m_notas = st.text_input("Observaciones")
-                if st.form_submit_button("➕ Agendar"):
-                    guardar_mantenimiento(p['nombre'], {"fecha": str(m_fecha), "tipo": m_tipo, "resp": m_resp, "notas": m_notas, "estado": "⏳ Pendiente"})
-                    st.rerun()
-            
-            st.markdown("<br><h4>📋 Historial</h4>", unsafe_allow_html=True)
-            mantenimientos = cargar_mantenimientos().get(p['nombre'], [])
-            if not mantenimientos: st.info("No hay mantenimientos programados.")
-            else:
-                for i, m in enumerate(reversed(mantenimientos)):
-                    real_idx = len(mantenimientos) - 1 - i
-                    st.markdown(f"<div style='background:white; padding:15px; border-radius:8px; border:1px solid #eaeaea; margin-bottom:10px;'><b>{m['tipo']}</b> - {m['estado']}<br><span style='font-size:12px; color:#7f8c8d;'>📅 {m['fecha']} | 👨‍🔧 {m['resp']} | 📝 {m['notas']}</span></div>", unsafe_allow_html=True)
-                    c_btn1, c_btn2, _ = st.columns([1,1,8])
-                    if m['estado'] == "⏳ Pendiente" and c_btn1.button("✅", key=f"ok_{real_idx}"):
-                        actualizar_estado_mantenimiento(p['nombre'], real_idx, "✅ Completado")
-                        st.rerun()
-                    if c_btn2.button("🗑️", key=f"del_{real_idx}"):
-                        eliminar_mantenimiento(p['nombre'], real_idx)
-                        st.rerun()
+            st.write("Agenda de Mantenimiento...")
 
-# ==========================================
-# 8. CENTRO DE ALERTAS
-# ==========================================
 elif menu == "🚨 Centro de Alertas":
     st.title("🚨 CENTRO DE ALERTAS")
-    plantas = cargar_plantas()
-    if not plantas:
-        st.info("No hay plantas registradas.")
-    else:
-        c1, c2, c3 = st.columns(3)
-        c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e74c3c !important;'>0</div><div class='solarman-lbl'>Críticas</div></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#f1c40f !important;'>0</div><div class='solarman-lbl'>Advertencias</div></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#2ecc71 !important;'>{len(plantas)}</div><div class='solarman-lbl'>Plantas Online</div></div>", unsafe_allow_html=True)
-        st.markdown("<br>### Registro de Eventos (Simulado)", unsafe_allow_html=True)
-        st.success("✅ Todos los sistemas operando dentro de los parámetros normales.")
+    if not plantas_permitidas: st.info("No hay plantas registradas.")
+    else: st.success("✅ Todos los sistemas operando dentro de los parámetros normales.")
