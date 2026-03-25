@@ -269,7 +269,6 @@ if not st.session_state["autenticado"]:
 # ==========================================
 todas_las_plantas = cargar_plantas()
 
-# SEGURIDAD: Filtramos las plantas según el usuario
 if st.session_state['rol'] == 'admin':
     plantas_permitidas = todas_las_plantas
 else:
@@ -279,12 +278,11 @@ else:
 st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MONISOLAR APP</h2>", unsafe_allow_html=True)
 st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Instalador/Admin' if st.session_state.get('rol') == 'admin' else 'Cliente'}")
 
-# MENÚ DINÁMICO
 opciones_menu = []
 if st.session_state.get('rol') == 'admin':
     opciones_menu = ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas", "👥 Gestión de Usuarios"]
 else:
-    opciones_menu = ["📊 Panel de Mi Planta"] # El cliente solo ve su planta
+    opciones_menu = ["📊 Panel de Mi Planta"]
 
 menu = st.sidebar.radio("Ir a:", opciones_menu)
 
@@ -317,8 +315,6 @@ def simular_historico_24h(planta):
 def generar_pdf(planta, datos):
     pdf = FPDF()
     pdf.add_page()
-    
-    # Encabezado
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(44, 62, 80)
     pdf.cell(0, 10, "CV INGENIERÍA SAS", ln=True, align='C')
@@ -327,56 +323,44 @@ def generar_pdf(planta, datos):
     pdf.cell(0, 10, "REPORTE DE GENERACIÓN SOLAR", ln=True, align='C')
     pdf.line(10, 30, 200, 30)
     pdf.ln(10)
-    
-    # Datos de la Planta
     pdf.set_font("Arial", 'B', 12)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(50, 10, "Planta:")
     pdf.set_font("Arial", '', 12)
     pdf.cell(0, 10, str(planta.get('nombre', 'N/A')), ln=True)
-    
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(50, 10, "Ubicación:")
     pdf.set_font("Arial", '', 12)
     pdf.cell(0, 10, str(planta.get('ubicacion', 'N/A')), ln=True)
-    
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(50, 10, "Fecha de Reporte:")
     pdf.set_font("Arial", '', 12)
     pdf.cell(0, 10, datetime.now().strftime("%Y-%m-%d %H:%M"), ln=True)
     pdf.ln(10)
-    
-    # KPIs
     pdf.set_font("Arial", 'B', 14)
     pdf.set_fill_color(240, 240, 240)
     pdf.cell(0, 10, "  Resumen de Rendimiento (Hoy)", ln=True, fill=True)
     pdf.ln(5)
-    
     pdf.set_font("Arial", '', 12)
     pdf.cell(80, 10, "Energía Solar Generada:")
-    pdf.set_text_color(39, 174, 96) # Verde
+    pdf.set_text_color(39, 174, 96) 
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, f"{datos['hoy']} kWh", ln=True)
-    
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", '', 12)
     pdf.cell(80, 10, "Consumo Aproximado:")
-    pdf.set_text_color(230, 126, 34) # Naranja
+    pdf.set_text_color(230, 126, 34) 
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, f"{round(datos['hoy']*0.45,1)} kWh", ln=True)
-    
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", '', 12)
     pdf.cell(80, 10, "Nivel de Baterías (SOC):")
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, f"{datos['soc']} %", ln=True)
-    
     pdf.ln(20)
     pdf.set_font("Arial", 'I', 10)
     pdf.set_text_color(127, 140, 141)
     pdf.cell(0, 10, "Este es un documento generado automáticamente por MONISOLAR APP.", ln=True, align='C')
-    
-    # Guardar en archivo temporal para que Streamlit lo descargue
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         pdf.output(tmp.name)
         with open(tmp.name, "rb") as f:
@@ -384,7 +368,7 @@ def generar_pdf(planta, datos):
     return pdf_bytes
 
 # ==========================================
-# VISTAS (ADMINISTRADOR)
+# VISTAS (ADMINISTRADOR Y CLIENTE)
 # ==========================================
 if menu == "👥 Gestión de Usuarios":
     st.title("👥 GESTIÓN DE USUARIOS")
@@ -394,10 +378,8 @@ if menu == "👥 Gestión de Usuarios":
     st.markdown("<br>", unsafe_allow_html=True)
     for usr, datos in db_usuarios.items():
         if usr == "admin": continue
-        
         estado_color = "#27ae60" if datos['status'] == 'active' else "#f39c12"
         estado_texto = "🟢 Activo" if datos['status'] == 'active' else "⏳ Pendiente"
-        
         st.markdown(f"""
         <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -410,19 +392,14 @@ if menu == "👥 Gestión de Usuarios":
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
         with st.form(f"form_{usr}"):
             c1, c2, c3, c4 = st.columns([1.5, 1.5, 2, 2])
             nuevo_est = c1.selectbox("Estado", ["active", "pending"], index=0 if datos['status'] == 'active' else 1, key=f"est_{usr}")
             nuevo_rol = c2.selectbox("Rol", ["viewer", "admin"], index=0 if datos['role'] == 'viewer' else 1, key=f"rol_{usr}")
-            
-            # NUEVO: Selector de planta
             idx_planta = nombres_plantas.index(datos.get('planta_asignada', 'Todas')) if datos.get('planta_asignada', 'Todas') in nombres_plantas else 0
             nueva_planta = c3.selectbox("Asignar Planta", nombres_plantas, index=idx_planta, key=f"pl_{usr}")
-            
             c4_a, c4_b = c4.columns([3, 1])
             nueva_pwd = c4_a.text_input("Cambiar Contraseña", type="password", placeholder="Dejar en blanco para no cambiar")
-            
             sub_col1, sub_col2 = c4_b.columns(2)
             if sub_col1.form_submit_button("💾"):
                 actualizar_usuario_bd(usr, nuevo_est, nuevo_rol, nueva_planta, nueva_pwd if nueva_pwd else None)
@@ -560,18 +537,134 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             """
             components.html(diagrama_svg, height=415)
             
+    # EL PANEL DE CONTROL REMOTO TOTALMENTE RESTAURADO
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
-            st.write("Panel de Control Remoto de Inversores...")
+            st_bat, st_mo1, st_mo2, st_red, st_smart, st_bas, st_av1, st_av2 = st.tabs([
+                "🔋 Baterías", "🔄 Modos-1", "🔄 Modos-2", "⚡ Red", "🧠 SmartLoad", "⚙️ Básica", "🛠️ Avanzadas-1", "🛠️ Avanzadas-2"
+            ])
+            opts_sel = ["Seleccione", "Habilitado", "Deshabilitado"]
+            
+            with st_bat:
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
+                cb1, cb2, cb3, cb4, cb5 = st.columns(5)
+                cb1.selectbox("* Tipo Batería", ["Modo Litio", "Plomo"])
+                cb2.number_input("* Capacidad (Ah)", value=100)
+                cb3.number_input("* Max Carga (A)", value=50)
+                cb4.number_input("* Max Descarga (A)", value=50)
+                cb5.number_input("* Desconexión %", value=10)
+                cc1, cc2, cc3, cc4, cc5 = st.columns(5)
+                cc1.number_input("* Reconexión %", value=35)
+                cc2.number_input("* Batería Baja %", value=20)
+                cc3.selectbox("* Paralelo bat1&bat2", opts_sel)
+                cc4.selectbox("* Carga de Red", opts_sel)
+                cc5.selectbox("* Carga Generador", opts_sel)
 
-    # --- NUEVO GENERADOR DE PDF ---
+            with st_mo1:
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
+                m1, m2, m3, m4, m5 = st.columns(5)
+                m1.selectbox("* Modo", ["Autoconsumo", "Respaldo"])
+                with m2:
+                    st.markdown("<p style='font-size:12px; margin-bottom:5px;'>* Configuración</p>", unsafe_allow_html=True)
+                    st.checkbox("Lunes", True); st.checkbox("Martes", True)
+                m3.number_input("* Max Solar (W)", value=5000)
+                m4.number_input("* Max Red (W)", value=5000)
+                m5.selectbox("* Prioridad", ["Carga", "Batería"])
+
+            with st_mo2:
+                st.toggle("* FuncionamientoporPeriodos", value=False)
+
+            with st_red:
+                if not st.session_state["red_desbloqueada"]:
+                    st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para desbloquear</div>", unsafe_allow_html=True)
+                    c_pw1, c_pw2 = st.columns([2, 3])
+                    pwd = c_pw1.text_input("Contraseña", type="password", label_visibility="collapsed")
+                    if c_pw1.button("Desbloquear", type="secondary"):
+                        if pwd == "admin123":
+                            st.session_state["red_desbloqueada"] = True
+                            st.rerun()
+                        else: st.error("❌ Contraseña incorrecta.")
+                else:
+                    st.success("🔓 Panel de Red Desbloqueado")
+                    r_c1, r_c2 = st.columns(2)
+                    r_c1.selectbox("* Normativa Aplicada", ["Seleccione", "Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
+                    r_c2.number_input("* Límite de Inyección a red (%)", min_value=0, max_value=100, value=100)
+                    st.markdown("<div style='margin-top: 10px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V) y Tiempos de Despeje (s)</div>", unsafe_allow_html=True)
+                    cv1, ct1, cv2, ct2 = st.columns([2, 1, 2, 1])
+                    cv1.number_input("* Sobre Tensión Máx (V)", value=253.0)
+                    ct1.number_input("* Tiempo (s)", value=0.1, key="t_ov")
+                    cv2.number_input("* Sub Tensión Mín (V)", value=198.0)
+                    ct2.number_input("* Tiempo (s)", value=0.2, key="t_uv")
+                    cv3, cv4 = st.columns(2)
+                    cv3.number_input("* Tensión Máxima de Inyección (V)", value=242.0)
+                    cv4.number_input("* Tensión Mínima de Inyección (V)", value=210.0)
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz) y Tiempos de Despeje (s)</div>", unsafe_allow_html=True)
+                    cf1, cft1, cf2, cft2 = st.columns([2, 1, 2, 1])
+                    cf1.number_input("* Sobre Frecuencia Máx (Hz)", value=60.5)
+                    cft1.number_input("* Tiempo (s)", value=0.2, key="t_of")
+                    cf2.number_input("* Sub Frecuencia Mín (Hz)", value=59.5)
+                    cft2.number_input("* Tiempo (s)", value=0.2, key="t_uf")
+                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Reconexión</div>", unsafe_allow_html=True)
+                    cr1, cr2 = st.columns(2)
+                    cr1.number_input("* Tiempo de reconexión a la red (s)", value=60)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("🔒 Bloquear Red"):
+                        st.session_state["red_desbloqueada"] = False
+                        st.rerun()
+
+            with st_smart:
+                cs1, cs2, cs3 = st.columns(3)
+                cs1.selectbox("* SmartLoad", ["Seleccione", "Habilitado"])
+                cs2.selectbox("* Par CA Red", opts_sel)
+                cs3.selectbox("* Par CA Carga", opts_sel)
+
+            with st_bas:
+                st.toggle("Sonido zumbador", value=True)
+
+            with st_av1:
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
+                a1, a2, a3, a4, a5 = st.columns(5)
+                a1.selectbox("* Configuración ARC", options=opts_sel)
+                a2.selectbox("* Gen Peak-afeitado", options=opts_sel)
+                a3.number_input("* Potencia reducción de picos (W)", value=1000)
+                a4.selectbox("* Reducción de picos de la red", options=opts_sel)
+                a5.number_input("* Potencia reducción red (W)", value=1000)
+                b1, b2, b3, b4, b5 = st.columns(5)
+                b1.selectbox("* Paralelo", options=opts_sel)
+                b2.selectbox("* Modo (Maestro Esclavo)", options=["Seleccione", "Maestro", "Esclavo"])
+                b3.number_input("* Modbus SN", value=1)
+                b4.selectbox("* DRM", options=opts_sel)
+                b5.selectbox("* Modo Isla de Señal", options=opts_sel)
+                c1, c2, c3, c4, c5 = st.columns(5)
+                c1.number_input("* Retraso de respaldo", value=0)
+                c2.number_input("* relación CT", value=1000)
+                c3.selectbox("* EX_MeterCT", options=opts_sel)
+                c4.selectbox("* Medidor red2", options=opts_sel)
+                c5.selectbox("* Escaneo MPPT", options=opts_sel)
+                d1, d2, d3, d4, d5 = st.columns(5)
+                d1.selectbox("* Seleccionar Medidor", options=opts_sel)
+                d2.selectbox("* Alimentación asimétrica", options=opts_sel)
+                d3.selectbox("* Relé principal en el lado...", options=opts_sel, key="d3_rele")
+                d4.selectbox("* Relé de derivación en...", options=opts_sel, key="d4_rele")
+                d5.empty()
+
+            with st_av2:
+                av_col1, _, _ = st.columns([1.5, 1, 2])
+                av_col1.selectbox("* DC 1 para turbina eólica", options=opts_sel)
+        
+            st.markdown("<br><hr style='margin:10px 0;'>", unsafe_allow_html=True)
+            b_col1, b_col2, b_col3 = st.columns([6, 2, 2])
+            with b_col2: st.button("Mirada lasciva", use_container_width=True, type="secondary")
+            with b_col3:
+                if st.button("Configurar", type="primary", use_container_width=True):
+                    with st.spinner("Enviando..."): time.sleep(1.5)
+                    st.success("¡Configuración aplicada!")
+
     with t_rep:
         st.markdown("### 📄 Descarga de Reporte Ejecutivo PDF")
         st.write("Genere un informe formal con membrete de CV INGENIERÍA SAS para enviarlo a sus clientes.")
-        
         pdf_bytes = generar_pdf(p, d)
-        
         st.download_button(
             label="📄 Generar y Descargar PDF",
             data=pdf_bytes,
@@ -582,7 +675,30 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 
     if t_om:
         with t_om:
-            st.write("Agenda de Mantenimiento...")
+            st.markdown("### 📅 Agenda de Mantenimiento")
+            with st.form("f_mant"):
+                mc1, mc2, mc3 = st.columns([2, 1, 1])
+                m_tipo = mc1.selectbox("Tipo de Tarea", ["💦 Limpieza Paneles", "🔋 Revisión Baterías", "🔌 Revisión Inversor"])
+                m_fecha = mc2.date_input("Fecha")
+                m_resp = mc3.text_input("Técnico")
+                m_notas = st.text_input("Observaciones")
+                if st.form_submit_button("➕ Agendar"):
+                    guardar_mantenimiento(p['nombre'], {"fecha": str(m_fecha), "tipo": m_tipo, "resp": m_resp, "notas": m_notas, "estado": "⏳ Pendiente"})
+                    st.rerun()
+            st.markdown("<br><h4>📋 Historial</h4>", unsafe_allow_html=True)
+            mantenimientos = cargar_mantenimientos().get(p['nombre'], [])
+            if not mantenimientos: st.info("No hay mantenimientos programados.")
+            else:
+                for i, m in enumerate(reversed(mantenimientos)):
+                    real_idx = len(mantenimientos) - 1 - i
+                    st.markdown(f"<div style='background:white; padding:15px; border-radius:8px; border:1px solid #eaeaea; margin-bottom:10px;'><b>{m['tipo']}</b> - {m['estado']}<br><span style='font-size:12px; color:#7f8c8d;'>📅 {m['fecha']} | 👨‍🔧 {m['resp']} | 📝 {m['notas']}</span></div>", unsafe_allow_html=True)
+                    c_btn1, c_btn2, _ = st.columns([1,1,8])
+                    if m['estado'] == "⏳ Pendiente" and c_btn1.button("✅", key=f"ok_{real_idx}"):
+                        actualizar_estado_mantenimiento(p['nombre'], real_idx, "✅ Completado")
+                        st.rerun()
+                    if c_btn2.button("🗑️", key=f"del_{real_idx}"):
+                        eliminar_mantenimiento(p['nombre'], real_idx)
+                        st.rerun()
 
 elif menu == "🚨 Centro de Alertas":
     st.title("🚨 CENTRO DE ALERTAS")
