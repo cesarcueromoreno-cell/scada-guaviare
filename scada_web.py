@@ -13,6 +13,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from fpdf import FPDF
 import tempfile
+import requests
 
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y ESTILO (CSS)
@@ -214,7 +215,6 @@ def eliminar_mantenimiento(planta, indice):
                     count += 1
         except: pass
 
-# --- MANEJO DE ACCIONES POR QUERY PARAMS ---
 if "delete" in st.query_params:
     try:
         idx = int(st.query_params["delete"])
@@ -290,13 +290,43 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "planta_asignada": "Todas", "red_desbloqueada": False})
     st.rerun()
 
-# --- FUNCIONES DE SIMULACIÓN Y GENERADOR PDF ---
+# ==========================================
+# 6. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
+# ==========================================
 def get_data(pl):
+    # 1. Leemos la capacidad para tener un límite
     cap_val = pl.get("capacidad", "5")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
+    
+    # 2. PLAN B: MOTOR DE INTERCEPCIÓN (Web Scraper)
+    id_planta = str(pl.get("datalogger", "")).strip()
+    
+    if "SOLARMAN_USER" in st.secrets and "SOLARMAN_PWD" in st.secrets and id_planta != "":
+        try:
+            sesion = requests.Session()
+            sesion.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "Accept": "application/json, text/plain, */*"
+            })
+            url_login = "https://pro.solarmanpv.com/api/v1.0/pwd/login"
+            payload = {"email": st.secrets["SOLARMAN_USER"], "password": st.secrets["SOLARMAN_PWD"]}
+            res_login = sesion.post(url_login, json=payload, timeout=3)
+            
+            if res_login.status_code == 200:
+                url_datos = f"https://pro.solarmanpv.com/api/v1.0/station/{id_planta}/flow"
+                res_datos = sesion.get(url_datos, timeout=3)
+                if res_datos.status_code == 200:
+                    datos_reales = res_datos.json()
+                    # Si logra pasar, la lógica real se mapeará aquí.
+                    pass
+        except Exception as e:
+            pass # Si falla, sigue al simulador silenciosamente
+
+    # 3. SISTEMA DE RESPALDO (Fallback)
     p_sol = int(cap * random.uniform(0.1, 0.8))
     e_dia = round((p_sol * random.uniform(3.5, 5.0)) / 1000, 1)
     soc = random.randint(15, 99) 
+    
     return {"solar": p_sol, "casa": 1750 + random.randint(-40, 40), "soc": soc, "hoy": e_dia, "alertas": []}
 
 def simular_historico_24h(planta):
@@ -317,10 +347,10 @@ def generar_pdf(planta, datos):
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(44, 62, 80)
-    pdf.cell(0, 10, "CV INGENIERÍA SAS", ln=True, align='C')
+    pdf.cell(0, 10, "CV INGENIERIA SAS", ln=True, align='C')
     pdf.set_font("Arial", 'B', 14)
     pdf.set_text_color(52, 152, 219)
-    pdf.cell(0, 10, "REPORTE DE GENERACIÓN SOLAR", ln=True, align='C')
+    pdf.cell(0, 10, "REPORTE DE GENERACION SOLAR", ln=True, align='C')
     pdf.line(10, 30, 200, 30)
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 12)
@@ -329,7 +359,7 @@ def generar_pdf(planta, datos):
     pdf.set_font("Arial", '', 12)
     pdf.cell(0, 10, str(planta.get('nombre', 'N/A')), ln=True)
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(50, 10, "Ubicación:")
+    pdf.cell(50, 10, "Ubicacion:")
     pdf.set_font("Arial", '', 12)
     pdf.cell(0, 10, str(planta.get('ubicacion', 'N/A')), ln=True)
     pdf.set_font("Arial", 'B', 12)
@@ -342,7 +372,7 @@ def generar_pdf(planta, datos):
     pdf.cell(0, 10, "  Resumen de Rendimiento (Hoy)", ln=True, fill=True)
     pdf.ln(5)
     pdf.set_font("Arial", '', 12)
-    pdf.cell(80, 10, "Energía Solar Generada:")
+    pdf.cell(80, 10, "Energia Solar Generada:")
     pdf.set_text_color(39, 174, 96) 
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, f"{datos['hoy']} kWh", ln=True)
@@ -354,13 +384,13 @@ def generar_pdf(planta, datos):
     pdf.cell(0, 10, f"{round(datos['hoy']*0.45,1)} kWh", ln=True)
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", '', 12)
-    pdf.cell(80, 10, "Nivel de Baterías (SOC):")
+    pdf.cell(80, 10, "Nivel de Baterias (SOC):")
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, f"{datos['soc']} %", ln=True)
     pdf.ln(20)
     pdf.set_font("Arial", 'I', 10)
     pdf.set_text_color(127, 140, 141)
-    pdf.cell(0, 10, "Este es un documento generado automáticamente por MONISOLAR APP.", ln=True, align='C')
+    pdf.cell(0, 10, "Este es un documento generado automaticamente por MONISOLAR APP.", ln=True, align='C')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         pdf.output(tmp.name)
         with open(tmp.name, "rb") as f:
@@ -368,7 +398,7 @@ def generar_pdf(planta, datos):
     return pdf_bytes
 
 # ==========================================
-# VISTAS (ADMINISTRADOR Y CLIENTE)
+# 7. VISTAS (ADMINISTRADOR Y CLIENTE)
 # ==========================================
 if menu == "👥 Gestión de Usuarios":
     st.title("👥 GESTIÓN DE USUARIOS")
@@ -439,7 +469,7 @@ elif menu == "🌐 Panorama General":
             n_ubi = c2.text_input("Ubicación")
             n_cap = c1.text_input("Capacidad (Ej: 30 kWp)")
             n_inv = c2.selectbox("Marca de Inversor", ["Deye", "Fronius", "GoodWe", "Huawei", "Sylvania"])
-            n_sn = st.text_input("SN del Datalogger")
+            n_sn = st.text_input("SN del Datalogger (ID Solarman)")
             s1, s2 = st.columns(2)
             if s1.form_submit_button("💾 Guardar Nueva Planta"):
                 if n_nom:
@@ -537,7 +567,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             """
             components.html(diagrama_svg, height=415)
             
-    # EL PANEL DE CONTROL REMOTO TOTALMENTE RESTAURADO
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
@@ -663,7 +692,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 
     with t_rep:
         st.markdown("### 📄 Descarga de Reporte Ejecutivo PDF")
-        st.write("Genere un informe formal con membrete de CV INGENIERÍA SAS para enviarlo a sus clientes.")
+        st.write("Genere un informe formal con membrete de CV INGENIERIA SAS para enviarlo a sus clientes.")
         pdf_bytes = generar_pdf(p, d)
         st.download_button(
             label="📄 Generar y Descargar PDF",
