@@ -6,3 +6,4 @@ pandas
 gspread
 google-auth
 fpdf
+requests
