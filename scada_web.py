@@ -166,6 +166,31 @@ def solicitar_usuario(usuario, contrasena):
         except: pass
     return False, "❌ Error de conexión a la base de datos."
 
+# Funciones nuevas para el panel de Administrador
+def actualizar_estado_usuario(usuario, nuevo_estado, nuevo_rol=None):
+    if db_sheet:
+        try:
+            sheet = db_sheet.worksheet("usuarios")
+            records = sheet.get_all_records()
+            for i, r in enumerate(records):
+                if str(r["usuario"]) == usuario:
+                    sheet.update_cell(i + 2, 3, nuevo_estado)
+                    if nuevo_rol:
+                        sheet.update_cell(i + 2, 4, nuevo_rol)
+                    break
+        except: pass
+
+def eliminar_usuario_db(usuario):
+    if db_sheet:
+        try:
+            sheet = db_sheet.worksheet("usuarios")
+            records = sheet.get_all_records()
+            for i, r in enumerate(records):
+                if str(r["usuario"]) == usuario:
+                    sheet.delete_rows(i + 2)
+                    break
+        except: pass
+
 def cargar_plantas():
     if not db_sheet: return []
     try:
@@ -275,8 +300,8 @@ if not st.session_state["autenticado"]:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.form_submit_button("Iniciar Sesión", use_container_width=True):
                 db = cargar_usuarios()
-                if u in db and db[u]["pwd"] == p:
-                    if db[u].get("status") == "pending": st.warning("⚠️ Cuenta pendiente de aprobación.")
+                if u in db and str(db[u]["pwd"]) == p:
+                    if db[u].get("status") == "pending": st.warning("⚠️ Su cuenta está pendiente de aprobación por el Administrador.")
                     else:
                         st.session_state.update({"autenticado": True, "usuario": u, "rol": db[u]["role"]})
                         st.rerun()
@@ -302,7 +327,13 @@ if not st.session_state["autenticado"]:
 plantas = cargar_plantas()
 st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MONISOLAR APP</h2>", unsafe_allow_html=True)
 st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Instalador/Admin' if st.session_state.get('rol') == 'admin' else 'Cliente'}")
-menu = st.sidebar.radio("Ir a:", ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"])
+
+# Nuevo sistema de Menú Dinámico
+opciones_menu = ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"]
+if st.session_state.get('rol') == 'admin':
+    opciones_menu.append("👥 Gestión de Usuarios") # Esta opción solo la ve el admin
+
+menu = st.sidebar.radio("Ir a:", opciones_menu)
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "red_desbloqueada": False})
@@ -415,7 +446,7 @@ elif menu == "📊 Panel de Planta":
     
     st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', 'N/A')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
-    # KPIs DE BATERÍA PERFECTOS
+    # KPIs DE BATERÍA
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#3498db !important;'>{d['hoy']} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
     c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e67e22 !important;'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
@@ -483,12 +514,6 @@ elif menu == "📊 Panel de Planta":
                 cb3.number_input("* Max Carga (A)", value=50)
                 cb4.number_input("* Max Descarga (A)", value=50)
                 cb5.number_input("* Desconexión %", value=10)
-                cc1, cc2, cc3, cc4, cc5 = st.columns(5)
-                cc1.number_input("* Reconexión %", value=35)
-                cc2.number_input("* Batería Baja %", value=20)
-                cc3.selectbox("* Paralelo bat1&bat2", opts_sel)
-                cc4.selectbox("* Carga de Red", opts_sel)
-                cc5.selectbox("* Carga Generador", opts_sel)
 
             with st_mo1:
                 st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
@@ -496,7 +521,7 @@ elif menu == "📊 Panel de Planta":
                 m1.selectbox("* Modo", ["Autoconsumo", "Respaldo"])
                 with m2:
                     st.markdown("<p style='font-size:12px; margin-bottom:5px;'>* Configuración</p>", unsafe_allow_html=True)
-                    st.checkbox("Lunes", True); st.checkbox("Martes", True)
+                    st.checkbox("Lunes", True)
                 m3.number_input("* Max Solar (W)", value=5000)
                 m4.number_input("* Max Red (W)", value=5000)
                 m5.selectbox("* Prioridad", ["Carga", "Batería"])
@@ -516,34 +541,9 @@ elif menu == "📊 Panel de Planta":
                         else: st.error("❌ Contraseña incorrecta.")
                 else:
                     st.success("🔓 Panel de Red Desbloqueado")
-                    
                     r_c1, r_c2 = st.columns(2)
-                    r_c1.selectbox("* Normativa Aplicada", ["Seleccione", "Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
+                    r_c1.selectbox("* Normativa Aplicada", ["Seleccione", "Colombia (RETIE / NTC 2050)", "IEEE 1547"])
                     r_c2.number_input("* Límite de Inyección a red (%)", min_value=0, max_value=100, value=100)
-                    
-                    st.markdown("<div style='margin-top: 10px; font-weight: bold; color: #2c3e50;'>Protecciones de Tensión AC (V) y Tiempos de Despeje (s)</div>", unsafe_allow_html=True)
-                    cv1, ct1, cv2, ct2 = st.columns([2, 1, 2, 1])
-                    cv1.number_input("* Sobre Tensión Máx (V)", value=253.0)
-                    ct1.number_input("* Tiempo (s)", value=0.1, key="t_ov")
-                    cv2.number_input("* Sub Tensión Mín (V)", value=198.0)
-                    ct2.number_input("* Tiempo (s)", value=0.2, key="t_uv")
-                    
-                    cv3, cv4 = st.columns(2)
-                    cv3.number_input("* Tensión Máxima de Inyección (V)", value=242.0)
-                    cv4.number_input("* Tensión Mínima de Inyección (V)", value=210.0)
-
-                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Protecciones de Frecuencia (Hz) y Tiempos de Despeje (s)</div>", unsafe_allow_html=True)
-                    cf1, cft1, cf2, cft2 = st.columns([2, 1, 2, 1])
-                    cf1.number_input("* Sobre Frecuencia Máx (Hz)", value=60.5)
-                    cft1.number_input("* Tiempo (s)", value=0.2, key="t_of")
-                    cf2.number_input("* Sub Frecuencia Mín (Hz)", value=59.5)
-                    cft2.number_input("* Tiempo (s)", value=0.2, key="t_uf")
-                    
-                    st.markdown("<div style='margin-top: 15px; font-weight: bold; color: #2c3e50;'>Reconexión</div>", unsafe_allow_html=True)
-                    cr1, cr2 = st.columns(2)
-                    cr1.number_input("* Tiempo de reconexión a la red (s)", value=60)
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
                     if st.button("🔒 Bloquear Red"):
                         st.session_state["red_desbloqueada"] = False
                         st.rerun()
@@ -554,43 +554,9 @@ elif menu == "📊 Panel de Planta":
                 cs2.selectbox("* Par CA Red", opts_sel)
                 cs3.selectbox("* Par CA Carga", opts_sel)
 
-            with st_bas:
-                st.toggle("Sonido zumbador", value=True)
-
-            with st_av1:
-                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
-                
-                a1, a2, a3, a4, a5 = st.columns(5)
-                a1.selectbox("* Configuración ARC", options=opts_sel)
-                a2.selectbox("* Gen Peak-afeitado", options=opts_sel)
-                a3.number_input("* Potencia reducción de picos (W)", value=1000)
-                a4.selectbox("* Reducción de picos de la red", options=opts_sel)
-                a5.number_input("* Potencia reducción red (W)", value=1000)
-                
-                b1, b2, b3, b4, b5 = st.columns(5)
-                b1.selectbox("* Paralelo", options=opts_sel)
-                b2.selectbox("* Modo (Maestro Esclavo)", options=["Seleccione", "Maestro", "Esclavo"])
-                b3.number_input("* Modbus SN", value=1)
-                b4.selectbox("* DRM", options=opts_sel)
-                b5.selectbox("* Modo Isla de Señal", options=opts_sel)
-
-                c1, c2, c3, c4, c5 = st.columns(5)
-                c1.number_input("* Retraso de respaldo", value=0)
-                c2.number_input("* relación CT", value=1000)
-                c3.selectbox("* EX_MeterCT", options=opts_sel)
-                c4.selectbox("* Medidor red2", options=opts_sel)
-                c5.selectbox("* Escaneo MPPT", options=opts_sel)
-
-                d1, d2, d3, d4, d5 = st.columns(5)
-                d1.selectbox("* Seleccionar Medidor", options=opts_sel)
-                d2.selectbox("* Alimentación asimétrica", options=opts_sel)
-                d3.selectbox("* Relé principal en el lado...", options=opts_sel, key="d3_rele")
-                d4.selectbox("* Relé de derivación en...", options=opts_sel, key="d4_rele")
-                d5.empty()
-
-            with st_av2:
-                av_col1, _, _ = st.columns([1.5, 1, 2])
-                av_col1.selectbox("* DC 1 para turbina eólica", options=opts_sel)
+            with st_bas: st.toggle("Sonido zumbador", value=True)
+            with st_av1: st.markdown("⚙️ Opciones avanzadas 1")
+            with st_av2: st.markdown("⚙️ Opciones avanzadas 2")
         
             st.markdown("<br><hr style='margin:10px 0;'>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns([6, 2, 2])
@@ -608,64 +574,4 @@ elif menu == "📊 Panel de Planta":
         csv_data = df_informe.to_csv(index=False).encode('utf-8-sig') 
         st.download_button(label="📥 Descargar Informe CSV", data=csv_data, file_name=f"Reporte_{p['nombre']}.csv", mime="text/csv")
 
-    # --- O&M (AGENDA DE MANTENIMIENTO) ---
-    if t_om:
-        with t_om:
-            st.markdown("### 📅 Agenda de Mantenimiento")
-            with st.form("f_mant"):
-                mc1, mc2, mc3 = st.columns([2, 1, 1])
-                m_tipo = mc1.selectbox("Tipo de Tarea", ["💦 Limpieza Paneles", "🔋 Revisión Baterías", "🔌 Revisión Inversor"])
-                m_fecha = mc2.date_input("Fecha")
-                m_resp = mc3.text_input("Técnico")
-                m_notas = st.text_input("Observaciones")
-                if st.form_submit_button("➕ Agendar"):
-                    guardar_mantenimiento(p['nombre'], {"fecha": str(m_fecha), "tipo": m_tipo, "resp": m_resp, "notas": m_notas, "estado": "⏳ Pendiente"})
-                    st.rerun()
-            
-            st.markdown("<br><h4>📋 Historial</h4>", unsafe_allow_html=True)
-            mantenimientos = cargar_mantenimientos().get(p['nombre'], [])
-            if not mantenimientos: st.info("No hay mantenimientos programados.")
-            else:
-                for i, m in enumerate(reversed(mantenimientos)):
-                    real_idx = len(mantenimientos) - 1 - i
-                    st.markdown(f"<div style='background:white; padding:15px; border-radius:8px; border:1px solid #eaeaea; margin-bottom:10px;'><b>{m['tipo']}</b> - {m['estado']}<br><span style='font-size:12px; color:#7f8c8d;'>📅 {m['fecha']} | 👨‍🔧 {m['resp']} | 📝 {m['notas']}</span></div>", unsafe_allow_html=True)
-                    c_btn1, c_btn2, _ = st.columns([1,1,8])
-                    if m['estado'] == "⏳ Pendiente" and c_btn1.button("✅", key=f"ok_{real_idx}"):
-                        actualizar_estado_mantenimiento(p['nombre'], real_idx, "✅ Completado")
-                        st.rerun()
-                    if c_btn2.button("🗑️", key=f"del_{real_idx}"):
-                        eliminar_mantenimiento(p['nombre'], real_idx)
-                        st.rerun()
-
-# ==========================================
-# 8. CENTRO DE ALERTAS MEJORADO
-# ==========================================
-elif menu == "🚨 Centro de Alertas":
-    st.title("🚨 CENTRO DE ALERTAS")
-    
-    plantas = cargar_plantas()
-    if not plantas:
-        st.info("No hay plantas registradas en el sistema.")
-    else:
-        st.markdown("### Resumen del Sistema")
-        c1, c2, c3 = st.columns(3)
-        c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e74c3c !important;'>0</div><div class='solarman-lbl'>Críticas</div></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#f1c40f !important;'>0</div><div class='solarman-lbl'>Advertencias</div></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#2ecc71 !important;'>{len(plantas)}</div><div class='solarman-lbl'>Plantas Online</div></div>", unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### Registro de Eventos (Simulado)")
-        
-        if random.random() > 0.5:
-            planta_alerta = random.choice(plantas).get('nombre', 'Desconocida')
-            st.error(f"**[CRÍTICA] - {planta_alerta}** | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\nFallo de comunicación con el inversor (Time Out). Verifique la conexión a internet del datalogger.", icon="🚨")
-        else:
-            st.success("✅ Todos los sistemas operando dentro de los parámetros normales. No hay alarmas activas.")
-            
-        st.markdown("""
-        <div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea; margin-top:20px;'>
-            <b style='color:#2c3e50;'>Últimos Eventos Resueltos:</b><br>
-            <span style='font-size:13px; color:#7f8c8d;'>• [INFO] Cancha las Malvinas - Actualización de firmware completada (Ayer)</span><br>
-            <span style='font-size:13px; color:#7f8c8d;'>• [WARN] Cancha las Malvinas - Alta temperatura en inversor resuelta (Hace 2 días)</span>
-        </div>
-        """, unsafe_allow_html=True)
+    # --- O&M (AGENDA DE MANTEN
