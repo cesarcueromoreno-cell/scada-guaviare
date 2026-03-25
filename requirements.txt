@@ -3,3 +3,5 @@ requests
 pymodbus
 plotly
 pandas
+gspread
+google-auth
