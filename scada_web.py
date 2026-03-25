@@ -19,21 +19,18 @@ st.set_page_config(page_title="MONISOLAR APP", page_icon="☀️", layout="wide"
 
 css_global = """
 <style>
-/* FONDO DEL PAISAJE (Global) */
 [data-testid="stAppViewContainer"] {
     background-image: url("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&q=80&w=1920");
     background-size: cover; background-position: center; background-attachment: fixed;
 }
 [data-testid="stHeader"] { background: rgba(0,0,0,0); }
 
-/* Textos blancos SOLO para las partes que están directo sobre el paisaje */
 .stApp > header + div > div > div > div > h1, 
 .stApp > header + div > div > div > div > h3 { 
     color: #ffffff !important; 
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 1) !important; 
 }
 
-/* SIDEBAR OSCURO */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #112027 0%, #1a323c 50%, #162a33 100%) !important;
     border-right: 1px solid #2c5364 !important;
@@ -43,7 +40,6 @@ css_global = """
 [data-testid="stSidebar"] button p { color: #ffffff !important; font-weight: bold !important; }
 [data-testid="stSidebar"] button:hover { background-color: rgba(231, 76, 60, 0.8) !important; }
 
-/* PANEL CENTRAL */
 .block-container { 
     background-color: rgba(244, 247, 249, 0.95) !important; 
     padding: 2rem !important; 
@@ -59,7 +55,6 @@ css_global = """
     text-shadow: none !important;
 }
 
-/* ESTILOS DE FORMULARIO ARREGLADOS */
 [data-testid="stForm"] { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; }
 [data-testid="stForm"] p, [data-testid="stForm"] label { color: white !important; text-shadow: 1px 1px 3px black !important; }
 
@@ -78,7 +73,6 @@ css_global = """
 }
 .block-container button[kind="primary"] p { color: white !important; }
 
-/* TARJETAS KPI */
 div.solarman-card { 
     background: #ffffff !important; border-radius: 8px !important; padding: 20px !important; 
     box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important; text-align: center !important; border: 1px solid #eaeaea !important; 
@@ -87,12 +81,10 @@ div.solarman-card div.solarman-val { font-size: 26px !important; font-weight: bo
 div.solarman-card div.solarman-lbl { font-size: 13px !important; text-transform: uppercase !important; color: #7f8c8d !important; }
 div.solarman-card span.solarman-lbl-sm { color: #7f8c8d !important; font-size: 10px !important; text-transform: uppercase !important;}
 
-/* LISTA DE PLANTAS EN PANORAMA */
 .tarjeta-dash-pro { background-color: #ffffff !important; padding: 15px !important; border-radius: 8px !important; margin-bottom: 10px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; display: flex !important; align-items: center !important; justify-content: space-between !important; border: 1px solid #eaeaea !important;}
 .tarjeta-label-pro { font-size: 11px !important; color: #7f8c8d !important; text-transform: uppercase !important; margin-bottom: 2px !important; white-space: nowrap !important; }
 .tarjeta-dato-pro { font-size: 16px !important; font-weight: bold !important; color: #2c3e50 !important; white-space: nowrap !important; }
 
-/* TABS Y BOTONES */
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; font-weight: 600 !important; font-size: 16px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
@@ -166,30 +158,32 @@ def solicitar_usuario(usuario, contrasena):
         except: pass
     return False, "❌ Error de conexión a la base de datos."
 
-# Funciones nuevas para el panel de Administrador
-def actualizar_estado_usuario(usuario, nuevo_estado, nuevo_rol=None):
+# --- NUEVAS FUNCIONES PARA GESTIÓN DE USUARIOS ---
+def actualizar_usuario_bd(usuario_id, nuevo_estado, nuevo_rol, nueva_pwd=None):
     if db_sheet:
         try:
             sheet = db_sheet.worksheet("usuarios")
             records = sheet.get_all_records()
             for i, r in enumerate(records):
-                if str(r["usuario"]) == usuario:
-                    sheet.update_cell(i + 2, 3, nuevo_estado)
-                    if nuevo_rol:
-                        sheet.update_cell(i + 2, 4, nuevo_rol)
+                if str(r["usuario"]) == usuario_id:
+                    # Fila es i + 2 porque el índice empieza en 0 y la fila 1 son los encabezados
+                    if nueva_pwd:
+                        sheet.update_cell(i + 2, 2, nueva_pwd) # Columna B (pwd)
+                    sheet.update_cell(i + 2, 3, nuevo_estado)  # Columna C (status)
+                    sheet.update_cell(i + 2, 4, nuevo_rol)     # Columna D (role)
                     break
-        except: pass
+        except Exception as e: st.error(f"Error actualizando usuario: {e}")
 
-def eliminar_usuario_db(usuario):
+def eliminar_usuario_bd(usuario_id):
     if db_sheet:
         try:
             sheet = db_sheet.worksheet("usuarios")
             records = sheet.get_all_records()
             for i, r in enumerate(records):
-                if str(r["usuario"]) == usuario:
+                if str(r["usuario"]) == usuario_id:
                     sheet.delete_rows(i + 2)
                     break
-        except: pass
+        except Exception as e: pass
 
 def cargar_plantas():
     if not db_sheet: return []
@@ -285,7 +279,7 @@ if "edit" in st.query_params:
     except: pass
 
 # ==========================================
-# 4. LOGIN (PERFECTAMENTE VISIBLE)
+# 4. LOGIN
 # ==========================================
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MONISOLAR APP</h1>", unsafe_allow_html=True)
@@ -328,10 +322,10 @@ plantas = cargar_plantas()
 st.sidebar.markdown("<h2 style='text-align: center; color: #f1c40f !important; text-shadow: none !important;'>☀️ MONISOLAR APP</h2>", unsafe_allow_html=True)
 st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Instalador/Admin' if st.session_state.get('rol') == 'admin' else 'Cliente'}")
 
-# Nuevo sistema de Menú Dinámico
+# MENÚ DINÁMICO (Oculta la gestión de usuarios a los clientes)
 opciones_menu = ["🌐 Panorama General", "📊 Panel de Planta", "🚨 Centro de Alertas"]
 if st.session_state.get('rol') == 'admin':
-    opciones_menu.append("👥 Gestión de Usuarios") # Esta opción solo la ve el admin
+    opciones_menu.append("👥 Gestión de Usuarios")
 
 menu = st.sidebar.radio("Ir a:", opciones_menu)
 
@@ -361,10 +355,59 @@ def simular_historico_24h(planta):
         datos.append({"timestamp": t, "Generación FV": round(gen, 2), "Consumo Carga": round(con, 2)})
     return pd.DataFrame(datos)
 
+
+# ==========================================
+# GESTIÓN DE USUARIOS (SOLO ADMIN)
+# ==========================================
+if menu == "👥 Gestión de Usuarios":
+    st.title("👥 GESTIÓN DE USUARIOS")
+    st.write("Administra el acceso de tus clientes a la plataforma.")
+    
+    db_usuarios = cargar_usuarios()
+    
+    # Mostrar tarjetas por cada usuario
+    st.markdown("<br>", unsafe_allow_html=True)
+    for usr, datos in db_usuarios.items():
+        if usr == "admin": continue # No mostramos al admin principal para evitar borrarlo por error
+        
+        estado_color = "#27ae60" if datos['status'] == 'active' else "#f39c12"
+        estado_texto = "🟢 Activo" if datos['status'] == 'active' else "⏳ Pendiente"
+        
+        st.markdown(f"""
+        <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h4 style="margin: 0; color: #2c3e50;">👤 {usr}</h4>
+                    <span style="font-size: 13px; color: {estado_color}; font-weight: bold;">{estado_texto}</span> | 
+                    <span style="font-size: 13px; color: #7f8c8d;">Rol: {datos['role']}</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Controles dentro de un form para este usuario específico
+        with st.form(f"form_{usr}"):
+            c1, c2, c3, c4 = st.columns([2, 2, 2, 1])
+            nuevo_est = c1.selectbox("Estado", ["active", "pending"], index=0 if datos['status'] == 'active' else 1, key=f"est_{usr}")
+            nuevo_rol = c2.selectbox("Rol", ["viewer", "admin"], index=0 if datos['role'] == 'viewer' else 1, key=f"rol_{usr}")
+            nueva_pwd = c3.text_input("Nueva Contraseña (Opcional)", type="password", placeholder="Dejar en blanco para no cambiar")
+            
+            sub_col1, sub_col2 = c4.columns(2)
+            if sub_col1.form_submit_button("💾", help="Guardar Cambios"):
+                actualizar_usuario_bd(usr, nuevo_est, nuevo_rol, nueva_pwd if nueva_pwd else None)
+                st.success(f"Usuario {usr} actualizado.")
+                time.sleep(1)
+                st.rerun()
+            if sub_col2.form_submit_button("🗑️", help="Eliminar Usuario"):
+                eliminar_usuario_bd(usr)
+                st.warning(f"Usuario {usr} eliminado.")
+                time.sleep(1)
+                st.rerun()
+
 # ==========================================
 # 6. VISTA: PANORAMA GENERAL
 # ==========================================
-if menu == "🌐 Panorama General":
+elif menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL")
     
     if st.session_state["editando_planta"] is not None:
@@ -446,7 +489,6 @@ elif menu == "📊 Panel de Planta":
     
     st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', 'N/A')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
-    # KPIs DE BATERÍA
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#3498db !important;'>{d['hoy']} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
     c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e67e22 !important;'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
@@ -454,14 +496,12 @@ elif menu == "📊 Panel de Planta":
     c4.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>A Red</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>De Red</span></div></div>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # TABS PRINCIPALES
     if st.session_state['rol'] == 'admin':
         t_graf, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico", "⚙️ Control Remoto del Inversor", "📄 Reportes", "🛠️ O&M"])
     else:
         t_graf, t_rep = st.tabs(["📈 Panel Gráfico", "📄 Reportes"])
         t_ctrl, t_om = None, None
     
-    # --- GRÁFICA Y FLUJO ---
     with t_graf:
         col_grafica, col_flujo = st.columns([7, 3])
         with col_grafica:
@@ -497,81 +537,60 @@ elif menu == "📊 Panel de Planta":
             """
             components.html(diagrama_svg, height=415)
             
-    # --- CONTROL REMOTO ---
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
-            st_bat, st_mo1, st_mo2, st_red, st_smart, st_bas, st_av1, st_av2 = st.tabs([
-                "🔋 Baterías", "🔄 Modos-1", "🔄 Modos-2", "⚡ Red", "🧠 SmartLoad", "⚙️ Básica", "🛠️ Avanzadas-1", "🛠️ Avanzadas-2"
-            ])
-            opts_sel = ["Seleccione", "Habilitado", "Deshabilitado"]
-            
-            with st_bat:
-                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
-                cb1, cb2, cb3, cb4, cb5 = st.columns(5)
-                cb1.selectbox("* Tipo Batería", ["Modo Litio", "Plomo"])
-                cb2.number_input("* Capacidad (Ah)", value=100)
-                cb3.number_input("* Max Carga (A)", value=50)
-                cb4.number_input("* Max Descarga (A)", value=50)
-                cb5.number_input("* Desconexión %", value=10)
+            st_bat, st_mo1, st_red = st.tabs(["🔋 Baterías", "🔄 Modos", "⚡ Red (Avanzado)"])
+            with st_bat: st.write("Controles de batería aquí...")
+            with st_mo1: st.write("Controles de modos aquí...")
+            with st_red: st.write("Protecciones de red (RETIE / IEEE)...")
 
-            with st_mo1:
-                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
-                m1, m2, m3, m4, m5 = st.columns(5)
-                m1.selectbox("* Modo", ["Autoconsumo", "Respaldo"])
-                with m2:
-                    st.markdown("<p style='font-size:12px; margin-bottom:5px;'>* Configuración</p>", unsafe_allow_html=True)
-                    st.checkbox("Lunes", True)
-                m3.number_input("* Max Solar (W)", value=5000)
-                m4.number_input("* Max Red (W)", value=5000)
-                m5.selectbox("* Prioridad", ["Carga", "Batería"])
-
-            with st_mo2:
-                st.toggle("* FuncionamientoporPeriodos", value=False)
-
-            with st_red:
-                if not st.session_state["red_desbloqueada"]:
-                    st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para desbloquear</div>", unsafe_allow_html=True)
-                    c_pw1, c_pw2 = st.columns([2, 3])
-                    pwd = c_pw1.text_input("Contraseña", type="password", label_visibility="collapsed")
-                    if c_pw1.button("Desbloquear", type="secondary"):
-                        if pwd == "admin123":
-                            st.session_state["red_desbloqueada"] = True
-                            st.rerun()
-                        else: st.error("❌ Contraseña incorrecta.")
-                else:
-                    st.success("🔓 Panel de Red Desbloqueado")
-                    r_c1, r_c2 = st.columns(2)
-                    r_c1.selectbox("* Normativa Aplicada", ["Seleccione", "Colombia (RETIE / NTC 2050)", "IEEE 1547"])
-                    r_c2.number_input("* Límite de Inyección a red (%)", min_value=0, max_value=100, value=100)
-                    if st.button("🔒 Bloquear Red"):
-                        st.session_state["red_desbloqueada"] = False
-                        st.rerun()
-
-            with st_smart:
-                cs1, cs2, cs3 = st.columns(3)
-                cs1.selectbox("* SmartLoad", ["Seleccione", "Habilitado"])
-                cs2.selectbox("* Par CA Red", opts_sel)
-                cs3.selectbox("* Par CA Carga", opts_sel)
-
-            with st_bas: st.toggle("Sonido zumbador", value=True)
-            with st_av1: st.markdown("⚙️ Opciones avanzadas 1")
-            with st_av2: st.markdown("⚙️ Opciones avanzadas 2")
-        
-            st.markdown("<br><hr style='margin:10px 0;'>", unsafe_allow_html=True)
-            b_col1, b_col2, b_col3 = st.columns([6, 2, 2])
-            with b_col2: st.button("Mirada lasciva", use_container_width=True, type="secondary")
-            with b_col3:
-                if st.button("Configurar", type="primary", use_container_width=True):
-                    with st.spinner("Enviando..."): time.sleep(1.5)
-                    st.success("¡Configuración aplicada!")
-
-    # --- REPORTES Y DESCARGA CSV ---
     with t_rep:
         st.markdown("### 📄 Descarga de Datos Históricos")
-        st.write("Exporte las métricas del día actual a Excel.")
         df_informe = pd.DataFrame({"Fecha Consulta": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")], "Planta": [p['nombre']], "Producción Diaria (kWh)": [d['hoy']]})
         csv_data = df_informe.to_csv(index=False).encode('utf-8-sig') 
         st.download_button(label="📥 Descargar Informe CSV", data=csv_data, file_name=f"Reporte_{p['nombre']}.csv", mime="text/csv")
 
-    # --- O&M (AGENDA DE MANTEN
+    if t_om:
+        with t_om:
+            st.markdown("### 📅 Agenda de Mantenimiento")
+            with st.form("f_mant"):
+                mc1, mc2, mc3 = st.columns([2, 1, 1])
+                m_tipo = mc1.selectbox("Tipo de Tarea", ["💦 Limpieza Paneles", "🔋 Revisión Baterías", "🔌 Revisión Inversor"])
+                m_fecha = mc2.date_input("Fecha")
+                m_resp = mc3.text_input("Técnico")
+                m_notas = st.text_input("Observaciones")
+                if st.form_submit_button("➕ Agendar"):
+                    guardar_mantenimiento(p['nombre'], {"fecha": str(m_fecha), "tipo": m_tipo, "resp": m_resp, "notas": m_notas, "estado": "⏳ Pendiente"})
+                    st.rerun()
+            
+            st.markdown("<br><h4>📋 Historial</h4>", unsafe_allow_html=True)
+            mantenimientos = cargar_mantenimientos().get(p['nombre'], [])
+            if not mantenimientos: st.info("No hay mantenimientos programados.")
+            else:
+                for i, m in enumerate(reversed(mantenimientos)):
+                    real_idx = len(mantenimientos) - 1 - i
+                    st.markdown(f"<div style='background:white; padding:15px; border-radius:8px; border:1px solid #eaeaea; margin-bottom:10px;'><b>{m['tipo']}</b> - {m['estado']}<br><span style='font-size:12px; color:#7f8c8d;'>📅 {m['fecha']} | 👨‍🔧 {m['resp']} | 📝 {m['notas']}</span></div>", unsafe_allow_html=True)
+                    c_btn1, c_btn2, _ = st.columns([1,1,8])
+                    if m['estado'] == "⏳ Pendiente" and c_btn1.button("✅", key=f"ok_{real_idx}"):
+                        actualizar_estado_mantenimiento(p['nombre'], real_idx, "✅ Completado")
+                        st.rerun()
+                    if c_btn2.button("🗑️", key=f"del_{real_idx}"):
+                        eliminar_mantenimiento(p['nombre'], real_idx)
+                        st.rerun()
+
+# ==========================================
+# 8. CENTRO DE ALERTAS
+# ==========================================
+elif menu == "🚨 Centro de Alertas":
+    st.title("🚨 CENTRO DE ALERTAS")
+    plantas = cargar_plantas()
+    if not plantas:
+        st.info("No hay plantas registradas.")
+    else:
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e74c3c !important;'>0</div><div class='solarman-lbl'>Críticas</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#f1c40f !important;'>0</div><div class='solarman-lbl'>Advertencias</div></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#2ecc71 !important;'>{len(plantas)}</div><div class='solarman-lbl'>Plantas Online</div></div>", unsafe_allow_html=True)
+        st.markdown("<br>### Registro de Eventos (Simulado)", unsafe_allow_html=True)
+        st.success("✅ Todos los sistemas operando dentro de los parámetros normales.")
