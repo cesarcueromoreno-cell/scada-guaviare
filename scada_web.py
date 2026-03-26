@@ -56,6 +56,10 @@ div[data-testid="stButton"] button[kind="primary"] p { color: white !important; 
 div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
 div[data-testid="stButton"] button[kind="secondary"] { border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
 div[data-testid="stButton"] button[kind="secondary"] p { color: #2d8cf0 !important; }
+/* Estilos para la radiografía */
+.diag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; font-size: 13px; color: #2c3e50; padding: 10px; }
+.diag-grid div { margin-bottom: 10px; }
+.diag-lbl { color: #7f8c8d; display: block; margin-bottom: 2px; }
 </style>
 """
 st.markdown(css_global, unsafe_allow_html=True)
@@ -71,7 +75,7 @@ if "editando_planta" not in st.session_state: st.session_state["editando_planta"
 if "mostrar_crear" not in st.session_state: st.session_state["mostrar_crear"] = False
 if "red_desbloqueada" not in st.session_state: st.session_state["red_desbloqueada"] = False
 if "reinicio_desbloqueado" not in st.session_state: st.session_state["reinicio_desbloqueado"] = False
-if "ver_detalle_inv" not in st.session_state: st.session_state["ver_detalle_inv"] = False # NUEVA VARIABLE PARA LA VISTA DE INVERSOR
+if "ver_detalle_inv" not in st.session_state: st.session_state["ver_detalle_inv"] = False
 
 if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
@@ -299,7 +303,6 @@ else:
 
 menu = st.sidebar.radio("Ir a:", opciones_menu)
 
-# Si el usuario cambia de planta o de menú, reseteamos la vista de detalles del inversor
 if "menu_anterior" not in st.session_state or st.session_state["menu_anterior"] != menu:
     st.session_state["ver_detalle_inv"] = False
     st.session_state["menu_anterior"] = menu
@@ -485,7 +488,7 @@ if menu == "👥 Gestión de Usuarios":
 
 elif menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL")
-    st.session_state["ver_detalle_inv"] = False # Reset al cambiar
+    st.session_state["ver_detalle_inv"] = False
     
     if st.session_state["editando_planta"] is not None:
         idx = st.session_state["editando_planta"]
@@ -577,7 +580,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     pl_sel = st.selectbox("Seleccionar Planta:", [p["nombre"] for p in plantas_permitidas], label_visibility="collapsed")
     p = next(x for x in plantas_permitidas if x["nombre"] == pl_sel)
     
-    # Si cambiamos de planta en el selectbox, ocultamos el detalle del inversor de la planta anterior
     if "planta_actual" not in st.session_state or st.session_state["planta_actual"] != p["nombre"]:
         st.session_state["ver_detalle_inv"] = False
         st.session_state["planta_actual"] = p["nombre"]
@@ -588,6 +590,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     smart_meter_actual = p.get('smart_meter', 'Ninguno')
     sn_logger = str(p.get('datalogger', 'N/A'))
     marca_inv = str(p.get('inversores', 'Genérico'))
+    capacidad = str(p.get('capacidad', '30'))
     
     st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | Tipo: {tipo_sistema_actual} | SN: {sn_logger}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
@@ -673,12 +676,9 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             </div>
             """, unsafe_allow_html=True)
             
-    # --- PESTAÑA "DISPOSITIVOS" CON LA NUEVA RADIOGRAFÍA ---
     with t_disp:
-        # Si NO hemos hecho clic en ver el detalle del inversor, mostramos la tabla normal
         if not st.session_state["ver_detalle_inv"]:
             st.markdown("### 🔌 Lista de Dispositivos Registrados")
-            
             rows_html = f"""<tr style="border-bottom: 1px solid #ecf0f1;">
         <td style="padding: 12px;"><b>Inversor {marca_inv}</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
         <td style="padding: 12px;">Inversor</td>
@@ -695,7 +695,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         <td style="padding: 12px;">--</td>
         <td style="padding: 12px;">--</td>
     </tr>"""
-            
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 rows_html += f"""
     <tr style="border-bottom: 1px solid #ecf0f1;">
@@ -706,7 +705,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         <td style="padding: 12px;">--</td>
         <td style="padding: 12px;">--</td>
     </tr>"""
-                
             if smart_meter_actual != "Ninguno":
                 rows_html += f"""
     <tr style="border-bottom: 1px solid #ecf0f1;">
@@ -717,7 +715,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         <td style="padding: 12px;">--</td>
         <td style="padding: 12px;">--</td>
     </tr>"""
-                
             html_table = f"""<div style="background-color: white; border-radius: 8px; border: 1px solid #eaeaea; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-top: 10px;">
         <table style="width: 100%; border-collapse: collapse; text-align: left; color: #2c3e50; font-size: 14px;">
             <tr style="border-bottom: 2px solid #ecf0f1; background-color: #f8f9fa;">
@@ -732,21 +729,20 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         </table>
     </div>"""
             st.markdown(html_table, unsafe_allow_html=True)
-            
             st.markdown("<br>", unsafe_allow_html=True)
             c_btn_zoom, _ = st.columns([3, 7])
-            # Este es el botón que "hace zoom" al inversor
             if c_btn_zoom.button("🔍 Ver Diagnóstico del Inversor", type="primary"):
                 st.session_state["ver_detalle_inv"] = True
                 st.rerun()
 
-        # Si SÍ hicimos clic, mostramos la pantalla detallada de la radiografía
+        # ==========================================
+        # NUEVA PANTALLA: RADIOGRAFÍA DEL INVERSOR
+        # ==========================================
         else:
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
                 st.session_state["ver_detalle_inv"] = False
                 st.rerun()
             
-            # Encabezado calcado de la imagen
             st.markdown(f"""
             <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px;'>
                 <div>
@@ -762,74 +758,183 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             
             with t_det_1:
                 # 1. Información Básica
-                st.markdown("<h4 style='color:#2c3e50; font-size:18px; margin-top:10px;'>Información básica</h4>", unsafe_allow_html=True)
-                st.markdown("""
-                <div style='background:white; padding:20px; border-radius:8px; border:1px solid #eaeaea;'>
-                    <div style='display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px; font-size:14px; color:#2c3e50;'>
-                        <div><span style='color:#7f8c8d;'>NS:</span> """ + sn_logger + """</div>
-                        <div><span style='color:#7f8c8d;'>Tipo de inversor:</span> Híbrido HV trifásico</div>
-                        <div><span style='color:#7f8c8d;'>Potencia nominal:</span> """ + str(p.get('capacidad', '30')) + """ kW</div>
-                        <div><span style='color:#7f8c8d;'>Hora del sistema:</span> """ + datetime.now().strftime('%d-%m-%y %H:%M:%S') + """</div>
-                        <div><span style='color:#7f8c8d;'>HV Voltage:</span> 373 V</div>
-                        <div><span style='color:#7f8c8d;'>Bus-N Voltage:</span> 186 V</div>
+                with st.expander("Información básica", expanded=True):
+                    st.markdown(f"""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>NS:</span> {sn_logger}</div>
+                        <div><span class='diag-lbl'>Tipo de inversor:</span> Híbrido HV trifásico</div>
+                        <div><span class='diag-lbl'>Potencia nominal:</span> {capacidad} kW</div>
+                        <div><span class='diag-lbl'>Hora del sistema:</span> {datetime.now().strftime('%d-%m-%y %H:%M:%S')}</div>
+                        <div><span class='diag-lbl'>HV Voltage:</span> 373 V</div>
+                        <div><span class='diag-lbl'>Bus-N Voltage:</span> 186 V</div>
                     </div>
+                    """, unsafe_allow_html=True)
+                
+                # 2. Información de versión
+                with st.expander("Información de versión", expanded=False):
+                    st.markdown("""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>Versión protocolo:</span> 0104</div>
+                        <div><span class='diag-lbl'>PRINCIPAL:</span> 3103-1086-1E10</div>
+                        <div><span class='diag-lbl'>HMI:</span> 2001-C036</div>
+                        <div><span class='diag-lbl'>Número versión batería 1:</span> 4101</div>
+                        <div><span class='diag-lbl'>Número versión batería 2:</span> 0000</div>
+                        <div><span class='diag-lbl'>Arc Board Firmware:</span> F204</div>
+                        <div><span class='diag-lbl'>English Version:</span> 1004</div>
+                        <div><span class='diag-lbl'>Versión en español:</span> 1004</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # 3. Generación Eléctrica
+                with st.expander("Generación eléctrica", expanded=True):
+                    col_dc, col_icono, col_ac = st.columns([5, 1, 5])
+                    with col_dc:
+                        st.markdown("""
+                        <table style='width:100%; text-align:left; font-size:13px; color:#3498db; border-collapse:collapse;'>
+                            <tr style='color:#7f8c8d; border-bottom:1px solid #eaeaea;'>
+                                <th style='padding:8px;'>Corriente continua</th><th style='padding:8px;'>Voltaje</th><th style='padding:8px;'>Actual</th><th style='padding:8px;'>Fuerza</th><th style='padding:8px;'>Estado</th>
+                            </tr>
+                            <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>PV1</td><td>0.00 V</td><td>0.00 A</td><td>0.00 W</td><td>✔</td></tr>
+                            <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>PV2</td><td>0.00 V</td><td>0.00 A</td><td>0.00 W</td><td>✔</td></tr>
+                            <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>PV3</td><td>0.00 V</td><td>0.00 A</td><td>0.00 W</td><td>✔</td></tr>
+                            <tr><td style='padding:8px;'>PV4</td><td>30.10 V</td><td>0.00 A</td><td>0.00 W</td><td>✔</td></tr>
+                        </table>
+                        """, unsafe_allow_html=True)
+                    with col_icono:
+                        st.markdown("<br><br><br><div style='background-color:#3498db; color:white; border-radius:8px; padding:15px; text-align:center; font-weight:bold;'>DC/AC<br>≈</div>", unsafe_allow_html=True)
+                    with col_ac:
+                        st.markdown("""
+                        <table style='width:100%; text-align:left; font-size:13px; color:#3498db; border-collapse:collapse;'>
+                            <tr style='color:#7f8c8d; border-bottom:1px solid #eaeaea;'>
+                                <th style='padding:8px;'>Corriente alterna</th><th style='padding:8px;'>Voltaje</th><th style='padding:8px;'>Actual</th><th style='padding:8px;'>Frecuencia</th>
+                            </tr>
+                            <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>R</td><td>121.30 V</td><td>7.50 A</td><td>60.00 Hz</td></tr>
+                            <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>S</td><td>121.20 V</td><td>7.90 A</td><td>--</td></tr>
+                            <tr><td style='padding:8px;'>T</td><td>121.30 V</td><td>0.20 A</td><td>--</td></tr>
+                        </table>
+                        """, unsafe_allow_html=True)
+                    st.markdown("<hr style='margin-top:15px; border-color:#eaeaea;'>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>PV daily power generation: <b>{d['hoy']} kWh</b></span> <span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>Power factor: <b>0.00</b></span> <span style='color:#7f8c8d; font-size:13px;'>AC Voltage Max: <b>150.00 V</b></span>", unsafe_allow_html=True)
+
+                # 4. Red eléctrica
+                with st.expander("Red eléctrica", expanded=False):
+                    st.markdown("""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>Voltaje de red L1:</span> 0.00 V</div>
+                        <div><span class='diag-lbl'>Corriente de red L1:</span> 0.00 A</div>
+                        <div><span class='diag-lbl'>Potencia de red L1:</span> 0 W</div>
+                        <div><span class='diag-lbl'>Voltaje de red L2:</span> 0.00 V</div>
+                        <div><span class='diag-lbl'>Corriente de red L2:</span> 0.00 A</div>
+                        <div><span class='diag-lbl'>Potencia de red L2:</span> 0 W</div>
+                        <div><span class='diag-lbl'>Voltaje de red L3:</span> 0.00 V</div>
+                        <div><span class='diag-lbl'>Corriente de red L3:</span> 0.00 A</div>
+                        <div><span class='diag-lbl'>Potencia de red L3:</span> 0 W</div>
+                        <div><span class='diag-lbl'>Estado de red:</span> Estática</div>
+                        <div><span class='diag-lbl'>Frecuencia de red:</span> 0.00 Hz</div>
+                        <div><span class='diag-lbl'>Potencia total de red:</span> 0 W</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # 5. Consumo eléctrico
+                with st.expander("Consumo eléctrico", expanded=False):
+                    st.markdown("""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>Voltaje de carga L1:</span> 121.20 V</div>
+                        <div><span class='diag-lbl'>Voltaje de carga L2:</span> 121.40 V</div>
+                        <div><span class='diag-lbl'>Voltaje de carga L3:</span> 120.40 V</div>
+                        <div><span class='diag-lbl'>Potencia de carga L1:</span> 940 W</div>
+                        <div><span class='diag-lbl'>Potencia de carga L2:</span> 880 W</div>
+                        <div><span class='diag-lbl'>Potencia de carga L3:</span> 21 W</div>
+                        <div><span class='diag-lbl'>Consumo diario:</span> 9.10 kWh</div>
+                        <div><span class='diag-lbl'>Frecuencia de carga:</span> 60.00 Hz</div>
+                        <div><span class='diag-lbl'>Potencia consumo total:</span> 1.84 kW</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # 6. Baterías y BMS
+                if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+                    with st.expander("Batería", expanded=False):
+                        st.markdown(f"""
+                        <div class='diag-grid'>
+                            <div><span class='diag-lbl'>Estado de batería:</span> Descargando</div>
+                            <div><span class='diag-lbl'>Voltaje de batería:</span> 317.90 V</div>
+                            <div><span class='diag-lbl'>Corriente de batería:</span> 5.82 A</div>
+                            <div><span class='diag-lbl'>Potencia de batería:</span> 1.85 kW</div>
+                            <div><span class='diag-lbl'>SoC:</span> {d['soc']} %</div>
+                            <div><span class='diag-lbl'>Energía descarga diaria:</span> 9.00 kWh</div>
+                            <div><span class='diag-lbl'>Tipo de batería:</span> Litio</div>
+                            <div><span class='diag-lbl'>Fábrica de baterías:</span> Deye_HV</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with st.expander("BMS", expanded=False):
+                        st.markdown("""
+                        <div class='diag-grid'>
+                            <div><span class='diag-lbl'>Voltaje BMS:</span> 318.00 V</div>
+                            <div><span class='diag-lbl'>Corriente BMS:</span> 6.20 A</div>
+                            <div><span class='diag-lbl'>Temperatura BMS:</span> 35.00 °C</div>
+                            <div><span class='diag-lbl'>Límite corriente descarga:</span> 100 A</div>
+                            <div><span class='diag-lbl'>Límite corriente carga:</span> 88 A</div>
+                            <div><span class='diag-lbl'>SOH batería litio:</span> 99 %</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                # 7. Temperatura & Estado
+                with st.expander("Temperatura y Estado", expanded=False):
+                    st.markdown("""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>Temperatura batería:</span> 35.00 °C</div>
+                        <div><span class='diag-lbl'>Temperatura CC:</span> 40.70 °C</div>
+                        <div><span class='diag-lbl'>Temperatura CA:</span> 44.70 °C</div>
+                        <div><span class='diag-lbl'>Estado relé lado CA:</span> 3</div>
+                        <div><span class='diag-lbl'>Potencia carga UPS:</span> 1.84 kW</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with t_det_2: 
+                # Pestaña Alerta
+                st.markdown("<h4 style='color:#2c3e50; font-size:16px; margin-top:10px;'>Registro de banderas de hardware</h4>", unsafe_allow_html=True)
+                st.markdown("""
+                <div class='diag-grid' style='background:white; border:1px solid #eaeaea; border-radius:8px;'>
+                    <div><span class='diag-lbl'>Bandera alarma batería litio:</span> 0000</div>
+                    <div><span class='diag-lbl'>Bandera fallo batería litio:</span> 0000</div>
+                    <div><span class='diag-lbl'>Bandera alarma batería litio 2:</span> 0000</div>
+                    <div><span class='diag-lbl'>Bandera fallo batería litio 2:</span> 0000</div>
                 </div>
+                <div style='margin-top:20px; color:#27ae60; font-weight:bold;'>✔ No se detectan anomalías activas.</div>
                 """, unsafe_allow_html=True)
                 
-                # 2. Información de versión (Expander)
-                with st.expander("Información de versión", expanded=True):
-                    st.markdown("""
-                    <div style='display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px; font-size:13px; color:#2c3e50; padding:10px;'>
-                        <div><span style='color:#7f8c8d;'>Versión protocolo:</span> 0104</div>
-                        <div><span style='color:#7f8c8d;'>PRINCIPAL:</span> 3103-1086-1E10</div>
-                        <div><span style='color:#7f8c8d;'>HMI:</span> 2001-C036</div>
-                        <div><span style='color:#7f8c8d;'>Número versión batería 1:</span> 4101</div>
-                        <div><span style='color:#7f8c8d;'>Número versión batería 2:</span> 0000</div>
-                        <div><span style='color:#7f8c8d;'>Arc Board Firmware Version:</span> F204</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+            with t_det_3: 
+                st.write("Diagrama de arquitectura del puerto de comunicaciones... (Pendiente de mapeo visual)")
                 
-                # 3. Generación Eléctrica (El panel de diagnóstico PV y Red)
-                st.markdown("<h4 style='color:#2c3e50; font-size:18px; margin-top:20px;'>Generación eléctrica</h4>", unsafe_allow_html=True)
+            with t_det_4:
+                # Gráfica Histórica de CA (Calcada de la imagen)
+                st.markdown("<h4 style='color:#2c3e50; font-size:16px; margin-top:10px;'>Análisis de Corriente Alterna (CA)</h4>", unsafe_allow_html=True)
                 
-                col_dc, col_icono, col_ac = st.columns([5, 1, 5])
+                # Generamos datos fijos simulados para igualar la gráfica cuadrada de la imagen
+                x_time = pd.date_range(start="00:00", end="21:00", freq="15min")
+                y_vol_R = [121.3 if (6 <= t.hour <= 18) else 0 for t in x_time]
+                y_vol_S = [121.2 if (6 <= t.hour <= 18) else 0 for t in x_time]
+                y_vol_T = [121.3 if (6 <= t.hour <= 18) else 0 for t in x_time]
+                y_freq = [60.0 if (6 <= t.hour <= 18) else 0 for t in x_time]
                 
-                with col_dc:
-                    # Tabla DC (Paneles)
-                    st.markdown("""
-                    <table style='width:100%; text-align:left; font-size:13px; color:#3498db; border-collapse:collapse;'>
-                        <tr style='color:#7f8c8d; border-bottom:1px solid #eaeaea;'>
-                            <th style='padding:8px;'>Corriente<br>continua</th><th style='padding:8px;'>Voltaje</th><th style='padding:8px;'>Actual</th><th style='padding:8px;'>Fuerza</th><th style='padding:8px;'>Estado</th>
-                        </tr>
-                        <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>PV1</td><td>0.00 V</td><td>0.00 A</td><td>0.00 W</td><td>✔</td></tr>
-                        <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>PV2</td><td>0.00 V</td><td>0.00 A</td><td>0.00 W</td><td>✔</td></tr>
-                        <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>PV3</td><td>0.00 V</td><td>0.00 A</td><td>0.00 W</td><td>✔</td></tr>
-                        <tr><td style='padding:8px;'>PV4</td><td>30.10 V</td><td>0.00 A</td><td>0.00 W</td><td>✔</td></tr>
-                    </table>
-                    """, unsafe_allow_html=True)
-                    
-                with col_icono:
-                    st.markdown("<br><br><br><div style='background-color:#3498db; color:white; border-radius:8px; padding:15px; text-align:center; font-weight:bold;'>DC/AC<br>≈</div>", unsafe_allow_html=True)
-                    
-                with col_ac:
-                    # Tabla AC (Red Eléctrica)
-                    st.markdown("""
-                    <table style='width:100%; text-align:left; font-size:13px; color:#3498db; border-collapse:collapse;'>
-                        <tr style='color:#7f8c8d; border-bottom:1px solid #eaeaea;'>
-                            <th style='padding:8px;'>Corriente<br>alterna</th><th style='padding:8px;'>Voltaje</th><th style='padding:8px;'>Actual</th><th style='padding:8px;'>Frecuencia</th>
-                        </tr>
-                        <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>R</td><td>121.30 V</td><td>7.50 A</td><td>60.00 Hz</td></tr>
-                        <tr style='border-bottom:1px solid #f8f9fa;'><td style='padding:8px;'>S</td><td>121.20 V</td><td>7.90 A</td><td>--</td></tr>
-                        <tr><td style='padding:8px;'>T</td><td>121.30 V</td><td>0.20 A</td><td>--</td></tr>
-                    </table>
-                    """, unsafe_allow_html=True)
+                fig_ac = go.Figure()
+                # Voltajes (Áreas cuadradas como en la foto)
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_R, mode='lines', line=dict(color='#3498db', shape='hv'), name='Voltaje CA R/U/A'))
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_S, mode='lines', line=dict(color='#e74c3c', shape='hv'), name='Voltaje CA S/V/B'))
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_T, fill='tozeroy', mode='lines', line=dict(color='#9b59b6', shape='hv'), name='Voltaje CA T/W/C'))
+                # Frecuencia (Línea morada superior)
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_freq, mode='lines', line=dict(color='#8e44ad', width=3, shape='hv'), name='Frecuencia R salida CA'))
                 
-                st.markdown("<hr style='margin-top:20px; border-color:#eaeaea;'>", unsafe_allow_html=True)
-                st.markdown(f"<span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>PV daily power generation: <b>{d['hoy']} kWh</b></span> <span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>Power factor: <b>0.00</b></span> <span style='color:#7f8c8d; font-size:13px;'>AC Voltage Max: <b>150.00 V</b></span>", unsafe_allow_html=True)
-            
-            with t_det_2: st.info("No hay alertas activas en el inversor.")
-            with t_det_3: st.write("Diagrama de arquitectura del puerto de comunicaciones...")
-            with t_det_4: st.write("Curvas históricas de voltaje y corriente de los MPPT...")
+                fig_ac.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5),
+                    margin=dict(l=10, r=10, t=10, b=10), height=350
+                )
+                fig_ac.update_yaxes(title_text="V / Hz", range=[0, 150], gridcolor="#f0f0f0")
+                fig_ac.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f0f0f0")
+                
+                st.plotly_chart(fig_ac, use_container_width=True)
 
     if t_ctrl:
         with t_ctrl:
