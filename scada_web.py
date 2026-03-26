@@ -138,7 +138,7 @@ def solicitar_usuario(usuario, contrasena):
     if db_sheet:
         try:
             db_sheet.worksheet("usuarios").append_row([usuario, contrasena, "pending", "viewer", "Pendiente Asignar"])
-            return True, "✅ Solicitud enviada. Espere a que el Administrador aprebe su cuenta."
+            return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
         except: pass
     return False, "❌ Error de conexión a la base de datos."
 
@@ -381,7 +381,7 @@ def simular_historico_24h_avanzado(planta):
             bat_power = max(diff, -cap * 0.5) 
             soc_actual = max(20, soc_actual + (bat_power * 0.25 / (cap*2)) * 100)
             
-        red = 0 if planta.get('tipo_sistema', 'Off-Grid') == 'Off-Grid' else max(0, con - gen + bat_power)
+        red = 0 if planta.get('tipo_sistema', 'Híbrido') == 'Off-Grid' else max(0, con - gen + bat_power)
 
         datos.append({
             "timestamp": t,
@@ -700,7 +700,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     with t_graf:
         st.markdown("### 📈 Gráfica de Producción y Consumo (Últimas 24h)")
         
-        # --- NUEVA GRÁFICA ESTILO SCADA ---
+        # --- GRÁFICA SCADA ESTILO INDUSTRIAL ---
         col_grafica, col_flujo = st.columns([7, 3])
         with col_grafica:
             st.markdown("<div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03);'>", unsafe_allow_html=True)
@@ -708,7 +708,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             
             fig = make_subplots(specs=[[{"secondary_y": True}]])
             
-            # --- ESTILO DE ÁREAS RELLENAS CON DEGRADADO (SIMULADO) ---
+            # Batería (Púrpura suave)
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 fig.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Batería'], 
                                          fill='tozeroy', mode='lines', 
@@ -716,18 +716,21 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                                          name='Descarga de Batería (kW)',
                                          hovertemplate='Batería: %{y:.2f} kW<extra></extra>'), secondary_y=False)
                 
+            # Producción Solar (Amarillo vibrante)
             fig.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Potencia Solar'], 
                                      fill='tozeroy', mode='lines', 
                                      line=dict(color='rgba(241, 196, 15, 0.9)', width=2), 
                                      name='Producción Solar (kW)',
                                      hovertemplate='Solar: %{y:.2f} kW<extra></extra>'), secondary_y=False)
             
+            # Consumo (Rojo línea gruesa)
             fig.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Consumo'], 
                                      mode='lines', 
                                      line=dict(color='rgba(231, 76, 60, 0.9)', width=2.5), 
                                      name='Consumo de Red (kW)',
                                      hovertemplate='Consumo: %{y:.2f} kW<extra></extra>'), secondary_y=False)
             
+            # SOC (Verde línea sólida, eje secundario)
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 fig.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['SOC'], 
                                          mode='lines', 
@@ -735,7 +738,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                                          name='SOC de Batería (%)',
                                          hovertemplate='SOC: %{y:.1f}%<extra></extra>'), secondary_y=True)
             
-            # --- CONFIGURACIÓN DE LAYOUT SCADA ---
+            # Ajustes de Layout (CORREGIDO hoverlabel font formatting)
             fig.update_layout(
                 title=dict(text="PRODUCCIÓN SOLAR Y CONSUMO", font=dict(size=16, color='#2c3e50', family="Arial")),
                 paper_bgcolor="rgba(0,0,0,0)", 
@@ -744,14 +747,13 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 margin=dict(l=10, r=10, t=40, b=10), 
                 height=450,
                 hovermode="x unified",
-                hoverlabel=dict(bgcolor="white", font_size=12, family="Arial")
+                hoverlabel=dict(bgcolor="white", font=dict(size=12, family="Arial")) # <- AQUI ESTA LA CORRECCION EXACTA
             )
             
             fig.update_yaxes(title_text="Potencia (kW)", secondary_y=False, gridcolor="#f1f1f1", color="#2c3e50", titlefont=dict(size=12))
             fig.update_yaxes(title_text="SOC (%)", secondary_y=True, range=[0, 105], showgrid=False, color="#2c3e50", titlefont=dict(size=12))
             fig.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f1f1f1", color="#2c3e50", titlefont=dict(size=12))
             
-            # --- AGREGAR LLAMADAS DE PICO (CALL-OUTS) ---
             max_gen = df_historico['Potencia Solar'].max()
             max_gen_time = df_historico[df_historico['Potencia Solar'] == max_gen]['timestamp'].iloc[0]
             fig.add_annotation(x=max_gen_time, y=max_gen, text=f"Máxima Generación: {max_gen:.1f} kW", 
@@ -768,27 +770,112 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             st.markdown("</div>", unsafe_allow_html=True)
 
         with col_flujo:
-            pot_bat = d["solar"] - d["casa"]
+            pot_bat_val = d["solar"] - d["casa"]
+            color_solar = "#f39c12"
+            color_grid = "#e74c3c"
+            color_house = "#e74c3c"
             color_bat = "#2ecc71" if d["soc"] > 20 else "#e74c3c"
-            svg_paths, svg_circles, svg_icons = "", "", ""
-            svg_paths += '<path d="M 100 85 V 150 H 170" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
-            svg_circles += '<circle r="6" fill="#3498db"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>'
-            svg_icons += f'<g transform="translate(60,30)"><image href="https://img.icons8.com/color/48/solar-panel.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#3498db" text-anchor="middle">{d["solar"]} W</text></g>'
-            svg_paths += '<path d="M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
-            svg_circles += '<circle r="6" fill="#e74c3c"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>'
-            svg_icons += f'<g transform="translate(260,260)"><image href="https://img.icons8.com/color/48/home.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#e74c3c" text-anchor="middle">{d["casa"]} W</text></g>'
+
+            dir_bat = "M 200 235 V 290 H 125" if pot_bat_val > 0 else "M 125 290 H 200 V 235"
+            dir_grid = "M 285 70 H 200 V 115"
+            if tipo_sistema_actual == "On-Grid" and pot_bat_val > 0:
+                dir_grid = "M 200 115 V 70 H 285"
+
+            track_solar = "M 125 70 H 200 V 115"
+            track_house = "M 200 235 V 290 H 285"
+            track_grid = "M 285 70 H 200 V 115"
+            track_bat = "M 125 290 H 200 V 235"
+
+            svg_paths = f'''
+            <defs>
+              <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.1"/>
+              </filter>
+            </defs>
+            <path d="{track_solar}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>
+            <path d="{track_house}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>
+            '''
+            
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_paths += '<path d="M 300 85 V 150 H 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
-                svg_circles += '<circle r="6" fill="#7f8c8d"><animateMotion dur="2s" repeatCount="indefinite" path="M 300 85 V 150 H 230" /></circle>'
-                txt_meter = f'<text x="5" y="55" font-size="9" font-weight="bold" fill="#95a5a6" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
-                svg_icons += f'<g transform="translate(260,30)"><image href="https://img.icons8.com/fluency/48/electrical.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#7f8c8d" text-anchor="middle">0 W</text>{txt_meter}</g>'
+                svg_paths += f'<path d="{track_grid}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>'
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_paths += '<path d="M 170 150 H 100 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
-                svg_circles += '<circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>'
-                svg_icons += f'<g transform="translate(60,260)"><image href="https://img.icons8.com/color/48/car-battery.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#27ae60" text-anchor="middle">{pot_bat} W</text><text x="5" y="55" font-size="11" font-weight="bold" fill="{color_bat}" text-anchor="middle">SOC: {d["soc"]}%</text></g>'
-            svg_inversor = f'<rect x="165" y="115" width="70" height="70" rx="12" fill="#f8f9fa" stroke="#3498db" stroke-width="3"/><rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/><text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text><text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">{tipo_sistema_actual}</text>'
-            diagrama_svg = f'<div style="background: white; border-radius: 8px; padding: 20px; border: 1px solid #eaeaea; display: flex; align-items: center;"><svg viewBox="0 0 400 350" width="100%">{svg_paths}{svg_circles}{svg_inversor}{svg_icons}</svg></div>'
-            components.html(diagrama_svg, height=300)
+                svg_paths += f'<path d="{track_bat}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>'
+
+            svg_circles = f'''
+            <circle r="4" fill="{color_solar}"><animateMotion dur="1.5s" repeatCount="indefinite" path="{track_solar}" /></circle>
+            <circle r="4" fill="{color_house}"><animateMotion dur="1.5s" repeatCount="indefinite" path="{track_house}" /></circle>
+            '''
+            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+                svg_circles += f'<circle r="4" fill="#3498db"><animateMotion dur="2s" repeatCount="indefinite" path="{dir_grid}" /></circle>'
+            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+                svg_circles += f'<circle r="4" fill="{color_bat}"><animateMotion dur="2s" repeatCount="indefinite" path="{dir_bat}" /></circle>'
+
+            svg_inversor = f'''
+            <g filter="url(#shadow)">
+                <rect x="150" y="115" width="100" height="120" rx="8" fill="#ffffff" stroke="#bdc3c7" stroke-width="1"/>
+                <rect x="150" y="115" width="100" height="25" rx="8" fill="#2c3e50" />
+                <rect x="150" y="125" width="100" height="15" fill="#2c3e50" />
+                <rect x="165" y="148" width="70" height="40" rx="4" fill="#1e272e" />
+                <text x="200" y="165" text-anchor="middle" font-size="10" fill="#00d2d3" font-weight="bold">DEYE</text>
+                <text x="200" y="180" text-anchor="middle" font-size="8" fill="#ffffff">{tipo_sistema_actual}</text>
+                <circle cx="165" cy="127" r="3" fill="#2ecc71" />
+                <circle cx="175" cy="127" r="3" fill="#f1c40f" />
+                <circle cx="185" cy="127" r="3" fill="#e74c3c" />
+                <path d="M 165 200 v 25 M 175 200 v 25 M 185 200 v 25 M 195 200 v 25 M 205 200 v 25 M 215 200 v 25 M 225 200 v 25 M 235 200 v 25" stroke="#ecf0f1" stroke-width="2" stroke-linecap="round" />
+            </g>
+            '''
+
+            txt_meter = f'<text x="320" y="25" font-size="10" font-weight="bold" fill="#7f8c8d" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
+
+            svg_nodes = f'''
+            <g filter="url(#shadow)">
+                <circle cx="80" cy="70" r="35" fill="#ffffff" />
+                <image href="https://img.icons8.com/fluency/96/solar-panel.png" width="46" height="46" x="57" y="47" />
+            </g>
+            <rect x="40" y="115" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
+            <text x="80" y="131" font-size="12" font-weight="bold" fill="{color_solar}" text-anchor="middle">{d["solar"]} W</text>
+            
+            <g filter="url(#shadow)">
+                <circle cx="320" cy="290" r="35" fill="#ffffff" />
+                <image href="https://img.icons8.com/fluency/96/home.png" width="46" height="46" x="297" y="267" />
+            </g>
+            <rect x="280" y="335" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
+            <text x="320" y="351" font-size="12" font-weight="bold" fill="{color_house}" text-anchor="middle">{d["casa"]} W</text>
+            '''
+            
+            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+                svg_nodes += f'''
+                <g filter="url(#shadow)">
+                    <circle cx="320" cy="70" r="35" fill="#ffffff" />
+                    <image href="https://img.icons8.com/fluency/96/electrical.png" width="46" height="46" x="297" y="47" />
+                </g>
+                <rect x="280" y="115" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
+                <text x="320" y="131" font-size="12" font-weight="bold" fill="#3498db" text-anchor="middle">0 W</text>
+                {txt_meter}
+                '''
+
+            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+                svg_nodes += f'''
+                <g filter="url(#shadow)">
+                    <circle cx="80" cy="290" r="35" fill="#ffffff" />
+                    <image href="https://img.icons8.com/fluency/96/car-battery.png" width="46" height="46" x="57" y="267" />
+                </g>
+                <rect x="35" y="335" width="90" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
+                <text x="80" y="351" font-size="12" font-weight="bold" fill="{color_bat}" text-anchor="middle">{abs(pot_bat_val)} W</text>
+                <text x="80" y="375" font-size="11" font-weight="bold" fill="{color_bat}" text-anchor="middle">SOC: {d["soc"]}%</text>
+                '''
+                
+            diagrama_svg = f"""
+            <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #eaeaea; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);">
+                <svg viewBox="0 0 400 390" width="100%" style="max-width: 450px;">
+                    {svg_paths}
+                    {svg_circles}
+                    {svg_inversor}
+                    {svg_nodes}
+                </svg>
+            </div>
+            """
+            components.html(diagrama_svg, height=430)
             
             st.markdown(f"""
             <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-top: 15px;">
@@ -1290,6 +1377,124 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </table>
 </div>"""
                 st.markdown(table_html, unsafe_allow_html=True)
+
+        elif st.session_state["ver_detalle_bateria"]:
+            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+            if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
+                st.session_state["ver_detalle_bateria"] = False
+                st.rerun()
+            
+            st.markdown(f"""
+            <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px; margin-top:10px;'>
+                <div>
+                    <h2 style='margin-bottom:0; font-size: 24px;'>Batería:{sn_logger}M01</h2>
+                    <span style='color:#27ae60; font-weight:bold; font-size:14px;'>🟢 En línea</span>
+                </div>
+                <span style='color:#7f8c8d; font-size:13px;'>{datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')}</span>
+            </div>
+            <hr style='margin-top:0px; border-color:#eaeaea;'>
+            """, unsafe_allow_html=True)
+            
+            t_bat_1, t_bat_2, t_bat_3, t_bat_4 = st.tabs(["Detalles", "Alerta", "Arquitectura", "Datos históricos"])
+            
+            with t_bat_1:
+                st.markdown("<div style='height:15px;'></div>", unsafe_allow_html=True)
+                with st.expander("Información básica", expanded=True):
+                    st.markdown(f"""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>NS dispositivo conectado:</span> {sn_logger}M01</div>
+                        <div><span class='diag-lbl'>Número paquete:</span> 6</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with st.expander("Información clave", expanded=True):
+                    st.markdown(f"""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>Voltaje batería:</span> 323 V</div>
+                        <div><span class='diag-lbl'>Corriente batería:</span> 0.00 A</div>
+                        <div><span class='diag-lbl'>SOC batería:</span> 100 %</div>
+                        <div><span class='diag-lbl'>SOH batería:</span> 100 %</div>
+                        <div><span class='diag-lbl'>Temp batería:</span> 36.00 °C</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with st.expander("Límite de carga y descarga", expanded=True):
+                    st.markdown("""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>Voltaje final carga:</span> 345 V</div>
+                        <div><span class='diag-lbl'>Voltaje final descarga:</span> 0.00 V</div>
+                        <div><span class='diag-lbl'>Corriente límite carga:</span> 0 A</div>
+                        <div><span class='diag-lbl'>Corriente límite descarga:</span> 100 A</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with st.expander("Otro", expanded=True):
+                    st.markdown("""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>Bandera carga forzada:</span> 0000</div>
+                        <div><span class='diag-lbl'>Comprobar bandera SOC:</span> 0000</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with t_bat_2:
+                st.markdown("""
+                <div style='text-align:center; padding: 60px 0;'>
+                    <img src="https://img.icons8.com/ios/100/ced6e0/document--v1.png" width="60"/>
+                    <p style='color:#7f8c8d; margin-top:10px; font-size:14px;'>Datos no disponibles</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with t_bat_3:
+                st.markdown("""
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;'>
+                    <div style='color:#3498db; font-weight:bold; font-size:16px; border-bottom: 3px solid #3498db; padding-bottom: 8px; margin-bottom: -12px;'>Relación de comunicación</div>
+                    <button style='background-color:#3498db; color:white; border:none; border-radius:4px; padding:6px 15px; font-weight:bold; cursor:pointer;'>Exportar</button>
+                </div>
+                <p style='color:#7f8c8d; font-size:13px; margin-top:15px;'>La topología de red real reflejada cuando el dispositivo está cargando datos.</p>
+                """, unsafe_allow_html=True)
+
+                time_str = datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')
+                fake_logger_sn = sn_logger
+                
+                battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Batería</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>
+<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>"""
+
+                table_html = f"""<div style='background:white; border:1px solid #eaeaea; border-radius:8px; overflow:hidden;'>
+<table style='width:100%; text-align:left; font-size:14px; border-collapse:collapse;'>
+<tr style='background-color:#f8f9fa; border-bottom:1px solid #eaeaea; color:#2c3e50;'>
+<th style='padding:12px 20px;'>Tipo/SN</th><th style='padding:12px;'>Estado</th><th style='padding:12px;'>Actualizado</th>
+</tr>
+<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>
+<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> Inversor<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>
+{battery_html}
+</table>
+</div>"""
+                st.markdown(table_html, unsafe_allow_html=True)
+                
+            with t_bat_4:
+                st.markdown("""
+                <div style='text-align:center; padding: 40px 0;'>
+                    <img src="https://img.icons8.com/ios/100/ced6e0/document--v1.png" width="60"/>
+                    <p style='color:#7f8c8d; margin-top:10px; font-size:14px;'>Datos no disponibles</p>
+                </div>
+                """, unsafe_allow_html=True)
+
 
     if t_ctrl:
         with t_ctrl:
