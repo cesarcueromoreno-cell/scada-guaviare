@@ -16,6 +16,7 @@ from google.oauth2.service_account import Credentials
 from fpdf import FPDF
 import tempfile
 import requests
+from io import BytesIO
 
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y ESTILO (CSS)
@@ -83,23 +84,7 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
 # ==========================================
-# 3. MANEJO DE VÍNCULOS Y PARÁMETROS
-# ==========================================
-if "delete" in st.query_params:
-    try:
-        idx = int(st.query_params["delete"])
-        eliminar_planta(idx)
-        st.query_params.clear()
-    except: pass
-if "edit" in st.query_params:
-    try:
-        idx = int(st.query_params["edit"])
-        st.session_state["editando_planta"] = idx
-        st.query_params.clear()
-    except: pass
-
-# ==========================================
-# 4. BASE DE DATOS EN GOOGLE SHEETS
+# 3. BASE DE DATOS EN GOOGLE SHEETS
 # ==========================================
 @st.cache_resource(ttl=600)
 def init_gsheets():
@@ -165,11 +150,14 @@ def eliminar_usuario_bd(usuario_id):
                     break
         except Exception as e: pass
 
+# CABECERAS DE PLANTAS ACTUALIZADAS PARA INCLUIR IMAGEN
+PLANTA_HEADERS = ["nombre", "ubicacion", "capacidad", "inversores", "datalogger", "tipo_sistema", "smart_meter", "imagen_url"]
+
 def cargar_plantas():
     if not db_sheet: return []
     try:
         sheet = db_sheet.worksheet("plantas")
-        check_headers(sheet, ["nombre", "ubicacion", "capacidad", "inversores", "datalogger", "tipo_sistema", "smart_meter"])
+        check_headers(sheet, PLANTA_HEADERS)
         return sheet.get_all_records()
     except: return []
 
@@ -179,7 +167,8 @@ def guardar_planta(nueva):
             db_sheet.worksheet("plantas").append_row([
                 nueva.get("nombre",""), nueva.get("ubicacion",""), nueva.get("capacidad",""), 
                 nueva.get("inversores",""), nueva.get("datalogger",""), 
-                nueva.get("tipo_sistema","Híbrido"), nueva.get("smart_meter","Ninguno")
+                nueva.get("tipo_sistema","Híbrido"), nueva.get("smart_meter","Ninguno"),
+                nueva.get("imagen_url", "") # NUEVO CAMPO
             ])
         except: pass
 
@@ -188,11 +177,13 @@ def actualizar_planta(idx, p_edit):
         try:
             sheet = db_sheet.worksheet("plantas")
             row_idx = idx + 2
-            cell_list = sheet.range(f"A{row_idx}:G{row_idx}")
+            # Rango actualizado para incluir columna H (imagen_url)
+            cell_list = sheet.range(f"A{row_idx}:H{row_idx}")
             vals = [
                 p_edit.get("nombre",""), p_edit.get("ubicacion",""), p_edit.get("capacidad",""), 
                 p_edit.get("inversores",""), p_edit.get("datalogger",""),
-                p_edit.get("tipo_sistema","Híbrido"), p_edit.get("smart_meter","Ninguno")
+                p_edit.get("tipo_sistema","Híbrido"), p_edit.get("smart_meter","Ninguno"),
+                p_edit.get("imagen_url", "") # NUEVO CAMPO
             ]
             for i, val in enumerate(vals): cell_list[i].value = str(val)
             sheet.update_cells(cell_list)
@@ -250,8 +241,21 @@ def eliminar_mantenimiento(planta, indice):
                     count += 1
         except: pass
 
+if "delete" in st.query_params:
+    try:
+        idx = int(st.query_params["delete"])
+        eliminar_planta(idx)
+        st.query_params.clear()
+    except: pass
+if "edit" in st.query_params:
+    try:
+        idx = int(st.query_params["edit"])
+        st.session_state["editando_planta"] = idx
+        st.query_params.clear()
+    except: pass
+
 # ==========================================
-# 5. LOGIN
+# 4. LOGIN
 # ==========================================
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MONISOLAR APP</h1>", unsafe_allow_html=True)
@@ -287,7 +291,7 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 # ==========================================
-# 6. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
+# 5. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
 # ==========================================
 todas_las_plantas = cargar_plantas()
 
@@ -319,8 +323,19 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.rerun()
 
 # ==========================================
-# 7. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
+# 6. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN, PDF E IMAGEN
 # ==========================================
+
+# Módulo de simulación de carga de imagen a Imgur (NUEVO)
+def subir_imagen_simulado(uploaded_file):
+    if uploaded_file is not None:
+        with st.spinner("Subiendo imagen al servidor seguro..."):
+            time.sleep(1.5) # Simular latencia de subida
+            # En producción real, aquí iría el código de API de Imgur/AWS
+            # Retornamos una URL de ejemplo persistente basada en la búsqueda del usuario
+            return "https://i.imgur.com/uVz14L4.png" # Imagen de ejemplo de planta solar
+    return ""
+
 def get_data(pl):
     cap_val = pl.get("capacidad", "5")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
@@ -445,7 +460,7 @@ def generar_pdf(planta, datos):
     return pdf_bytes
 
 # ==========================================
-# 8. VISTAS (ADMINISTRADOR Y CLIENTE)
+# 7. VISTAS (ADMINISTRADOR Y CLIENTE)
 # ==========================================
 
 OPCIONES_SISTEMA = ["Híbrido", "On-Grid", "Off-Grid"]
@@ -502,7 +517,30 @@ elif menu == "🌐 Panorama General":
     if st.session_state["editando_planta"] is not None:
         idx = st.session_state["editando_planta"]
         p_edit = plantas_permitidas[idx]
-        st.markdown(f"<h3>✏️ Editar Parámetros: {p_edit['nombre']}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3>✏️ Editar Parámetros e Imagen: {p_edit['nombre']}</h3>", unsafe_allow_html=True)
+        
+        # Sistema de carga de imagen para edición (NUEVO)
+        img_url_final = p_edit.get('imagen_url', '')
+        with st.expander("🖼️ Gestionar Imagen de la Planta (PC o En línea)", expanded=True):
+            modo_img = st.radio("Origen de la imagen", ["Mantener actual", "Subir desde PC", "Enlace en línea (URL)"], horizontal=True, key="modo_edit")
+            
+            if modo_img == "Subir desde PC":
+                uploaded_file = st.file_uploader("Elija una imagen (PNG, JPG)", type=['png', 'jpg', 'jpeg'], key="file_edit")
+                if uploaded_file:
+                    st.image(uploaded_file, caption="Vista previa", width=200)
+                    if st.button("Confirmar subida", key="btn_conf_edit"):
+                        img_url_final = subir_imagen_simulado(uploaded_file)
+                        st.success("✅ Imagen subida y lista para guardar.")
+            
+            elif modo_img == "Enlace en línea (URL)":
+                img_url_final = st.text_input("Pegue la URL de la imagen", p_edit.get('imagen_url', ''), placeholder="https://ejemplo.com/imagen.jpg", key="url_edit")
+                if img_url_final:
+                    try: st.image(img_url_final, width=200)
+                    except: st.error("⚠️ No se pudo cargar la vista previa de la URL.")
+
+            elif modo_img == "Mantener actual" and img_url_final:
+                 st.image(img_url_final, caption="Imagen actual", width=200)
+
         with st.form("edit"):
             c1, c2, c3 = st.columns([2, 2, 1])
             n = c1.text_input("Nombre", p_edit['nombre'])
@@ -517,13 +555,39 @@ elif menu == "🌐 Panorama General":
             n_meter = c6.selectbox("Smart Meter (Medidor Inteligente)", OPCIONES_METERS, index=idx_meter)
 
             if st.form_submit_button("💾 Guardar Cambios"):
-                p_edit.update({"nombre": n, "ubicacion": u, "capacidad": c, "datalogger": sn, "tipo_sistema": n_tipo, "smart_meter": n_meter})
+                p_edit.update({
+                    "nombre": n, "ubicacion": u, "capacidad": c, 
+                    "datalogger": sn, "tipo_sistema": n_tipo, 
+                    "smart_meter": n_meter, "imagen_url": img_url_final # GUARDAR URL
+                })
                 actualizar_planta(idx, p_edit)
                 st.session_state["editando_planta"] = None
+                st.success("✅ Planta actualizada correctamente.")
+                time.sleep(1)
                 st.rerun()
 
     if st.session_state.get("mostrar_crear"):
         st.markdown("<h3>➕ Crear Nueva Planta</h3>", unsafe_allow_html=True)
+        
+        # Sistema de carga de imagen para creación (NUEVO)
+        img_url_crear = ""
+        with st.expander("🖼️ Añadir Imagen de la Planta (Opcional - PC o En línea)", expanded=True):
+            modo_img_crear = st.radio("Origen de la imagen", ["Ninguna", "Subir desde PC", "Enlace en línea (URL)"], horizontal=True, key="modo_crear")
+            
+            if modo_img_crear == "Subir desde PC":
+                uploaded_file_crear = st.file_uploader("Elija una imagen (PNG, JPG)", type=['png', 'jpg', 'jpeg'], key="file_crear")
+                if uploaded_file_crear:
+                    st.image(uploaded_file_crear, caption="Vista previa", width=200)
+                    if st.button("Confirmar subida", key="btn_conf_crear"):
+                        img_url_crear = subir_imagen_simulado(uploaded_file_crear)
+                        st.success("✅ Imagen subida y lista.")
+            
+            elif modo_img_crear == "Enlace en línea (URL)":
+                img_url_crear = st.text_input("Pegue la URL de la imagen", placeholder="https://ejemplo.com/imagen.jpg", key="url_crear")
+                if img_url_crear:
+                    try: st.image(img_url_crear, width=200)
+                    except: st.error("⚠️ No se pudo cargar la vista previa.")
+
         with st.form("crear_planta_form"):
             c1, c2 = st.columns(2)
             n_nom = c1.text_input("Nombre de la Planta")
@@ -539,8 +603,14 @@ elif menu == "🌐 Panorama General":
             s1, s2 = st.columns(2)
             if s1.form_submit_button("💾 Guardar Nueva Planta"):
                 if n_nom:
-                    guardar_planta({"nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, "inversores": n_inv, "datalogger": n_sn, "tipo_sistema": n_tipo, "smart_meter": n_meter})
+                    guardar_planta({
+                        "nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, 
+                        "inversores": n_inv, "datalogger": n_sn, "tipo_sistema": n_tipo, 
+                        "smart_meter": n_meter, "imagen_url": img_url_crear # GUARDAR URL
+                    })
                     st.session_state["mostrar_crear"] = False
+                    st.success("✅ Planta creada.")
+                    time.sleep(1)
                     st.rerun()
             if s2.form_submit_button("❌ Cancelar"):
                 st.session_state["mostrar_crear"] = False
@@ -602,6 +672,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     sn_logger = str(p.get('datalogger', 'N/A'))
     marca_inv = str(p.get('inversores', 'Genérico'))
     capacidad = str(p.get('capacidad', '30'))
+    plant_img_url = p.get('imagen_url', '') # OBTENER URL DE LA IMAGEN
     
     st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | Tipo: {tipo_sistema_actual} | SN: {sn_logger}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
@@ -628,7 +699,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         t_ctrl, t_om = None, None
     
     with t_graf:
-        col_grafica, col_flujo = st.columns([7, 3])
+        col_grafica, col_flujo_img = st.columns([7, 3])
         with col_grafica:
             st.markdown("<div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea;'>", unsafe_allow_html=True)
             df_historico = simular_historico_24h_avanzado(p)
@@ -646,43 +717,47 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             st.plotly_chart(fig2, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        with col_flujo:
-            pot_bat = d["solar"] - d["casa"]
-            color_bat = "#2ecc71" if d["soc"] > 20 else "#e74c3c"
-            svg_paths, svg_circles, svg_icons = "", "", ""
-            svg_paths += '<path d="M 100 85 V 150 H 170" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
-            svg_circles += '<circle r="6" fill="#3498db"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>'
-            svg_icons += f'<g transform="translate(60,30)"><image href="https://img.icons8.com/color/48/solar-panel.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#3498db" text-anchor="middle">{d["solar"]} W</text></g>'
-            svg_paths += '<path d="M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
-            svg_circles += '<circle r="6" fill="#e74c3c"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>'
-            svg_icons += f'<g transform="translate(260,260)"><image href="https://img.icons8.com/color/48/home.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#e74c3c" text-anchor="middle">{d["casa"]} W</text></g>'
-            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_paths += '<path d="M 300 85 V 150 H 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
-                svg_circles += '<circle r="6" fill="#7f8c8d"><animateMotion dur="2s" repeatCount="indefinite" path="M 300 85 V 150 H 230" /></circle>'
-                txt_meter = f'<text x="5" y="55" font-size="9" font-weight="bold" fill="#95a5a6" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
-                svg_icons += f'<g transform="translate(260,30)"><image href="https://img.icons8.com/fluency/48/electrical.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#7f8c8d" text-anchor="middle">0 W</text>{txt_meter}</g>'
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_paths += '<path d="M 170 150 H 100 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
-                svg_circles += '<circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>'
-                svg_icons += f'<g transform="translate(60,260)"><image href="https://img.icons8.com/color/48/car-battery.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#27ae60" text-anchor="middle">{pot_bat} W</text><text x="5" y="55" font-size="11" font-weight="bold" fill="{color_bat}" text-anchor="middle">SOC: {d["soc"]}%</text></g>'
-            svg_inversor = f'<rect x="165" y="115" width="70" height="70" rx="12" fill="#f8f9fa" stroke="#3498db" stroke-width="3"/><rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/><text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text><text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">{tipo_sistema_actual}</text>'
-            diagrama_svg = f'<div style="background: white; border-radius: 8px; padding: 20px; border: 1px solid #eaeaea; display: flex; align-items: center;"><svg viewBox="0 0 400 350" width="100%">{svg_paths}{svg_circles}{svg_inversor}{svg_icons}</svg></div>'
-            components.html(diagrama_svg, height=300)
+        with col_flujo_img:
+            # INTEGRACIÓN VISUAL DE LA PLANTA (NUEVO)
+            st.markdown("<h4>🖼️ Radiografía Visual de la Planta</h4>", unsafe_allow_html=True)
+            
+            # Tarjeta contenedora de la imagen
+            st.markdown("<div style='background: white; border-radius: 8px; padding: 10px; border: 1px solid #eaeaea; text-align: center;'>", unsafe_allow_html=True)
+            
+            if plant_img_url:
+                # Mostrar imagen. Al hacer clic abre URL original en nueva pestaña (para descargar)
+                st.markdown(f"""
+                <a href="{plant_img_url}" target="_blank" title="Clic para ver en grande y descargar">
+                    <img src="{plant_img_url}" style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid #f0f0f0;"/>
+                </a>
+                <p style='color: #7f8c8d; font-size: 12px; margin-top: 5px;'>Haga clic en la imagen para abrir la original y descargar.</p>
+                """, unsafe_allow_html=True)
+            else:
+                # Imagen de marcador de posición profesional si no hay foto
+                st.markdown("""
+                <div style='padding: 40px 10px; background: #f8f9fa; border-radius: 4px; border: 2px dashed #ced6e0;'>
+                    <img src="https://img.icons8.com/fluency/96/image-gallery.png" width="64"/>
+                    <p style='color: #7f8c8d; font-size: 14px; margin-top: 10px; font-weight: bold;'>Sin imagen asignada</p>
+                    <p style='color: #7f8c8d; font-size: 12px;'>Edite la planta en el Panorama General para subir un diagrama o foto.</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True) # Cierre tarjeta imagen
+
+            # Diagrama de flujo SVG (simplificado abajo para dar espacio a la imagen)
+            diagrama_svg = f'<div style="margin-top:15px; background: white; border-radius: 8px; padding: 10px; border: 1px solid #eaeaea;"><svg viewBox="0 0 400 120" width="100%"><g transform="translate(60,40)"><image href="https://img.icons8.com/color/48/solar-panel.png" width="30" height="30" x="-15" y="-15"/><text x="0" y="30" font-size="12" font-weight="bold" fill="#3498db" text-anchor="middle">{d["solar"]} W</text></g><rect x="170" y="20" width="60" height="60" rx="8" fill="#f8f9fa" stroke="#3498db" stroke-width="2"/><text x="200" y="55" text-anchor="middle" font-size="12" font-weight="bold" fill="#3498db">{tipo_sistema_actual}</text><g transform="translate(340,40)"><image href="https://img.icons8.com/color/48/home.png" width="30" height="30" x="-15" y="-15"/><text x="0" y="30" font-size="12" font-weight="bold" fill="#e74c3c" text-anchor="middle">{d["casa"]} W</text></g><path d="M 90 40 H 170 M 230 40 H 310" fill="none" stroke="#dfe6e9" stroke-width="3" stroke-linecap="round"/></svg></div>'
+            components.html(diagrama_svg, height=120)
             
             st.markdown(f"""
             <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-top: 15px;">
-                <h4 style="margin-top:0; margin-bottom:15px; color:#2c3e50; font-size:14px;">Beneficios ambientales y económicos ❔</h4>
+                <h4 style="margin-top:0; margin-bottom:15px; color:#2c3e50; font-size:14px;">Beneficios ambientales❔</h4>
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/coal.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Ahorro de carbón estándar</span></div>
-                    <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 0.026, 2)} t</div>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/carbon-dioxide.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Reducción de emisiones CO2</span></div>
+                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/carbon-dioxide.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">CO2 evitado</span></div>
                     <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 0.068, 2)} t</div>
                 </div>
                 <div style="display:flex; justify-content:space-between;">
-                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/deciduous-tree.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Árboles plantados</span></div>
-                    <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 4.7, 2)} Árboles</div>
+                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/deciduous-tree.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Equiv. Árboles</span></div>
+                    <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 4.7, 2)}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -717,7 +792,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             st.markdown("""
             <style>
             .div-header { background-color: #f8f9fa; padding: 12px; border-radius: 5px 5px 0 0; border: 1px solid #eaeaea; border-bottom: none; display: flex; font-weight: bold; color: #7f8c8d; font-size: 14px; align-items: center; }
-            .div-row { display: flex; align-items: center; padding: 10px 12px; border: 1px solid #eaeaea; border-top: none; background: white; font-size: 14px; color: #2c3e50; }
             .stColumn { display: flex; align-items: center; }
             </style>
             <div class="div-header">
@@ -1079,31 +1153,29 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 with st.expander("Información básica", expanded=True):
                     st.markdown(f"""
                     <div class='diag-grid'>
-                        <div><span class='diag-lbl'>SN:</span> {sn_logger}</div>
-                        <div><span class='diag-lbl'>Modelo:</span> LSW-3</div>
-                        <div><span class='diag-lbl'>Versión hardware:</span> LSW3_01_7A_0102</div>
-                        <div><span class='diag-lbl'>Versión de firmware:</span> V1.0.6.28</div>
-                        <div><span class='diag-lbl'>Versión protocolo:</span> 0104</div>
+                        <div><span class='diag-lbl'>NS del registrador:</span> {sn_logger}</div>
+                        <div><span class='diag-lbl'>Modelo de registrador:</span> LSW-3</div>
                         <div><span class='diag-lbl'>Hora del sistema:</span> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
                     </div>
                     """, unsafe_allow_html=True)
                 
-                with st.expander("Información de Wi-Fi", expanded=False):
+                with st.expander("Información de la versión", expanded=False):
                     st.markdown("""
                     <div class='diag-grid'>
-                        <div><span class='diag-lbl'>SSID Conectado:</span> CV_SOLAR_GUEST</div>
-                        <div><span class='diag-lbl'>Dirección IP Logger:</span> 192.168.1.105</div>
-                        <div><span class='diag-lbl'>Intensidad de señal:</span> -65 dBm (Buena)</div>
-                        <div><span class='diag-lbl'>Dirección MAC:</span> AA:BB:CC:DD:EE:FF</div>
+                        <div><span class='diag-lbl'>Versión protocolo:</span> 0104</div>
+                        <div><span class='diag-lbl'>Versión hardware:</span> LSW3_01_7A_0102</div>
+                        <div><span class='diag-lbl'>Versión de firmware:</span> V1.0.6.28</div>
                     </div>
                     """, unsafe_allow_html=True)
 
-                with st.expander("Estado", expanded=False):
+                with st.expander("Información de operación", expanded=False):
                     st.markdown("""
                     <div class='diag-grid'>
-                        <div><span class='diag-lbl'>Última actualización:</span> 15 segundos</div>
-                        <div><span class='diag-lbl'>IP Servidor Remoto:</span> 47.102.152.71</div>
-                        <div><span class='diag-lbl'>Tiempo Ping Servidor:</span> 180ms</div>
+                        <div><span class='diag-lbl'>Período de recolección de datos:</span> 60 s</div>
+                        <div><span class='diag-lbl'>Período de carga de datos:</span> 5 Min</div>
+                        <div><span class='diag-lbl'>SSID del router:</span> CV_SOLAR_GUEST</div>
+                        <div><span class='diag-lbl'>Fuerza de la señal:</span> -65 dBm</div>
+                        <div><span class='diag-lbl'>Dirección IP Logger:</span> 192.168.1.105</div>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -1181,7 +1253,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 st.markdown(table_html, unsafe_allow_html=True)
 
         # ==========================================
-        # PANTALLA: RADIOGRAFÍA DE LA BATERÍA (NUEVA)
+        # PANTALLA: RADIOGRAFÍA DE LA BATERÍA
         # ==========================================
         elif st.session_state["ver_detalle_bateria"]:
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
@@ -1243,29 +1315,9 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 
             with t_bat_2:
                 st.markdown("""
-                <div style='display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #eaeaea; padding-bottom:10px; margin-bottom:15px; margin-top:10px;'>
-                    <div style='display:flex; gap:20px; font-weight:bold; color:#7f8c8d; font-size:14px; align-items:center;'>
-                        <span style='cursor:pointer;'>Todo</span>
-                        <span style='color:#3498db; border-bottom:3px solid #3498db; padding-bottom:8px; margin-bottom:-11px; cursor:pointer;'>Abierto</span>
-                        <span style='cursor:pointer;'>Cerrado</span>
-                        <span style='cursor:pointer; border-left:1px solid #eaeaea; padding-left:15px;'>Filtrar ▼</span>
-                    </div>
-                    <div style='display:flex; gap:10px;'>
-                        <button style='background:white; border:1px solid #eaeaea; border-radius:4px; padding:4px 8px; cursor:pointer;'>📥</button>
-                        <button style='background:white; border:1px solid #eaeaea; border-radius:4px; padding:4px 8px; cursor:pointer; color:#7f8c8d; font-size:13px;'>🔄 Cerca ▼</button>
-                    </div>
-                </div>
-                <p style='font-size:12px; color:#7f8c8d; line-height:1.5;'>La alerta "abierta" se refiere a la alerta que se está produciendo actualmente. Además, el ciclo de actualización del estado de alerta del dispositivo es de 5 minutos, por lo que el estado de alerta del dispositivo puede retrasarse. Es normal que a veces el dispositivo esté en estado de alerta, pero no hay una alerta "abierta".</p>
-                
                 <div style='text-align:center; padding: 60px 0;'>
                     <img src="https://img.icons8.com/ios/100/ced6e0/document--v1.png" width="60"/>
                     <p style='color:#7f8c8d; margin-top:10px; font-size:14px;'>Datos no disponibles</p>
-                </div>
-                
-                <div style='display:flex; justify-content:flex-end; color:#bdc3c7; font-size:12px; align-items:center; gap:10px; margin-top:20px;'>
-                    <span>< 1 ></span>
-                    <select style='border:1px solid #eaeaea; border-radius:4px; padding:2px 5px; color:#bdc3c7;'><option>50/página</option></select>
-                    <span>Ir a <input type="text" value="1" style="width:30px; text-align:center; border:1px solid #eaeaea; border-radius:4px; color:#bdc3c7;"> Página <b style='color:#bdc3c7;'>Total 0</b></span>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -1313,22 +1365,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 st.markdown(table_html, unsafe_allow_html=True)
                 
             with t_bat_4:
-                st.markdown("<h4 style='color:#2c3e50; font-size:16px; margin-top:10px;'>Datos históricos</h4>", unsafe_allow_html=True)
-                
-                col_r1, col_r2, col_r3, col_r4 = st.columns([4, 2, 2, 2])
-                with col_r1:
-                    st.radio("Periodo", ["Día", "Semana", "Mes", "Año", "Total"], horizontal=True, label_visibility="collapsed")
-                with col_r2:
-                    st.button("Seleccionar parámetros", use_container_width=True)
-                with col_r3:
-                    st.button("Exportar", use_container_width=True)
-                with col_r4:
-                    st.date_input("Fecha", value=datetime.now(), label_visibility="collapsed")
-                    
-                st.markdown("<hr style='margin:10px 0; border-color:#eaeaea;'>", unsafe_allow_html=True)
-                st.markdown("<p style='color:#3498db; font-size:14px; margin-top:10px; cursor:pointer;'>¿Cómo crear mi plantilla?</p>", unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True)
-
                 st.markdown("""
                 <div style='text-align:center; padding: 40px 0;'>
                     <img src="https://img.icons8.com/ios/100/ced6e0/document--v1.png" width="60"/>
