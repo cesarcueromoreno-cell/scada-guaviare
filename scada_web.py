@@ -81,7 +81,23 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
 # ==========================================
-# 3. BASE DE DATOS EN GOOGLE SHEETS
+# 3. MANEJO DE VÍNCULOS Y PARÁMETROS (INTERACTIVIDAD)
+# ==========================================
+if "delete" in st.query_params:
+    try:
+        idx = int(st.query_params["delete"])
+        eliminar_planta(idx)
+        st.query_params.clear()
+    except: pass
+if "edit" in st.query_params:
+    try:
+        idx = int(st.query_params["edit"])
+        st.session_state["editando_planta"] = idx
+        st.query_params.clear()
+    except: pass
+
+# ==========================================
+# 4. BASE DE DATOS EN GOOGLE SHEETS
 # ==========================================
 @st.cache_resource(ttl=600)
 def init_gsheets():
@@ -232,21 +248,8 @@ def eliminar_mantenimiento(planta, indice):
                     count += 1
         except: pass
 
-if "delete" in st.query_params:
-    try:
-        idx = int(st.query_params["delete"])
-        eliminar_planta(idx)
-        st.query_params.clear()
-    except: pass
-if "edit" in st.query_params:
-    try:
-        idx = int(st.query_params["edit"])
-        st.session_state["editando_planta"] = idx
-        st.query_params.clear()
-    except: pass
-
 # ==========================================
-# 4. LOGIN
+# 5. LOGIN
 # ==========================================
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MONISOLAR APP</h1>", unsafe_allow_html=True)
@@ -282,7 +285,7 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 # ==========================================
-# 5. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
+# 6. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
 # ==========================================
 todas_las_plantas = cargar_plantas()
 
@@ -312,7 +315,7 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.rerun()
 
 # ==========================================
-# 6. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
+# 7. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
 # ==========================================
 def get_data(pl):
     cap_val = pl.get("capacidad", "5")
@@ -438,7 +441,7 @@ def generar_pdf(planta, datos):
     return pdf_bytes
 
 # ==========================================
-# 7. VISTAS (ADMINISTRADOR Y CLIENTE)
+# 8. VISTAS (ADMINISTRADOR Y CLIENTE)
 # ==========================================
 
 OPCIONES_SISTEMA = ["Híbrido", "On-Grid", "Off-Grid"]
@@ -679,11 +682,34 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     with t_disp:
         if not st.session_state["ver_detalle_inv"]:
             # ==========================================
-            # PESTAÑA DISPOSITIVOS RECONSTRUIDA (NATIVA)
+            # EL TRUCO CSS MAGICO PARA EL BOTÓN
             # ==========================================
+            style_inversor_link = """
+            <style>
+            /* Convertimos los botones de la primera columna de la tabla de dispositivos en enlaces */
+            div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] button {
+                background-color: transparent !important;
+                border: none !important;
+                color: #3498db !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                height: auto !important;
+                min-height: auto !important;
+                justify-content: flex-start !important;
+            }
+            div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] button p {
+                font-size: 15px !important;
+                font-weight: bold !important;
+            }
+            div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] button:hover p {
+                text-decoration: underline !important;
+                color: #2980b9 !important;
+            }
+            </style>
+            """
+            st.markdown(style_inversor_link, unsafe_allow_html=True)
+
             st.markdown("### 🔌 Lista de Dispositivos Registrados")
-            
-            # CSS personalizado para que st.columns se vea como una tabla Solarman
             st.markdown("""
             <style>
             .div-header { background-color: #f8f9fa; padding: 12px; border-radius: 5px 5px 0 0; border: 1px solid #eaeaea; border-bottom: none; display: flex; font-weight: bold; color: #7f8c8d; font-size: 14px; align-items: center; }
@@ -701,28 +727,11 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             </div>
             """, unsafe_allow_html=True)
 
-            # Inyección de CSS de "Modo Enlace" para el botón nativo del nombre
-            style_inversor_link = """
-            <style>
-            div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stButton"] button[key="btn_inv_nombre"] {
-                background-color: transparent !important;
-                border: none !important;
-                color: #3498db !important; /* Azul de enlace */
-                text-decoration: underline !important;
-                font-weight: bold !important;
-                padding: 0 !important;
-                text-align: left !important;
-                font-size: 14px !important;
-            }
-            </style>
-            """
-            st.markdown(style_inversor_link, unsafe_allow_html=True)
-
-            # Fila Inversor (Nativa con botón real en el nombre)
+            # --- FILA DEL INVERSOR CON BOTON INVISIBLE ---
             col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
             with st.container():
-                # EL TRUCO: Botón nativo que se ve como enlace HTML
-                if col1.button(f"Inversor (30) <span style='color:#bdc3c7;'>▼</span>", key="btn_inv_nombre"):
+                # EL BOTON ESTA AQUI, LIMPIO, SIN HTML
+                if col1.button(f"Inversor ({capacidad}) ▼"):
                     st.session_state["ver_detalle_inv"] = True
                     st.rerun()
                 col1.markdown(f"<span style='color:#7f8c8d; font-size:12px; margin-top:-15px; display:block;'>{sn_logger}</span>", unsafe_allow_html=True)
@@ -734,10 +743,10 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 col6.write(f"{d['hoy']}")
             st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
-            # Fila Datalogger (Condicional)
+            # --- FILA DEL DATALOGGER ---
             col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
             with st.container():
-                col1.markdown(f"<span style='color:#7f8c8d;'>▼</span> <span style='color:#7f8c8d;'>Registrador</span><br><span style='color:#7f8c8d; font-size:12px;'>{sn_logger}</span>", unsafe_allow_html=True)
+                col1.markdown(f"<span style='color:#7f8c8d;'>▼</span> <span style='color:#7f8c8d; font-weight:bold;'>Registrador</span><br><span style='color:#7f8c8d; font-size:12px;'>{sn_logger}</span>", unsafe_allow_html=True)
                 col2.write("Registrador")
                 col3.markdown("<div style='color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
                 col4.markdown("<div style='color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
@@ -745,11 +754,11 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 col6.write("--")
             st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
-            # Fila Batería (Condicional)
+            # --- FILA DE LA BATERIA ---
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
                 with st.container():
-                    col1.markdown(f"<span style='color:#bdc3c7;'>▼</span> <span style='color:#7f8c8d;'>Batería</span><br><span style='color:#7f8c8d; font-size:12px;'>BAT-001</span>", unsafe_allow_html=True)
+                    col1.markdown(f"<span style='color:#bdc3c7;'>▼</span> <span style='color:#7f8c8d; font-weight:bold;'>Batería</span><br><span style='color:#7f8c8d; font-size:12px;'>BAT-001</span>", unsafe_allow_html=True)
                     col2.write("Batería Litio")
                     col3.markdown("<div style='color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
                     col4.markdown("<div style='color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
@@ -757,11 +766,11 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     col6.write("--")
                 st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
-            # Fila Medidor (Condicional)
+            # --- FILA DEL MEDIDOR ---
             if smart_meter_actual != "Ninguno":
                 col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
                 with st.container():
-                    col1.markdown(f"<span style='color:#bdc3c7;'>▼</span> <span style='color:#7f8c8d;'>Medidor</span><br><span style='color:#7f8c8d; font-size:12px;'>MTR-001</span>", unsafe_allow_html=True)
+                    col1.markdown(f"<span style='color:#bdc3c7;'>▼</span> <span style='color:#7f8c8d; font-weight:bold;'>Medidor</span><br><span style='color:#7f8c8d; font-size:12px;'>MTR-001</span>", unsafe_allow_html=True)
                     col2.write(smart_meter_actual)
                     col3.markdown("<div style='color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
                     col4.markdown("<div style='color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
@@ -770,7 +779,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
         # ==========================================
-        # RADIOGRAFÍA DEL INVERSOR (Se abre al darle al nombre)
+        # PANTALLA: RADIOGRAFÍA DEL INVERSOR
         # ==========================================
         else:
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
@@ -844,7 +853,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                             <tr><td style='padding:8px;'>T</td><td>121.30 V</td><td>0.20 A</td><td>--</td></tr>
                         </table>
                         """, unsafe_allow_html=True)
-                    st.markdown("<hr style='margin-top:15px; border-color:#eaeaea;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin:10px 0; border-color:#eaeaea;'>", unsafe_allow_html=True)
                     st.markdown(f"<span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>PV daily power generation: <b>{d['hoy']} kWh</b></span> <span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>Power factor: <b>0.00</b></span> <span style='color:#7f8c8d; font-size:13px;'>AC Voltage Max: <b>150.00 V</b></span>", unsafe_allow_html=True)
 
                 with st.expander("Red eléctrica", expanded=False):
