@@ -810,7 +810,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                             <tr><td style='padding:8px;'>T</td><td>121.30 V</td><td>0.20 A</td><td>--</td></tr>
                         </table>
                         """, unsafe_allow_html=True)
-                    st.markdown("<hr style='margin-top:15px; border-color:#eaeaea;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin:10px 0; border-color:#eaeaea;'>", unsafe_allow_html=True)
                     st.markdown(f"<span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>PV daily power generation: <b>{d['hoy']} kWh</b></span> <span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>Power factor: <b>0.00</b></span> <span style='color:#7f8c8d; font-size:13px;'>AC Voltage Max: <b>150.00 V</b></span>", unsafe_allow_html=True)
 
                 with st.expander("Red eléctrica", expanded=False):
@@ -897,7 +897,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 """, unsafe_allow_html=True)
                 
             with t_det_3: 
-                # --- NUEVA PESTAÑA DE ARQUITECTURA ---
                 st.markdown("""
                 <div style='display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;'>
                     <div style='color:#3498db; font-weight:bold; font-size:16px; border-bottom: 3px solid #3498db; padding-bottom: 8px; margin-bottom: -12px;'>Relación de comunicación</div>
@@ -911,53 +910,35 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 
                 battery_html = ""
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                    battery_html = f"""
-                    <tr style='border-bottom:1px solid #f8f9fa;'>
-                        <td style='padding:12px; padding-left: 80px;'>
-                            <span style='color:#bdc3c7;'>▼</span> Batería<br>
-                            <span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span>
-                        </td>
-                        <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
-                        <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-                    </tr>
-                    <tr style='border-bottom:1px solid #f8f9fa;'>
-                        <td style='padding:12px; padding-left: 110px;'>
-                            Batería<br>
-                            <span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span>
-                        </td>
-                        <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
-                        <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-                    </tr>
-                    """
+                    battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left: 80px;'><span style='color:#bdc3c7;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>
+<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>"""
 
-                table_html = f"""
-                <div style='background:white; border:1px solid #eaeaea; border-radius:8px; overflow:hidden;'>
-                    <table style='width:100%; text-align:left; font-size:14px; border-collapse:collapse;'>
-                        <tr style='background-color:#f8f9fa; border-bottom:1px solid #eaeaea; color:#2c3e50;'>
-                            <th style='padding:12px 20px;'>Tipo/SN</th>
-                            <th style='padding:12px;'>Estado</th>
-                            <th style='padding:12px;'>Actualizado</th>
-                        </tr>
-                        <tr style='border-bottom:1px solid #f8f9fa;'>
-                            <td style='padding:12px; padding-left:20px;'>
-                                <span style='color:#7f8c8d;'>▼</span> Registrador<br>
-                                <span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span>
-                            </td>
-                            <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
-                            <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-                        </tr>
-                        <tr style='border-bottom:1px solid #f8f9fa;'>
-                            <td style='padding:12px; padding-left: 50px;'>
-                                <span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Inversor</span><br>
-                                <span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}</span>
-                            </td>
-                            <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
-                            <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-                        </tr>
-                        {battery_html}
-                    </table>
-                </div>
-                """
+                table_html = f"""<div style='background:white; border:1px solid #eaeaea; border-radius:8px; overflow:hidden;'>
+<table style='width:100%; text-align:left; font-size:14px; border-collapse:collapse;'>
+<tr style='background-color:#f8f9fa; border-bottom:1px solid #eaeaea; color:#2c3e50;'>
+<th style='padding:12px 20px;'>Tipo/SN</th><th style='padding:12px;'>Estado</th><th style='padding:12px;'>Actualizado</th>
+</tr>
+<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>
+<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>
+{battery_html}
+</table>
+</div>"""
                 st.markdown(table_html, unsafe_allow_html=True)
                 
             with t_det_4:
