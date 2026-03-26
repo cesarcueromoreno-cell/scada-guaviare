@@ -576,7 +576,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     
     st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | Tipo: {tipo_sistema_actual} | SN: {p.get('datalogger', 'N/A')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
-    # --- TARJETAS SUPERIORES ESTILO SOLARMAN ---
     c1, c2, c3, c4 = st.columns([3, 3, 2, 2])
     c1.markdown(f"<div class='solarman-card' style='border-top: 4px solid #3498db;'><div class='solarman-val'>{d['hoy']} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
     c2.markdown(f"<div class='solarman-card' style='border-top: 4px solid #e74c3c;'><div class='solarman-val'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
@@ -593,7 +592,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # --- AÑADIDA LA PESTAÑA "DISPOSITIVOS" ---
     if st.session_state['rol'] == 'admin':
         t_graf, t_disp, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico", "🔌 Dispositivos", "⚙️ Control Remoto", "📄 Reportes PDF", "🛠️ O&M"])
     else:
@@ -693,14 +691,13 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             </div>
             """, unsafe_allow_html=True)
             
-    # --- PESTAÑA "DISPOSITIVOS" ---
     with t_disp:
         st.markdown("### 🔌 Lista de Dispositivos Registrados")
         
-        sn_logger = p.get('datalogger', 'N/A')
-        marca_inv = p.get('inversores', 'Genérico')
+        # --- AQUÍ ESTÁ LA CORRECCIÓN DEL ERROR ---
+        sn_logger = str(p.get('datalogger', 'N/A'))
+        marca_inv = str(p.get('inversores', 'Genérico'))
         
-        # Construimos la tabla dinámica basada en el tipo de planta
         rows_html = f"""
         <tr style="border-bottom: 1px solid #ecf0f1;">
             <td style="padding: 12px;"><b>Inversor {marca_inv}</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
