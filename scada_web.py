@@ -679,82 +679,98 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     with t_disp:
         if not st.session_state["ver_detalle_inv"]:
             # ==========================================
-            # NUEVA TABLA NATIVA DE DISPOSITIVOS
+            # PESTAÑA DISPOSITIVOS RECONSTRUIDA (NATIVA)
             # ==========================================
             st.markdown("### 🔌 Lista de Dispositivos Registrados")
+            
+            # CSS personalizado para que st.columns se vea como una tabla Solarman
             st.markdown("""
             <style>
             .div-header { background-color: #f8f9fa; padding: 12px; border-radius: 5px 5px 0 0; border: 1px solid #eaeaea; border-bottom: none; display: flex; font-weight: bold; color: #7f8c8d; font-size: 14px; align-items: center; }
             .div-row { display: flex; align-items: center; padding: 10px 12px; border: 1px solid #eaeaea; border-top: none; background: white; font-size: 14px; color: #2c3e50; }
-            .div-col-1 { flex: 2; } .div-col-2 { flex: 1.5; } .div-col-3 { flex: 1; } .div-col-4 { flex: 1; } .div-col-5 { flex: 1.5; } .div-col-6 { flex: 1.5; } .div-col-7 { flex: 1; }
+            /* Ajuste de anchos para las columnas nativas */
+            .stColumn { display: flex; align-items: center; }
             </style>
             <div class="div-header">
-                <div class="div-col-1">Nombre/SN</div>
-                <div class="div-col-2">Tipo</div>
-                <div class="div-col-3">Estado</div>
-                <div class="div-col-4">Actuación</div>
-                <div class="div-col-5">Pot. solar(kW)</div>
-                <div class="div-col-6">Prod. diaria(kWh)</div>
-                <div class="div-col-7">Acción</div>
+                <div style="flex: 2;">Nombre/SN</div>
+                <div style="flex: 1.5;">Tipo</div>
+                <div style="flex: 1;">Estado</div>
+                <div style="flex: 1;">Actuación</div>
+                <div style="flex: 1.5;">Potencia solar(kW)</div>
+                <div style="flex: 1.5;">Producción diaria(kWh)</div>
             </div>
             """, unsafe_allow_html=True)
 
-            # Fila Inversor (Nativa con botón real)
-            col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 1, 1, 1.5, 1.5, 1])
+            # Inyección de CSS de "Modo Enlace" para el botón nativo del nombre
+            style_inversor_link = """
+            <style>
+            div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stButton"] button[key="btn_inv_nombre"] {
+                background-color: transparent !important;
+                border: none !important;
+                color: #3498db !important; /* Azul de enlace */
+                text-decoration: underline !important;
+                font-weight: bold !important;
+                padding: 0 !important;
+                text-align: left !important;
+                font-size: 14px !important;
+            }
+            </style>
+            """
+            st.markdown(style_inversor_link, unsafe_allow_html=True)
+
+            # Fila Inversor (Nativa con botón real en el nombre)
+            col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
             with st.container():
-                col1.markdown(f"<div style='padding:10px 0;'><b>Inversor {marca_inv}</b><br><span style='color:#7f8c8d; font-size:12px;'>{sn_logger}</span></div>", unsafe_allow_html=True)
-                col2.markdown("<div style='padding:10px 0;'>Inversor</div>", unsafe_allow_html=True)
-                col3.markdown("<div style='padding:10px 0; color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
-                col4.markdown("<div style='padding:10px 0; color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
-                col5.markdown(f"<div style='padding:10px 0;'>{round(d['solar']/1000, 2)}</div>", unsafe_allow_html=True)
-                col6.markdown(f"<div style='padding:10px 0;'>{d['hoy']}</div>", unsafe_allow_html=True)
-                st.markdown("<div style='margin-top: -30px;'>", unsafe_allow_html=True) # Ajuste visual
-                if col7.button("🔍 Ver", key="btn_inv_diag", type="primary", use_container_width=True):
+                # EL TRUCO: Botón nativo que se ve como enlace HTML
+                if col1.button(f"Inversor (30) <span style='color:#bdc3c7;'>▼</span>", key="btn_inv_nombre"):
                     st.session_state["ver_detalle_inv"] = True
                     st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
+                col1.markdown(f"<span style='color:#7f8c8d; font-size:12px; margin-top:-15px; display:block;'>{sn_logger}</span>", unsafe_allow_html=True)
+                
+                col2.write("Híbrido HV trifásico")
+                col3.markdown("<div style='color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
+                col4.markdown("<div style='color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
+                col5.write(f"{round(d['solar']/1000, 2)}")
+                col6.write(f"{d['hoy']}")
             st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
-            # Fila Datalogger
-            col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 1, 1, 1.5, 1.5, 1])
+            # Fila Datalogger (Condicional)
+            col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
             with st.container():
-                col1.markdown(f"<div style='padding:10px 0;'><b>Datalogger WiFi</b><br><span style='color:#7f8c8d; font-size:12px;'>{sn_logger}</span></div>", unsafe_allow_html=True)
-                col2.markdown("<div style='padding:10px 0;'>Registrador</div>", unsafe_allow_html=True)
-                col3.markdown("<div style='padding:10px 0; color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
-                col4.markdown("<div style='padding:10px 0; color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
-                col5.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
-                col6.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
-                col7.empty()
+                col1.markdown(f"<span style='color:#7f8c8d;'>▼</span> <span style='color:#7f8c8d;'>Registrador</span><br><span style='color:#7f8c8d; font-size:12px;'>{sn_logger}</span>", unsafe_allow_html=True)
+                col2.write("Registrador")
+                col3.markdown("<div style='color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
+                col4.markdown("<div style='color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
+                col5.write("--")
+                col6.write("--")
             st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
             # Fila Batería (Condicional)
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 1, 1, 1.5, 1.5, 1])
+                col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
                 with st.container():
-                    col1.markdown(f"<div style='padding:10px 0;'><b>Banco Baterías Litio</b><br><span style='color:#7f8c8d; font-size:12px;'>BAT-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></div>", unsafe_allow_html=True)
-                    col2.markdown("<div style='padding:10px 0;'>Batería</div>", unsafe_allow_html=True)
-                    col3.markdown("<div style='padding:10px 0; color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
-                    col4.markdown("<div style='padding:10px 0; color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
-                    col5.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
-                    col6.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
-                    col7.empty()
+                    col1.markdown(f"<span style='color:#bdc3c7;'>▼</span> <span style='color:#7f8c8d;'>Batería</span><br><span style='color:#7f8c8d; font-size:12px;'>BAT-001</span>", unsafe_allow_html=True)
+                    col2.write("Batería Litio")
+                    col3.markdown("<div style='color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
+                    col4.markdown("<div style='color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
+                    col5.write("--")
+                    col6.write("--")
                 st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
             # Fila Medidor (Condicional)
             if smart_meter_actual != "Ninguno":
-                col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 1, 1, 1.5, 1.5, 1])
+                col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
                 with st.container():
-                    col1.markdown(f"<div style='padding:10px 0;'><b>{smart_meter_actual}</b><br><span style='color:#7f8c8d; font-size:12px;'>MTR-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></div>", unsafe_allow_html=True)
-                    col2.markdown("<div style='padding:10px 0;'>Medidor</div>", unsafe_allow_html=True)
-                    col3.markdown("<div style='padding:10px 0; color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
-                    col4.markdown("<div style='padding:10px 0; color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
-                    col5.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
-                    col6.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
-                    col7.empty()
+                    col1.markdown(f"<span style='color:#bdc3c7;'>▼</span> <span style='color:#7f8c8d;'>Medidor</span><br><span style='color:#7f8c8d; font-size:12px;'>MTR-001</span>", unsafe_allow_html=True)
+                    col2.write(smart_meter_actual)
+                    col3.markdown("<div style='color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
+                    col4.markdown("<div style='color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
+                    col5.write("--")
+                    col6.write("--")
                 st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
         # ==========================================
-        # RADIOGRAFÍA DEL INVERSOR (Se abre al darle al botón interno)
+        # RADIOGRAFÍA DEL INVERSOR (Se abre al darle al nombre)
         # ==========================================
         else:
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
