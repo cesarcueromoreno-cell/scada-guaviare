@@ -81,7 +81,27 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
 # ==========================================
-# 3. BASE DE DATOS EN GOOGLE SHEETS
+# 3. MANEJO DE VÍNCULOS Y PARÁMETROS (INTERACTIVIDAD)
+# ==========================================
+if "delete" in st.query_params:
+    try:
+        idx = int(st.query_params["delete"])
+        eliminar_planta(idx)
+        st.query_params.clear()
+    except: pass
+if "edit" in st.query_params:
+    try:
+        idx = int(st.query_params["edit"])
+        st.session_state["editando_planta"] = idx
+        st.query_params.clear()
+    except: pass
+# AQUÍ CAPTURAMOS EL CLIC DEL BOTÓN INVERSOR DESDE LA TABLA
+if "view_inv" in st.query_params:
+    st.session_state["ver_detalle_inv"] = True
+    st.query_params.clear()
+
+# ==========================================
+# 4. BASE DE DATOS EN GOOGLE SHEETS
 # ==========================================
 @st.cache_resource(ttl=600)
 def init_gsheets():
@@ -232,21 +252,8 @@ def eliminar_mantenimiento(planta, indice):
                     count += 1
         except: pass
 
-if "delete" in st.query_params:
-    try:
-        idx = int(st.query_params["delete"])
-        eliminar_planta(idx)
-        st.query_params.clear()
-    except: pass
-if "edit" in st.query_params:
-    try:
-        idx = int(st.query_params["edit"])
-        st.session_state["editando_planta"] = idx
-        st.query_params.clear()
-    except: pass
-
 # ==========================================
-# 4. LOGIN
+# 5. LOGIN
 # ==========================================
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MONISOLAR APP</h1>", unsafe_allow_html=True)
@@ -282,7 +289,7 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 # ==========================================
-# 5. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
+# 6. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
 # ==========================================
 todas_las_plantas = cargar_plantas()
 
@@ -312,7 +319,7 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.rerun()
 
 # ==========================================
-# 6. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
+# 7. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
 # ==========================================
 def get_data(pl):
     cap_val = pl.get("capacidad", "5")
@@ -438,7 +445,7 @@ def generar_pdf(planta, datos):
     return pdf_bytes
 
 # ==========================================
-# 7. VISTAS (ADMINISTRADOR Y CLIENTE)
+# 8. VISTAS (ADMINISTRADOR Y CLIENTE)
 # ==========================================
 
 OPCIONES_SISTEMA = ["Híbrido", "On-Grid", "Off-Grid"]
@@ -679,9 +686,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     with t_disp:
         if not st.session_state["ver_detalle_inv"]:
             st.markdown("### 🔌 Lista de Dispositivos Registrados")
+            # ==========================================
+            # EL TRUCO: BOTÓN "INVERSOR" COMO HIPERVÍNCULO INTERNO
+            # ==========================================
             rows_html = f"""<tr style="border-bottom: 1px solid #ecf0f1;">
         <td style="padding: 12px;"><b>Inversor {marca_inv}</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
-        <td style="padding: 12px;">Inversor</td>
+        <td style="padding: 12px;"><a href="?view_inv=true" target="_self" style="background-color: #3498db; color: white; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Inversor 🔍</a></td>
         <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
         <td style="padding: 12px; color: #27ae60;">Normal</td>
         <td style="padding: 12px;">{round(d['solar']/1000, 2)}</td>
@@ -730,13 +740,9 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     </div>"""
             st.markdown(html_table, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
-            c_btn_zoom, _ = st.columns([3, 7])
-            if c_btn_zoom.button("🔍 Ver Diagnóstico del Inversor", type="primary"):
-                st.session_state["ver_detalle_inv"] = True
-                st.rerun()
 
         # ==========================================
-        # NUEVA PANTALLA: RADIOGRAFÍA DEL INVERSOR
+        # RADIOGRAFÍA DEL INVERSOR (Se abre al darle al botón interno)
         # ==========================================
         else:
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
