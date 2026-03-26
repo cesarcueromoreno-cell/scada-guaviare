@@ -343,21 +343,15 @@ def simular_historico_24h_avanzado(planta):
     for m in range(0, 24 * 60, 15):
         t = inicio_dia + timedelta(minutes=m)
         h = t.hour
-        
-        # Curva de Generación Solar
         gen = max(0, (cap * 0.9) * math.sin((h - 6) / 12 * math.pi) * random.uniform(0.95, 1.05)) if 6 <= h <= 18 else 0
-        
-        # Curva de Consumo
         con = max(cap * 0.1, cap * 0.2 + (cap * 0.3 * math.sin((h-7)/2 * math.pi) if 7<=h<=9 else (cap * 0.4 * math.sin((h-18)/3 * math.pi) if 18<=h<=21 else 0)))
-        
-        # Curva de Batería (Carga y Descarga)
         diff = gen - con
         bat_power = 0
         if diff > 0 and soc_actual < 100:
-            bat_power = min(diff, cap * 0.5) # Carga (positivo)
+            bat_power = min(diff, cap * 0.5) 
             soc_actual = min(100, soc_actual + (bat_power * 0.25 / (cap*2)) * 100)
         elif diff < 0 and soc_actual > 20:
-            bat_power = max(diff, -cap * 0.5) # Descarga (negativo)
+            bat_power = max(diff, -cap * 0.5) 
             soc_actual = max(20, soc_actual + (bat_power * 0.25 / (cap*2)) * 100)
             
         red = 0 if planta.get('tipo_sistema', 'Híbrido') == 'Off-Grid' else max(0, con - gen + bat_power)
@@ -599,10 +593,11 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # --- AÑADIDA LA PESTAÑA "DISPOSITIVOS" ---
     if st.session_state['rol'] == 'admin':
-        t_graf, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico", "⚙️ Control Remoto", "📄 Reportes PDF", "🛠️ O&M"])
+        t_graf, t_disp, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico", "🔌 Dispositivos", "⚙️ Control Remoto", "📄 Reportes PDF", "🛠️ O&M"])
     else:
-        t_graf, t_rep = st.tabs(["📈 Panel Gráfico", "📄 Reportes PDF"])
+        t_graf, t_disp, t_rep = st.tabs(["📈 Panel Gráfico", "🔌 Dispositivos", "📄 Reportes PDF"])
         t_ctrl, t_om = None, None
     
     with t_graf:
@@ -610,21 +605,15 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         with col_grafica:
             st.markdown("<div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea;'>", unsafe_allow_html=True)
             
-            # --- NUEVA GRÁFICA AVANZADA (PLOTLY GRAPH OBJECTS) ---
             df_historico = simular_historico_24h_avanzado(p)
             fig2 = make_subplots(specs=[[{"secondary_y": True}]])
             
-            # 1. Batería (Área Verde)
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 fig2.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Batería'], fill='tozeroy', mode='lines', line=dict(color='#2ecc71', width=1), name='Batería (Carga/Descarga)'), secondary_y=False)
             
-            # 2. Solar (Área Azul)
             fig2.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Potencia Solar'], fill='tozeroy', mode='lines', line=dict(color='#3498db', width=2), name='Potencia Solar'), secondary_y=False)
-            
-            # 3. Consumo (Línea Roja)
             fig2.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Consumo'], mode='lines', line=dict(color='#e74c3c', width=2), name='Consumo'), secondary_y=False)
             
-            # 4. SOC % (Línea punteada eje secundario)
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 fig2.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['SOC'], mode='lines', line=dict(color='#34495e', width=2, dash='dot'), name='SOC %'), secondary_y=True)
 
@@ -644,7 +633,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             pot_bat = d["solar"] - d["casa"]
             color_bat = "#2ecc71" if d["soc"] > 20 else "#e74c3c"
             
-            # --- CONSTRUCTOR DE GRÁFICO SVG DINÁMICO ---
             svg_paths = ""
             svg_circles = ""
             svg_icons = ""
@@ -687,7 +675,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             """
             components.html(diagrama_svg, height=300)
             
-            # --- NUEVO MÓDULO DE BENEFICIOS AMBIENTALES ---
             st.markdown(f"""
             <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-top: 15px;">
                 <h4 style="margin-top:0; margin-bottom:15px; color:#2c3e50; font-size:14px;">Beneficios ambientales y económicos ❔</h4>
@@ -705,6 +692,74 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 </div>
             </div>
             """, unsafe_allow_html=True)
+            
+    # --- PESTAÑA "DISPOSITIVOS" ---
+    with t_disp:
+        st.markdown("### 🔌 Lista de Dispositivos Registrados")
+        
+        sn_logger = p.get('datalogger', 'N/A')
+        marca_inv = p.get('inversores', 'Genérico')
+        
+        # Construimos la tabla dinámica basada en el tipo de planta
+        rows_html = f"""
+        <tr style="border-bottom: 1px solid #ecf0f1;">
+            <td style="padding: 12px;"><b>Inversor {marca_inv}</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
+            <td style="padding: 12px;">Inversor</td>
+            <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
+            <td style="padding: 12px; color: #27ae60;">Normal</td>
+            <td style="padding: 12px;">{round(d['solar']/1000, 2)}</td>
+            <td style="padding: 12px;">{d['hoy']}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ecf0f1;">
+            <td style="padding: 12px;"><b>Datalogger WiFi</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
+            <td style="padding: 12px;">Registrador</td>
+            <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
+            <td style="padding: 12px; color: #27ae60;">Normal</td>
+            <td style="padding: 12px;">--</td>
+            <td style="padding: 12px;">--</td>
+        </tr>
+        """
+        
+        if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+            rows_html += f"""
+            <tr style="border-bottom: 1px solid #ecf0f1;">
+                <td style="padding: 12px;"><b>Banco de Baterías Litio</b><br><span style="color:#7f8c8d; font-size:12px;">BAT-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></td>
+                <td style="padding: 12px;">Batería</td>
+                <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
+                <td style="padding: 12px; color: #27ae60;">Normal</td>
+                <td style="padding: 12px;">--</td>
+                <td style="padding: 12px;">--</td>
+            </tr>
+            """
+            
+        if smart_meter_actual != "Ninguno":
+            rows_html += f"""
+            <tr style="border-bottom: 1px solid #ecf0f1;">
+                <td style="padding: 12px;"><b>{smart_meter_actual}</b><br><span style="color:#7f8c8d; font-size:12px;">MTR-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></td>
+                <td style="padding: 12px;">Medidor</td>
+                <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
+                <td style="padding: 12px; color: #27ae60;">Normal</td>
+                <td style="padding: 12px;">--</td>
+                <td style="padding: 12px;">--</td>
+            </tr>
+            """
+            
+        html_table = f"""
+        <div style="background-color: white; border-radius: 8px; border: 1px solid #eaeaea; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-top: 10px;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; color: #2c3e50; font-size: 14px;">
+                <tr style="border-bottom: 2px solid #ecf0f1; background-color: #f8f9fa;">
+                    <th style="padding: 12px; color: #7f8c8d;">Nombre/SN</th>
+                    <th style="padding: 12px; color: #7f8c8d;">Tipo</th>
+                    <th style="padding: 12px; color: #7f8c8d;">Estado</th>
+                    <th style="padding: 12px; color: #7f8c8d;">Actuación</th>
+                    <th style="padding: 12px; color: #7f8c8d;">Potencia solar(kW)</th>
+                    <th style="padding: 12px; color: #7f8c8d;">Producción diaria(kWh)</th>
+                </tr>
+                {rows_html}
+            </table>
+        </div>
+        """
+        st.markdown(html_table, unsafe_allow_html=True)
             
     if t_ctrl:
         with t_ctrl:
