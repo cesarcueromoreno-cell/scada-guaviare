@@ -144,13 +144,19 @@ def cargar_plantas():
     if not db_sheet: return []
     try:
         sheet = db_sheet.worksheet("plantas")
-        check_headers(sheet, ["nombre", "ubicacion", "capacidad", "inversores", "datalogger"])
+        # --- SE ACTUALIZAN LOS ENCABEZADOS PARA INCLUIR TIPO Y METER ---
+        check_headers(sheet, ["nombre", "ubicacion", "capacidad", "inversores", "datalogger", "tipo_sistema", "smart_meter"])
         return sheet.get_all_records()
     except: return []
 
 def guardar_planta(nueva):
     if db_sheet:
-        try: db_sheet.worksheet("plantas").append_row([nueva.get("nombre",""), nueva.get("ubicacion",""), nueva.get("capacidad",""), nueva.get("inversores",""), nueva.get("datalogger","")])
+        try: 
+            db_sheet.worksheet("plantas").append_row([
+                nueva.get("nombre",""), nueva.get("ubicacion",""), nueva.get("capacidad",""), 
+                nueva.get("inversores",""), nueva.get("datalogger",""), 
+                nueva.get("tipo_sistema","Híbrido"), nueva.get("smart_meter","Ninguno")
+            ])
         except: pass
 
 def actualizar_planta(idx, p_edit):
@@ -158,8 +164,12 @@ def actualizar_planta(idx, p_edit):
         try:
             sheet = db_sheet.worksheet("plantas")
             row_idx = idx + 2
-            cell_list = sheet.range(f"A{row_idx}:E{row_idx}")
-            vals = [p_edit.get("nombre",""), p_edit.get("ubicacion",""), p_edit.get("capacidad",""), p_edit.get("inversores",""), p_edit.get("datalogger","")]
+            cell_list = sheet.range(f"A{row_idx}:G{row_idx}")
+            vals = [
+                p_edit.get("nombre",""), p_edit.get("ubicacion",""), p_edit.get("capacidad",""), 
+                p_edit.get("inversores",""), p_edit.get("datalogger",""),
+                p_edit.get("tipo_sistema","Híbrido"), p_edit.get("smart_meter","Ninguno")
+            ]
             for i, val in enumerate(vals): cell_list[i].value = str(val)
             sheet.update_cells(cell_list)
         except: pass
@@ -356,6 +366,10 @@ def generar_pdf(planta, datos):
     pdf.set_font("Arial", '', 12)
     pdf.cell(0, 10, str(planta.get('ubicacion', 'N/A')), ln=True)
     pdf.set_font("Arial", 'B', 12)
+    pdf.cell(50, 10, "Tipo de Sistema:")
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(0, 10, str(planta.get('tipo_sistema', 'Híbrido')), ln=True)
+    pdf.set_font("Arial", 'B', 12)
     pdf.cell(50, 10, "Fecha de Reporte:")
     pdf.set_font("Arial", '', 12)
     pdf.cell(0, 10, datetime.now().strftime("%Y-%m-%d %H:%M"), ln=True)
@@ -376,10 +390,13 @@ def generar_pdf(planta, datos):
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, f"{round(datos['hoy']*0.45,1)} kWh", ln=True)
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", '', 12)
-    pdf.cell(80, 10, "Nivel de Baterias (SOC):")
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f"{datos['soc']} %", ln=True)
+    
+    if planta.get('tipo_sistema', 'Híbrido') in ['Híbrido', 'Off-Grid']:
+        pdf.set_font("Arial", '', 12)
+        pdf.cell(80, 10, "Nivel de Baterias (SOC):")
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(0, 10, f"{datos['soc']} %", ln=True)
+        
     pdf.ln(20)
     pdf.set_font("Arial", 'I', 10)
     pdf.set_text_color(127, 140, 141)
@@ -393,6 +410,11 @@ def generar_pdf(planta, datos):
 # ==========================================
 # 7. VISTAS (ADMINISTRADOR Y CLIENTE)
 # ==========================================
+
+# Listas de opciones dinámicas
+OPCIONES_SISTEMA = ["Híbrido", "On-Grid", "Off-Grid"]
+OPCIONES_METERS = ["Ninguno", "Deye/Chint Meter", "Fronius Smart Meter", "Eastron SDM", "GoodWe HomeKit", "Huawei Smart Power"]
+
 if menu == "👥 Gestión de Usuarios":
     st.title("👥 GESTIÓN DE USUARIOS")
     db_usuarios = cargar_usuarios()
@@ -443,13 +465,23 @@ elif menu == "🌐 Panorama General":
         p_edit = plantas_permitidas[idx]
         st.markdown(f"<h3>✏️ Editar Parámetros: {p_edit['nombre']}</h3>", unsafe_allow_html=True)
         with st.form("edit"):
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns([2, 2, 1])
             n = c1.text_input("Nombre", p_edit['nombre'])
             u = c2.text_input("Ubicación", p_edit['ubicacion'])
-            c = c1.text_input("Capacidad", str(p_edit.get('capacidad', '')))
-            sn = c2.text_input("SN Datalogger", str(p_edit.get('datalogger', '')))
+            c = c3.text_input("Capacidad", str(p_edit.get('capacidad', '')))
+            
+            # NUEVOS CAMPOS DE EDICIÓN
+            c4, c5, c6 = st.columns(3)
+            sn = c4.text_input("SN Datalogger", str(p_edit.get('datalogger', '')))
+            
+            idx_tipo = OPCIONES_SISTEMA.index(p_edit.get('tipo_sistema', 'Híbrido')) if p_edit.get('tipo_sistema', 'Híbrido') in OPCIONES_SISTEMA else 0
+            n_tipo = c5.selectbox("Tipo de Sistema", OPCIONES_SISTEMA, index=idx_tipo)
+            
+            idx_meter = OPCIONES_METERS.index(p_edit.get('smart_meter', 'Ninguno')) if p_edit.get('smart_meter', 'Ninguno') in OPCIONES_METERS else 0
+            n_meter = c6.selectbox("Smart Meter (Medidor Inteligente)", OPCIONES_METERS, index=idx_meter)
+
             if st.form_submit_button("💾 Guardar Cambios"):
-                p_edit.update({"nombre": n, "ubicacion": u, "capacidad": c, "datalogger": sn})
+                p_edit.update({"nombre": n, "ubicacion": u, "capacidad": c, "datalogger": sn, "tipo_sistema": n_tipo, "smart_meter": n_meter})
                 actualizar_planta(idx, p_edit)
                 st.session_state["editando_planta"] = None
                 st.rerun()
@@ -462,11 +494,17 @@ elif menu == "🌐 Panorama General":
             n_ubi = c2.text_input("Ubicación")
             n_cap = c1.text_input("Capacidad (Ej: 30 kWp)")
             n_inv = c2.selectbox("Marca de Inversor", ["Deye", "Fronius", "GoodWe", "Huawei", "Sylvania"])
+            
+            # NUEVOS CAMPOS DE CREACIÓN
+            c3, c4 = st.columns(2)
+            n_tipo = c3.selectbox("Tipo de Sistema", OPCIONES_SISTEMA)
+            n_meter = c4.selectbox("Smart Meter a Instalar", OPCIONES_METERS)
             n_sn = st.text_input("SN del Datalogger (ID Solarman)")
+            
             s1, s2 = st.columns(2)
             if s1.form_submit_button("💾 Guardar Nueva Planta"):
                 if n_nom:
-                    guardar_planta({"nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, "inversores": n_inv, "datalogger": n_sn})
+                    guardar_planta({"nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, "inversores": n_inv, "datalogger": n_sn, "tipo_sistema": n_tipo, "smart_meter": n_meter})
                     st.session_state["mostrar_crear"] = False
                     st.rerun()
             if s2.form_submit_button("❌ Cancelar"):
@@ -487,11 +525,18 @@ elif menu == "🌐 Panorama General":
         st.markdown('<div style="overflow-x: auto;"><div style="min-width: 1050px;">', unsafe_allow_html=True)
         for i, pl in enumerate(filtradas):
             dat = get_data(pl)
+            tipo_etiqueta = pl.get('tipo_sistema', 'Híbrido')
             col_card, col_btns = st.columns([11, 1])
             with col_card:
                 st.markdown(f"""
                 <div class="tarjeta-dash-pro" style="margin-bottom:0px;">
-                <div style="display:flex; align-items:center; width: 320px; flex-shrink: 0;"><img src="https://img.icons8.com/color/48/solar-panel.png" style="width: 32px; margin-right:15px;"/><div style="font-size: 15px; font-weight: bold;">{pl.get('nombre','N/A')}</div></div>
+                <div style="display:flex; align-items:center; width: 320px; flex-shrink: 0;">
+                    <img src="https://img.icons8.com/color/48/solar-panel.png" style="width: 32px; margin-right:15px;"/>
+                    <div>
+                        <div style="font-size: 15px; font-weight: bold;">{pl.get('nombre','N/A')}</div>
+                        <div style="font-size: 11px; color: #7f8c8d; font-weight: bold;">{tipo_etiqueta}</div>
+                    </div>
+                </div>
                 <div class="tarjeta-dash-item"><div class="tarjeta-label-pro">Potencia Solar</div><div class="tarjeta-dato-pro">{dat['solar']} W</div></div>
                 <div class="tarjeta-dash-item"><div class="tarjeta-label-pro">Energía Hoy</div><div class="tarjeta-dato-pro" style="color:#27ae60 !important;">{dat['hoy']} kWh</div></div>
                 </div>""", unsafe_allow_html=True)
@@ -510,13 +555,27 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     p = next(x for x in plantas_permitidas if x["nombre"] == pl_sel)
     d = get_data(p)
     
-    st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | SN: {p.get('datalogger', 'N/A')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
+    # Extraemos el tipo de sistema y el meter para adaptar la interfaz
+    tipo_sistema_actual = p.get('tipo_sistema', 'Híbrido')
+    smart_meter_actual = p.get('smart_meter', 'Ninguno')
     
+    st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | Tipo: {tipo_sistema_actual} | SN: {p.get('datalogger', 'N/A')}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
+    
+    # Tarjetas Dinámicas Superiores
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#3498db !important;'>{d['hoy']} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
     c2.markdown(f"<div class='solarman-card'><div class='solarman-val' style='color:#e67e22 !important;'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold; color:#2c3e50;'>🔋 {round(d['hoy']*0.2,1)} kWh <span class='solarman-lbl-sm'>Cargar</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px; color:#2c3e50;'>🔋 {round(d['hoy']*0.1,1)} kWh <span class='solarman-lbl-sm'>Descargar</span></div></div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>A Red</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>De Red</span></div></div>", unsafe_allow_html=True)
+    
+    if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+        c3.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold; color:#2c3e50;'>🔋 {round(d['hoy']*0.2,1)} kWh <span class='solarman-lbl-sm'>Cargar</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px; color:#2c3e50;'>🔋 {round(d['hoy']*0.1,1)} kWh <span class='solarman-lbl-sm'>Descargar</span></div></div>", unsafe_allow_html=True)
+    else: # On-Grid no tiene batería
+        c3.markdown(f"<div class='solarman-card'><div style='font-size:26px; font-weight:bold; color:#bdc3c7;'>--</div><div class='solarman-lbl'>Sin Baterías</div></div>", unsafe_allow_html=True)
+
+    if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+        c4.markdown(f"<div class='solarman-card'><div style='font-size:16px; font-weight:bold; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>A Red</span></div><div style='font-size:16px; font-weight:bold; margin-top:5px; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>De Red</span></div></div>", unsafe_allow_html=True)
+    else: # Off-Grid no tiene red
+        c4.markdown(f"<div class='solarman-card'><div style='font-size:26px; font-weight:bold; color:#bdc3c7;'>--</div><div class='solarman-lbl'>Aislado (Off-Grid)</div></div>", unsafe_allow_html=True)
+        
     st.markdown("<br>", unsafe_allow_html=True)
     
     if st.session_state['rol'] == 'admin':
@@ -540,21 +599,50 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         with col_flujo:
             pot_bat = d["solar"] - d["casa"]
             color_bat = "#2ecc71" if d["soc"] > 20 else "#e74c3c"
+            
+            # --- CONSTRUCTOR DE GRÁFICO SVG DINÁMICO ---
+            svg_paths = ""
+            svg_circles = ""
+            svg_icons = ""
+            
+            # Panel Solar (Siempre existe)
+            svg_paths += '<path d="M 100 85 V 150 H 170" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
+            svg_circles += '<circle r="6" fill="#3498db"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>'
+            svg_icons += f'<g transform="translate(60,30)"><image href="https://img.icons8.com/color/48/solar-panel.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#3498db" text-anchor="middle">{d["solar"]} W</text></g>'
+            
+            # Casa (Siempre existe)
+            svg_paths += '<path d="M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
+            svg_circles += '<circle r="6" fill="#e74c3c"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>'
+            svg_icons += f'<g transform="translate(260,260)"><image href="https://img.icons8.com/color/48/home.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#e74c3c" text-anchor="middle">{d["casa"]} W</text></g>'
+            
+            # Red Eléctrica (Solo On-Grid e Híbrido)
+            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+                svg_paths += '<path d="M 300 85 V 150 H 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
+                svg_circles += '<circle r="6" fill="#7f8c8d"><animateMotion dur="2s" repeatCount="indefinite" path="M 300 85 V 150 H 230" /></circle>'
+                txt_meter = f'<text x="5" y="55" font-size="9" font-weight="bold" fill="#95a5a6" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
+                svg_icons += f'<g transform="translate(260,30)"><image href="https://img.icons8.com/fluency/48/electrical.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#7f8c8d" text-anchor="middle">0 W</text>{txt_meter}</g>'
+            
+            # Batería (Solo Off-Grid e Híbrido)
+            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+                svg_paths += '<path d="M 170 150 H 100 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>'
+                svg_circles += '<circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>'
+                svg_icons += f'<g transform="translate(60,260)"><image href="https://img.icons8.com/color/48/car-battery.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#27ae60" text-anchor="middle">{pot_bat} W</text><text x="5" y="55" font-size="11" font-weight="bold" fill="{color_bat}" text-anchor="middle">SOC: {d["soc"]}%</text></g>'
+
+            # Inversor Central
+            svg_inversor = f"""
+            <rect x="165" y="115" width="70" height="70" rx="12" fill="#f8f9fa" stroke="#3498db" stroke-width="3"/>
+            <rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/> 
+            <text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text>
+            <text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">{tipo_sistema_actual}</text>
+            """
+
             diagrama_svg = f"""
             <div style="background: white; border-radius: 8px; padding: 20px; border: 1px solid #eaeaea; height: 100%; display: flex; align-items: center;">
                 <svg viewBox="0 0 400 350" width="100%">
-                    <path d="M 100 85 V 150 H 170 M 300 85 V 150 H 230 M 170 150 H 100 V 230 M 230 150 H 300 V 230" fill="none" stroke="#dfe6e9" stroke-width="5" stroke-linecap="round"/>
-                    <circle r="6" fill="#3498db"><animateMotion dur="1s" repeatCount="indefinite" path="M 100 85 V 150 H 170" /></circle>
-                    <circle r="6" fill="#2ecc71"><animateMotion dur="1.2s" repeatCount="indefinite" path="M 170 150 H 100 V 230" /></circle>
-                    <circle r="6" fill="#e74c3c"><animateMotion dur="1.5s" repeatCount="indefinite" path="M 230 150 H 300 V 230" /></circle>
-                    <rect x="165" y="115" width="70" height="70" rx="12" fill="#f8f9fa" stroke="#3498db" stroke-width="3"/>
-                    <rect x="175" y="125" width="50" height="25" rx="3" fill="#2c3e50"/> 
-                    <text x="200" y="142" text-anchor="middle" font-size="8" fill="#55efc4" font-weight="bold">CV-ENG</text>
-                    <text x="200" y="200" text-anchor="middle" font-size="10" font-weight="bold" fill="#3498db">Híbrido</text>
-                    <g transform="translate(60,30)"><image href="https://img.icons8.com/color/48/solar-panel.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#3498db" text-anchor="middle">{d['solar']} W</text></g>
-                    <g transform="translate(260,30)"><image href="https://img.icons8.com/fluency/48/electrical.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#7f8c8d" text-anchor="middle">0 W</text></g>
-                    <g transform="translate(60,260)"><image href="https://img.icons8.com/color/48/car-battery.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#27ae60" text-anchor="middle">{pot_bat} W</text><text x="5" y="55" font-size="11" font-weight="bold" fill="{color_bat}" text-anchor="middle">SOC: {d['soc']}%</text></g>
-                    <g transform="translate(260,260)"><image href="https://img.icons8.com/color/48/home.png" width="40" height="40" x="-15" y="-15"/><text x="5" y="40" font-size="16" font-weight="bold" fill="#e74c3c" text-anchor="middle">{d['casa']} W</text></g>
+                    {svg_paths}
+                    {svg_circles}
+                    {svg_inversor}
+                    {svg_icons}
                 </svg>
             </div>
             """
@@ -564,7 +652,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
             
-            # --- SE AÑADIÓ LA PESTAÑA "💻 SISTEMA" AL FINAL ---
             st_bat, st_mo1, st_mo2, st_red, st_smart, st_bas, st_av1, st_av2, st_sis = st.tabs([
                 "🔋 Baterías", "🔄 Modos-1", "🔄 Modos-2", "⚡ Red", "🧠 SmartLoad", "⚙️ Básica", "🛠️ Avanzadas-1", "🛠️ Avanzadas-2", "💻 Sistema"
             ])
@@ -677,7 +764,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 av_col1, _, _ = st.columns([1.5, 1, 2])
                 av_col1.selectbox("* DC 1 para turbina eólica", options=opts_sel)
                 
-            # --- ZONA DE SISTEMA: REINICIO Y RESTAURACIÓN ---
             with st_sis:
                 st.markdown("<br><h4 style='color: #e74c3c; margin-top: 0;'>⚠️ Comandos Críticos del Sistema</h4>", unsafe_allow_html=True)
                 st.info("💡 **Nota de Ingeniería:** El comando de reinicio remoto ejecuta un apagado digital suave (Soft Reset). A diferencia de un corte físico de breakers, este método protege los relés internos y las tarjetas. El equipo no sufre desgaste mecánico al reiniciarse por esta vía.")
