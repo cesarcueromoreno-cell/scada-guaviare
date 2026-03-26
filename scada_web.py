@@ -76,6 +76,7 @@ if "mostrar_crear" not in st.session_state: st.session_state["mostrar_crear"] = 
 if "red_desbloqueada" not in st.session_state: st.session_state["red_desbloqueada"] = False
 if "reinicio_desbloqueado" not in st.session_state: st.session_state["reinicio_desbloqueado"] = False
 if "ver_detalle_inv" not in st.session_state: st.session_state["ver_detalle_inv"] = False
+if "ver_detalle_logger" not in st.session_state: st.session_state["ver_detalle_logger"] = False # NUEVO
 
 if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
@@ -308,10 +309,11 @@ menu = st.sidebar.radio("Ir a:", opciones_menu)
 
 if "menu_anterior" not in st.session_state or st.session_state["menu_anterior"] != menu:
     st.session_state["ver_detalle_inv"] = False
+    st.session_state["ver_detalle_logger"] = False # REINICIAR NUEVO
     st.session_state["menu_anterior"] = menu
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
-    st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "planta_asignada": "Todas", "red_desbloqueada": False, "reinicio_desbloqueado": False, "ver_detalle_inv": False})
+    st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "planta_asignada": "Todas", "red_desbloqueada": False, "reinicio_desbloqueado": False, "ver_detalle_inv": False, "ver_detalle_logger": False})
     st.rerun()
 
 # ==========================================
@@ -492,6 +494,7 @@ if menu == "👥 Gestión de Usuarios":
 elif menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL")
     st.session_state["ver_detalle_inv"] = False
+    st.session_state["ver_detalle_logger"] = False # NUEVO
     
     if st.session_state["editando_planta"] is not None:
         idx = st.session_state["editando_planta"]
@@ -585,6 +588,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     
     if "planta_actual" not in st.session_state or st.session_state["planta_actual"] != p["nombre"]:
         st.session_state["ver_detalle_inv"] = False
+        st.session_state["ver_detalle_logger"] = False # NUEVO
         st.session_state["planta_actual"] = p["nombre"]
         
     d = get_data(p)
@@ -680,9 +684,9 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             """, unsafe_allow_html=True)
             
     with t_disp:
-        if not st.session_state["ver_detalle_inv"]:
+        if not st.session_state["ver_detalle_inv"] and not st.session_state["ver_detalle_logger"]: # MODIFICADO
             # ==========================================
-            # EL TRUCO CSS MAGICO PARA EL BOTÓN
+            # TRUCO CSS MAGICO PARA LOS BOTONES (INVERSOR Y LOGGER)
             # ==========================================
             style_inversor_link = """
             <style>
@@ -727,12 +731,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             </div>
             """, unsafe_allow_html=True)
 
-            # --- FILA DEL INVERSOR CON BOTON INVISIBLE ---
+            # --- FILA DEL INVERSOR ---
             col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
             with st.container():
-                # EL BOTON ESTA AQUI, LIMPIO, SIN HTML
                 if col1.button(f"Inversor ({capacidad}) ▼"):
                     st.session_state["ver_detalle_inv"] = True
+                    st.session_state["ver_detalle_logger"] = False
                     st.rerun()
                 col1.markdown(f"<span style='color:#7f8c8d; font-size:12px; margin-top:-15px; display:block;'>{sn_logger}</span>", unsafe_allow_html=True)
                 
@@ -743,10 +747,15 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 col6.write(f"{d['hoy']}")
             st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
-            # --- FILA DEL DATALOGGER ---
+            # --- FILA DEL DATALOGGER (MODIFICADA CON BOTÓN) ---
             col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
             with st.container():
-                col1.markdown(f"<span style='color:#7f8c8d;'>▼</span> <span style='color:#7f8c8d; font-weight:bold;'>Registrador</span><br><span style='color:#7f8c8d; font-size:12px;'>{sn_logger}</span>", unsafe_allow_html=True)
+                # EL TRUCO DEL BOTÓN TAMBIÉN AQUÍ
+                if col1.button(f"Registrador ▼", key=f"btn_log_nombre_{sn_logger}"):
+                    st.session_state["ver_detalle_inv"] = False
+                    st.session_state["ver_detalle_logger"] = True
+                    st.rerun()
+                col1.markdown(f"<span style='color:#7f8c8d; font-size:12px; margin-top:-15px; display:block;'>{sn_logger}</span>", unsafe_allow_html=True)
                 col2.write("Registrador")
                 col3.markdown("<div style='color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
                 col4.markdown("<div style='color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
@@ -781,7 +790,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         # ==========================================
         # PANTALLA: RADIOGRAFÍA DEL INVERSOR
         # ==========================================
-        else:
+        elif st.session_state["ver_detalle_inv"]:
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
                 st.session_state["ver_detalle_inv"] = False
                 st.rerun()
@@ -1039,6 +1048,72 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 
                 st.plotly_chart(fig_ac, use_container_width=True)
 
+        # ==========================================
+        # PANTALLA: RADIOGRAFÍA DEL REGISTRADOR (NUEVA)
+        # ==========================================
+        elif st.session_state["ver_detalle_logger"]:
+            # Botón de volver idéntico a la foto
+            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+            if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
+                st.session_state["ver_detalle_logger"] = False
+                st.rerun()
+            
+            # Cabecera idéntica a la foto
+            st.markdown(f"""
+            <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px; margin-top:10px;'>
+                <div>
+                    <h2 style='margin-bottom:0; font-size: 24px;'>Registrador wifi:{sn_logger}</h2>
+                    <span style='color:#27ae60; font-weight:bold; font-size:14px;'>🟢 En línea</span>
+                </div>
+                <span style='color:#7f8c8d; font-size:13px;'>{datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')}</span>
+            </div>
+            <hr style='margin-top:0px; border-color:#eaeaea;'>
+            """, unsafe_allow_html=True)
+            
+            # Pestañas idénticas a la foto
+            t_log_1, t_log_2, t_log_3 = st.tabs(["Detalles", "Alerta", "Datos históricos"])
+            
+            with t_log_1:
+                # Expandibles idénticos a la foto, contenido simulado Solarman style
+                st.markdown("<div style='height:15px;'></div>", unsafe_allow_html=True)
+                
+                with st.expander("Información básica", expanded=True):
+                    st.markdown(f"""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>SN:</span> {sn_logger}</div>
+                        <div><span class='diag-lbl'>Modelo:</span> LSW-3</div>
+                        <div><span class='diag-lbl'>Versión hardware:</span> LSW3_01_7A_0102</div>
+                        <div><span class='diag-lbl'>Versión de firmware:</span> V1.0.6.28</div>
+                        <div><span class='diag-lbl'>Versión protocolo:</span> 0104</div>
+                        <div><span class='diag-lbl'>Hora del sistema:</span> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with st.expander("Información de Wi-Fi", expanded=False):
+                    st.markdown("""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>SSID Conectado:</span> CV_SOLAR_GUEST</div>
+                        <div><span class='diag-lbl'>Dirección IP Logger:</span> 192.168.1.105</div>
+                        <div><span class='diag-lbl'>Intensidad de señal:</span> -65 dBm (Buena)</div>
+                        <div><span class='diag-lbl'>Dirección MAC:</span> AA:BB:CC:DD:EE:FF</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with st.expander("Estado", expanded=False):
+                    st.markdown("""
+                    <div class='diag-grid'>
+                        <div><span class='diag-lbl'>Última actualización:</span> 15 segundos</div>
+                        <div><span class='diag-lbl'>IP Servidor Remoto:</span> 47.102.152.71</div>
+                        <div><span class='diag-lbl'>Tiempo Ping Servidor:</span> 180ms</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with t_log_2:
+                st.markdown("<div style='margin-top:20px; color:#7f8c8d;'>✔ No hay alertas activas para este registrador.</div>", unsafe_allow_html=True)
+
+            with t_log_3:
+                st.markdown("<div style='margin-top:20px; color:#7f8c8d;'>📊 Panel de descarga de datos históricos del registrador...</div>", unsafe_allow_html=True)
+
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
@@ -1193,7 +1268,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     st.success("¡Configuración aplicada!")
 
     with t_rep:
-        st.markdown("### 📄 Descarga de Reporte Ejecutivo PDF")
+        st.markdown("### 2 Reporte Ejecutivo PDF")
         st.write("Genere un informe formal con membrete de CV INGENIERIA SAS para enviarlo a sus clientes.")
         pdf_bytes = generar_pdf(p, d)
         st.download_button(
