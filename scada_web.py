@@ -897,13 +897,72 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 """, unsafe_allow_html=True)
                 
             with t_det_3: 
-                st.write("Diagrama de arquitectura del puerto de comunicaciones...")
+                # --- NUEVA PESTAÑA DE ARQUITECTURA ---
+                st.markdown("""
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;'>
+                    <div style='color:#3498db; font-weight:bold; font-size:16px; border-bottom: 3px solid #3498db; padding-bottom: 8px; margin-bottom: -12px;'>Relación de comunicación</div>
+                    <button style='background-color:#007bff; color:white; border:none; border-radius:4px; padding:6px 15px; font-weight:bold; cursor:pointer;'>Exportar</button>
+                </div>
+                <p style='color:#7f8c8d; font-size:13px; margin-top:15px;'>La topología de red real reflejada cuando el dispositivo está cargando datos.</p>
+                """, unsafe_allow_html=True)
+
+                time_str = datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')
+                fake_logger_sn = str(random.randint(3000000000, 3999999999))
+                
+                battery_html = ""
+                if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+                    battery_html = f"""
+                    <tr style='border-bottom:1px solid #f8f9fa;'>
+                        <td style='padding:12px; padding-left: 80px;'>
+                            <span style='color:#bdc3c7;'>▼</span> Batería<br>
+                            <span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span>
+                        </td>
+                        <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+                        <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+                    </tr>
+                    <tr style='border-bottom:1px solid #f8f9fa;'>
+                        <td style='padding:12px; padding-left: 110px;'>
+                            Batería<br>
+                            <span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span>
+                        </td>
+                        <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+                        <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+                    </tr>
+                    """
+
+                table_html = f"""
+                <div style='background:white; border:1px solid #eaeaea; border-radius:8px; overflow:hidden;'>
+                    <table style='width:100%; text-align:left; font-size:14px; border-collapse:collapse;'>
+                        <tr style='background-color:#f8f9fa; border-bottom:1px solid #eaeaea; color:#2c3e50;'>
+                            <th style='padding:12px 20px;'>Tipo/SN</th>
+                            <th style='padding:12px;'>Estado</th>
+                            <th style='padding:12px;'>Actualizado</th>
+                        </tr>
+                        <tr style='border-bottom:1px solid #f8f9fa;'>
+                            <td style='padding:12px; padding-left:20px;'>
+                                <span style='color:#7f8c8d;'>▼</span> Registrador<br>
+                                <span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span>
+                            </td>
+                            <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+                            <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+                        </tr>
+                        <tr style='border-bottom:1px solid #f8f9fa;'>
+                            <td style='padding:12px; padding-left: 50px;'>
+                                <span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Inversor</span><br>
+                                <span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}</span>
+                            </td>
+                            <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+                            <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+                        </tr>
+                        {battery_html}
+                    </table>
+                </div>
+                """
+                st.markdown(table_html, unsafe_allow_html=True)
                 
             with t_det_4:
-                # --- NUEVA INTERFAZ DE DATOS HISTÓRICOS (COMO LA FOTO) ---
                 st.markdown("<h4 style='color:#2c3e50; font-size:16px; margin-top:10px;'>Datos históricos</h4>", unsafe_allow_html=True)
                 
-                # 1. Botones superiores
                 col_r1, col_r2, col_r3, col_r4 = st.columns([4, 2, 2, 2])
                 with col_r1:
                     st.radio("Periodo", ["Día", "Semana", "Mes", "Año", "Total"], horizontal=True, label_visibility="collapsed")
@@ -916,7 +975,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     
                 st.markdown("<hr style='margin:10px 0; border-color:#eaeaea;'>", unsafe_allow_html=True)
                 
-                # 2. Plantillas del sistema
                 col_p1, col_p2 = st.columns([2, 8])
                 with col_p1:
                     st.markdown("<p style='color:#7f8c8d; font-size:14px; margin-top:10px;'>Plantilla del<br>sistema:</p>", unsafe_allow_html=True)
@@ -925,7 +983,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # 3. Gráfica Histórica de CA Mejorada (Con Amperios a la derecha)
                 x_time = pd.date_range(start="00:00", end="21:00", freq="15min")
                 y_vol_R = [121.3 if (6 <= t.hour <= 18) else 0 for t in x_time]
                 y_vol_S = [121.2 if (6 <= t.hour <= 18) else 0 for t in x_time]
