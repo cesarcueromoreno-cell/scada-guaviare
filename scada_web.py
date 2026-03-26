@@ -76,29 +76,13 @@ if "mostrar_crear" not in st.session_state: st.session_state["mostrar_crear"] = 
 if "red_desbloqueada" not in st.session_state: st.session_state["red_desbloqueada"] = False
 if "reinicio_desbloqueado" not in st.session_state: st.session_state["reinicio_desbloqueado"] = False
 if "ver_detalle_inv" not in st.session_state: st.session_state["ver_detalle_inv"] = False
-if "ver_detalle_logger" not in st.session_state: st.session_state["ver_detalle_logger"] = False # NUEVO
+if "ver_detalle_logger" not in st.session_state: st.session_state["ver_detalle_logger"] = False
 
 if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
 # ==========================================
-# 3. MANEJO DE VÍNCULOS Y PARÁMETROS (INTERACTIVIDAD)
-# ==========================================
-if "delete" in st.query_params:
-    try:
-        idx = int(st.query_params["delete"])
-        eliminar_planta(idx)
-        st.query_params.clear()
-    except: pass
-if "edit" in st.query_params:
-    try:
-        idx = int(st.query_params["edit"])
-        st.session_state["editando_planta"] = idx
-        st.query_params.clear()
-    except: pass
-
-# ==========================================
-# 4. BASE DE DATOS EN GOOGLE SHEETS
+# 3. BASE DE DATOS EN GOOGLE SHEETS
 # ==========================================
 @st.cache_resource(ttl=600)
 def init_gsheets():
@@ -249,8 +233,21 @@ def eliminar_mantenimiento(planta, indice):
                     count += 1
         except: pass
 
+if "delete" in st.query_params:
+    try:
+        idx = int(st.query_params["delete"])
+        eliminar_planta(idx)
+        st.query_params.clear()
+    except: pass
+if "edit" in st.query_params:
+    try:
+        idx = int(st.query_params["edit"])
+        st.session_state["editando_planta"] = idx
+        st.query_params.clear()
+    except: pass
+
 # ==========================================
-# 5. LOGIN
+# 4. LOGIN
 # ==========================================
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MONISOLAR APP</h1>", unsafe_allow_html=True)
@@ -286,7 +283,7 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 # ==========================================
-# 6. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
+# 5. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
 # ==========================================
 todas_las_plantas = cargar_plantas()
 
@@ -309,7 +306,7 @@ menu = st.sidebar.radio("Ir a:", opciones_menu)
 
 if "menu_anterior" not in st.session_state or st.session_state["menu_anterior"] != menu:
     st.session_state["ver_detalle_inv"] = False
-    st.session_state["ver_detalle_logger"] = False # REINICIAR NUEVO
+    st.session_state["ver_detalle_logger"] = False
     st.session_state["menu_anterior"] = menu
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
@@ -317,7 +314,7 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.rerun()
 
 # ==========================================
-# 7. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
+# 6. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
 # ==========================================
 def get_data(pl):
     cap_val = pl.get("capacidad", "5")
@@ -443,7 +440,7 @@ def generar_pdf(planta, datos):
     return pdf_bytes
 
 # ==========================================
-# 8. VISTAS (ADMINISTRADOR Y CLIENTE)
+# 7. VISTAS (ADMINISTRADOR Y CLIENTE)
 # ==========================================
 
 OPCIONES_SISTEMA = ["Híbrido", "On-Grid", "Off-Grid"]
@@ -494,7 +491,7 @@ if menu == "👥 Gestión de Usuarios":
 elif menu == "🌐 Panorama General":
     st.title("🌐 PANORAMA GENERAL")
     st.session_state["ver_detalle_inv"] = False
-    st.session_state["ver_detalle_logger"] = False # NUEVO
+    st.session_state["ver_detalle_logger"] = False
     
     if st.session_state["editando_planta"] is not None:
         idx = st.session_state["editando_planta"]
@@ -588,7 +585,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     
     if "planta_actual" not in st.session_state or st.session_state["planta_actual"] != p["nombre"]:
         st.session_state["ver_detalle_inv"] = False
-        st.session_state["ver_detalle_logger"] = False # NUEVO
+        st.session_state["ver_detalle_logger"] = False
         st.session_state["planta_actual"] = p["nombre"]
         
     d = get_data(p)
@@ -684,13 +681,9 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             """, unsafe_allow_html=True)
             
     with t_disp:
-        if not st.session_state["ver_detalle_inv"] and not st.session_state["ver_detalle_logger"]: # MODIFICADO
-            # ==========================================
-            # TRUCO CSS MAGICO PARA LOS BOTONES (INVERSOR Y LOGGER)
-            # ==========================================
+        if not st.session_state["ver_detalle_inv"] and not st.session_state["ver_detalle_logger"]:
             style_inversor_link = """
             <style>
-            /* Convertimos los botones de la primera columna de la tabla de dispositivos en enlaces */
             div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] button {
                 background-color: transparent !important;
                 border: none !important;
@@ -718,7 +711,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             <style>
             .div-header { background-color: #f8f9fa; padding: 12px; border-radius: 5px 5px 0 0; border: 1px solid #eaeaea; border-bottom: none; display: flex; font-weight: bold; color: #7f8c8d; font-size: 14px; align-items: center; }
             .div-row { display: flex; align-items: center; padding: 10px 12px; border: 1px solid #eaeaea; border-top: none; background: white; font-size: 14px; color: #2c3e50; }
-            /* Ajuste de anchos para las columnas nativas */
             .stColumn { display: flex; align-items: center; }
             </style>
             <div class="div-header">
@@ -739,7 +731,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     st.session_state["ver_detalle_logger"] = False
                     st.rerun()
                 col1.markdown(f"<span style='color:#7f8c8d; font-size:12px; margin-top:-15px; display:block;'>{sn_logger}</span>", unsafe_allow_html=True)
-                
                 col2.write("Híbrido HV trifásico")
                 col3.markdown("<div style='color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
                 col4.markdown("<div style='color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
@@ -747,11 +738,10 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 col6.write(f"{d['hoy']}")
             st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
-            # --- FILA DEL DATALOGGER (MODIFICADA CON BOTÓN) ---
+            # --- FILA DEL DATALOGGER ---
             col1, col2, col3, col4, col5, col6 = st.columns([2, 1.5, 1, 1, 1.5, 1.5])
             with st.container():
-                # EL TRUCO DEL BOTÓN TAMBIÉN AQUÍ
-                if col1.button(f"Registrador ▼", key=f"btn_log_nombre_{sn_logger}"):
+                if col1.button(f"Registrador ▼", key="btn_log_nombre"):
                     st.session_state["ver_detalle_inv"] = False
                     st.session_state["ver_detalle_logger"] = True
                     st.rerun()
@@ -788,7 +778,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
         # ==========================================
-        # PANTALLA: RADIOGRAFÍA DEL INVERSOR
+        # RADIOGRAFÍA DEL INVERSOR
         # ==========================================
         elif st.session_state["ver_detalle_inv"]:
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
@@ -952,13 +942,13 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 st.markdown("""
                 <div style='display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;'>
                     <div style='color:#3498db; font-weight:bold; font-size:16px; border-bottom: 3px solid #3498db; padding-bottom: 8px; margin-bottom: -12px;'>Relación de comunicación</div>
-                    <button style='background-color:#007bff; color:white; border:none; border-radius:4px; padding:6px 15px; font-weight:bold; cursor:pointer;'>Exportar</button>
+                    <button style='background-color:#3498db; color:white; border:none; border-radius:4px; padding:6px 15px; font-weight:bold; cursor:pointer;'>Exportar</button>
                 </div>
                 <p style='color:#7f8c8d; font-size:13px; margin-top:15px;'>La topología de red real reflejada cuando el dispositivo está cargando datos.</p>
                 """, unsafe_allow_html=True)
 
                 time_str = datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')
-                fake_logger_sn = str(random.randint(3000000000, 3999999999))
+                fake_logger_sn = "3137366912"
                 
                 battery_html = ""
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
@@ -984,7 +974,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}</span></td>
+<td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
 <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
@@ -1052,13 +1042,11 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         # PANTALLA: RADIOGRAFÍA DEL REGISTRADOR (NUEVA)
         # ==========================================
         elif st.session_state["ver_detalle_logger"]:
-            # Botón de volver idéntico a la foto
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
                 st.session_state["ver_detalle_logger"] = False
                 st.rerun()
             
-            # Cabecera idéntica a la foto
             st.markdown(f"""
             <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px; margin-top:10px;'>
                 <div>
@@ -1070,49 +1058,116 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             <hr style='margin-top:0px; border-color:#eaeaea;'>
             """, unsafe_allow_html=True)
             
-            # Pestañas idénticas a la foto
-            t_log_1, t_log_2, t_log_3 = st.tabs(["Detalles", "Alerta", "Datos históricos"])
+            t_log_1, t_log_2, t_log_3 = st.tabs(["Detalles", "Alerta", "Arquitectura"])
             
             with t_log_1:
-                # Expandibles idénticos a la foto, contenido simulado Solarman style
                 st.markdown("<div style='height:15px;'></div>", unsafe_allow_html=True)
-                
                 with st.expander("Información básica", expanded=True):
                     st.markdown(f"""
                     <div class='diag-grid'>
-                        <div><span class='diag-lbl'>SN:</span> {sn_logger}</div>
-                        <div><span class='diag-lbl'>Modelo:</span> LSW-3</div>
-                        <div><span class='diag-lbl'>Versión hardware:</span> LSW3_01_7A_0102</div>
-                        <div><span class='diag-lbl'>Versión de firmware:</span> V1.0.6.28</div>
-                        <div><span class='diag-lbl'>Versión protocolo:</span> 0104</div>
-                        <div><span class='diag-lbl'>Hora del sistema:</span> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+                        <div><span class='diag-lbl'>Número de serie del dispositivo integrado:</span> {sn_logger}</div>
                     </div>
                     """, unsafe_allow_html=True)
                 
-                with st.expander("Información de Wi-Fi", expanded=False):
+                with st.expander("Información de la versión", expanded=False):
                     st.markdown("""
                     <div class='diag-grid'>
-                        <div><span class='diag-lbl'>SSID Conectado:</span> CV_SOLAR_GUEST</div>
-                        <div><span class='diag-lbl'>Dirección IP Logger:</span> 192.168.1.105</div>
-                        <div><span class='diag-lbl'>Intensidad de señal:</span> -65 dBm (Buena)</div>
-                        <div><span class='diag-lbl'>Dirección MAC:</span> AA:BB:CC:DD:EE:FF</div>
+                        <div><span class='diag-lbl'>Número de versión del módulo:</span> LSW3_32_5406_SS_04_00.00.00.0B</div>
+                        <div><span class='diag-lbl'>Versión extendida del sistema:</span> 00-00-00-00</div>
                     </div>
                     """, unsafe_allow_html=True)
 
-                with st.expander("Estado", expanded=False):
+                with st.expander("Información de operación", expanded=False):
                     st.markdown("""
                     <div class='diag-grid'>
-                        <div><span class='diag-lbl'>Última actualización:</span> 15 segundos</div>
-                        <div><span class='diag-lbl'>IP Servidor Remoto:</span> 47.102.152.71</div>
-                        <div><span class='diag-lbl'>Tiempo Ping Servidor:</span> 180ms</div>
+                        <div><span class='diag-lbl'>Período de carga de datos:</span> 5 Min</div>
+                        <div><span class='diag-lbl'>Período de recolección de datos:</span> 60 s</div>
+                        <div><span class='diag-lbl'>Máx. Número de dispositivos conectados:</span> 82</div>
+                        <div><span class='diag-lbl'>Fuerza de la señal:</span> 94</div>
+                        <div><span class='diag-lbl'>Dirección MAC del módulo:</span> D427877C2420</div>
+                        <div><span class='diag-lbl'>SSID del router:</span> CANCHA_ENERGETICA_MALVINAS</div>
+                        <div><span class='diag-lbl'>CSIP Control Capability Flag:</span> Not Supported</div>
+                        <div><span class='diag-lbl'>CSIP Scheduling Function Enable Flag:</span> Scheduling Not Enabled</div>
+                        <div><span class='diag-lbl'>Number Of CSIP Data Model Supports:</span> 0</div>
+                        <div><span class='diag-lbl'>MESH-NETID:</span> 0</div>
+                        <div><span class='diag-lbl'>MESH-NET-GROUP:</span> 00-00-00-00</div>
+                        <div><span class='diag-lbl'>Policy Scheduling Enable Flag:</span> Scheduling Not Enabled</div>
+                        <div><span class='diag-lbl'>Control Point Reporting Development Flag:</span> 0</div>
                     </div>
                     """, unsafe_allow_html=True)
 
             with t_log_2:
-                st.markdown("<div style='margin-top:20px; color:#7f8c8d;'>✔ No hay alertas activas para este registrador.</div>", unsafe_allow_html=True)
+                st.markdown("""
+                <div style='display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #eaeaea; padding-bottom:10px; margin-bottom:15px; margin-top:10px;'>
+                    <div style='display:flex; gap:20px; font-weight:bold; color:#7f8c8d; font-size:14px; align-items:center;'>
+                        <span style='cursor:pointer;'>Todo</span>
+                        <span style='color:#3498db; border-bottom:3px solid #3498db; padding-bottom:8px; margin-bottom:-11px; cursor:pointer;'>Abierto</span>
+                        <span style='cursor:pointer;'>Cerrado</span>
+                        <span style='cursor:pointer; border-left:1px solid #eaeaea; padding-left:15px;'>Filtrar ▼</span>
+                    </div>
+                    <div style='display:flex; gap:10px;'>
+                        <button style='background:white; border:1px solid #eaeaea; border-radius:4px; padding:4px 8px; cursor:pointer;'>📥</button>
+                        <button style='background:white; border:1px solid #eaeaea; border-radius:4px; padding:4px 8px; cursor:pointer; color:#7f8c8d; font-size:13px;'>🔄 Cerca ▼</button>
+                    </div>
+                </div>
+                <p style='font-size:12px; color:#7f8c8d; line-height:1.5;'>La alerta "abierta" se refiere a la alerta que se está produciendo actualmente. Además, el ciclo de actualización del estado de alerta del dispositivo es de 5 minutos, por lo que el estado de alerta del dispositivo puede retrasarse. Es normal que a veces el dispositivo esté en estado de alerta, pero no hay una alerta "abierta".</p>
+                
+                <div style='text-align:center; padding: 60px 0;'>
+                    <img src="https://img.icons8.com/ios/100/ced6e0/document--v1.png" width="60"/>
+                    <p style='color:#7f8c8d; margin-top:10px; font-size:14px;'>Datos no disponibles</p>
+                </div>
+                
+                <div style='display:flex; justify-content:flex-end; color:#bdc3c7; font-size:12px; align-items:center; gap:10px; margin-top:20px;'>
+                    <span>< 1 ></span>
+                    <select style='border:1px solid #eaeaea; border-radius:4px; padding:2px 5px; color:#bdc3c7;'><option>50/página</option></select>
+                    <span>Ir a <input type="text" value="1" style="width:30px; text-align:center; border:1px solid #eaeaea; border-radius:4px; color:#bdc3c7;"> Página <b style='color:#bdc3c7;'>Total 0</b></span>
+                </div>
+                """, unsafe_allow_html=True)
 
             with t_log_3:
-                st.markdown("<div style='margin-top:20px; color:#7f8c8d;'>📊 Panel de descarga de datos históricos del registrador...</div>", unsafe_allow_html=True)
+                st.markdown("""
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;'>
+                    <div style='color:#3498db; font-weight:bold; font-size:16px; border-bottom: 3px solid #3498db; padding-bottom: 8px; margin-bottom: -12px;'>Relación de comunicación</div>
+                    <button style='background-color:#3498db; color:white; border:none; border-radius:4px; padding:6px 15px; font-weight:bold; cursor:pointer;'>Exportar</button>
+                </div>
+                <p style='color:#7f8c8d; font-size:13px; margin-top:15px;'>La topología de red real reflejada cuando el dispositivo está cargando datos.</p>
+                """, unsafe_allow_html=True)
+
+                time_str = datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')
+                fake_logger_sn = sn_logger
+                
+                battery_html = ""
+                if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+                    battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>
+<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>"""
+
+                table_html = f"""<div style='background:white; border:1px solid #eaeaea; border-radius:8px; overflow:hidden;'>
+<table style='width:100%; text-align:left; font-size:14px; border-collapse:collapse;'>
+<tr style='background-color:#f8f9fa; border-bottom:1px solid #eaeaea; color:#2c3e50;'>
+<th style='padding:12px 20px;'>Tipo/SN</th><th style='padding:12px;'>Estado</th><th style='padding:12px;'>Actualizado</th>
+</tr>
+<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Registrador</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>
+<tr style='border-bottom:1px solid #f8f9fa;'>
+<td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> Inversor<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
+</tr>
+{battery_html}
+</table>
+</div>"""
+                st.markdown(table_html, unsafe_allow_html=True)
 
     if t_ctrl:
         with t_ctrl:
@@ -1268,7 +1323,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     st.success("¡Configuración aplicada!")
 
     with t_rep:
-        st.markdown("### 2 Reporte Ejecutivo PDF")
+        st.markdown("### 📄 Descarga de Reporte Ejecutivo PDF")
         st.write("Genere un informe formal con membrete de CV INGENIERIA SAS para enviarlo a sus clientes.")
         pdf_bytes = generar_pdf(p, d)
         st.download_button(
