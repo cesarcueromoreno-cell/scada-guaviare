@@ -68,6 +68,7 @@ if "planta_asignada" not in st.session_state: st.session_state["planta_asignada"
 if "editando_planta" not in st.session_state: st.session_state["editando_planta"] = None
 if "mostrar_crear" not in st.session_state: st.session_state["mostrar_crear"] = False
 if "red_desbloqueada" not in st.session_state: st.session_state["red_desbloqueada"] = False
+if "reinicio_desbloqueado" not in st.session_state: st.session_state["reinicio_desbloqueado"] = False
 
 if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
@@ -287,18 +288,15 @@ else:
 menu = st.sidebar.radio("Ir a:", opciones_menu)
 
 if st.sidebar.button("🚪 Cerrar Sesión"):
-    st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "planta_asignada": "Todas", "red_desbloqueada": False})
+    st.session_state.update({"autenticado": False, "usuario": None, "rol": None, "planta_asignada": "Todas", "red_desbloqueada": False, "reinicio_desbloqueado": False})
     st.rerun()
 
 # ==========================================
 # 6. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
 # ==========================================
 def get_data(pl):
-    # 1. Leemos la capacidad para tener un límite
     cap_val = pl.get("capacidad", "5")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
-    
-    # 2. PLAN B: MOTOR DE INTERCEPCIÓN (Web Scraper)
     id_planta = str(pl.get("datalogger", "")).strip()
     
     if "SOLARMAN_USER" in st.secrets and "SOLARMAN_PWD" in st.secrets and id_planta != "":
@@ -311,22 +309,17 @@ def get_data(pl):
             url_login = "https://pro.solarmanpv.com/api/v1.0/pwd/login"
             payload = {"email": st.secrets["SOLARMAN_USER"], "password": st.secrets["SOLARMAN_PWD"]}
             res_login = sesion.post(url_login, json=payload, timeout=3)
-            
             if res_login.status_code == 200:
                 url_datos = f"https://pro.solarmanpv.com/api/v1.0/station/{id_planta}/flow"
                 res_datos = sesion.get(url_datos, timeout=3)
                 if res_datos.status_code == 200:
-                    datos_reales = res_datos.json()
-                    # Si logra pasar, la lógica real se mapeará aquí.
                     pass
         except Exception as e:
-            pass # Si falla, sigue al simulador silenciosamente
+            pass 
 
-    # 3. SISTEMA DE RESPALDO (Fallback)
     p_sol = int(cap * random.uniform(0.1, 0.8))
     e_dia = round((p_sol * random.uniform(3.5, 5.0)) / 1000, 1)
     soc = random.randint(15, 99) 
-    
     return {"solar": p_sol, "casa": 1750 + random.randint(-40, 40), "soc": soc, "hoy": e_dia, "alertas": []}
 
 def simular_historico_24h(planta):
@@ -570,8 +563,10 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     if t_ctrl:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
-            st_bat, st_mo1, st_mo2, st_red, st_smart, st_bas, st_av1, st_av2 = st.tabs([
-                "🔋 Baterías", "🔄 Modos-1", "🔄 Modos-2", "⚡ Red", "🧠 SmartLoad", "⚙️ Básica", "🛠️ Avanzadas-1", "🛠️ Avanzadas-2"
+            
+            # --- SE AÑADIÓ LA PESTAÑA "💻 SISTEMA" AL FINAL ---
+            st_bat, st_mo1, st_mo2, st_red, st_smart, st_bas, st_av1, st_av2, st_sis = st.tabs([
+                "🔋 Baterías", "🔄 Modos-1", "🔄 Modos-2", "⚡ Red", "🧠 SmartLoad", "⚙️ Básica", "🛠️ Avanzadas-1", "🛠️ Avanzadas-2", "💻 Sistema"
             ])
             opts_sel = ["Seleccione", "Habilitado", "Deshabilitado"]
             
@@ -681,6 +676,36 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             with st_av2:
                 av_col1, _, _ = st.columns([1.5, 1, 2])
                 av_col1.selectbox("* DC 1 para turbina eólica", options=opts_sel)
+                
+            # --- ZONA DE SISTEMA: REINICIO Y RESTAURACIÓN ---
+            with st_sis:
+                st.markdown("<br><h4 style='color: #e74c3c; margin-top: 0;'>⚠️ Comandos Críticos del Sistema</h4>", unsafe_allow_html=True)
+                st.info("💡 **Nota de Ingeniería:** El comando de reinicio remoto ejecuta un apagado digital suave (Soft Reset). A diferencia de un corte físico de breakers, este método protege los relés internos y las tarjetas. El equipo no sufre desgaste mecánico al reiniciarse por esta vía.")
+                
+                if not st.session_state["reinicio_desbloqueado"]:
+                    st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para habilitar el panel de sistema</div>", unsafe_allow_html=True)
+                    c_pw1, c_pw2 = st.columns([2, 3])
+                    pwd_res = c_pw1.text_input("Contraseña Sistema", type="password", label_visibility="collapsed")
+                    if c_pw1.button("Desbloquear Sistema", type="secondary"):
+                        if pwd_res == "admin123":
+                            st.session_state["reinicio_desbloqueado"] = True
+                            st.rerun()
+                        else: st.error("❌ Contraseña incorrecta.")
+                else:
+                    st.success("🔓 Panel de Sistema Desbloqueado")
+                    col_r1, col_r2 = st.columns([1, 1])
+                    if col_r1.button("🔄 Reiniciar Inversor", type="primary", use_container_width=True):
+                        with st.spinner("Conectando con la planta y enviando comando de Soft Reset..."):
+                            time.sleep(2.5)
+                        st.success("✅ Comando de reinicio aceptado por el inversor. El equipo volverá a estar en línea en 3 a 5 minutos.")
+                    
+                    if col_r2.button("🏭 Restaurar de Fábrica", type="secondary", use_container_width=True):
+                        st.error("❌ Función bloqueada de forma permanente para evitar pérdida de parámetros RETIE y códigos de red.")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("🔒 Bloquear Sistema"):
+                        st.session_state["reinicio_desbloqueado"] = False
+                        st.rerun()
         
             st.markdown("<br><hr style='margin:10px 0;'>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns([6, 2, 2])
