@@ -48,7 +48,7 @@ div.solarman-card span.solarman-lbl-sm { color: #7f8c8d !important; font-size: 1
 .tarjeta-dato-pro { font-size: 16px !important; font-weight: bold !important; color: #2c3e50 !important; white-space: nowrap !important; }
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { border-bottom: 1px solid #e0e0e0 !important; gap: 15px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] p, div[data-testid="stTabs"] button[data-baseweb="tab"] span { color: #7f8c8d !important; font-weight: 600 !important; font-size: 16px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { background-color: transparent !important; border: none !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; box-shadow: none !important; padding-bottom: 10px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-bottom: 3px solid #e74c3c !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span { color: #2c3e50 !important; }
 div[data-testid="stButton"] button[kind="primary"] { background-color: #2d8cf0 !important; border-color: #2d8cf0 !important; border-radius: 4px !important; }
@@ -698,7 +698,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         t_ctrl, t_om = None, None
     
     with t_graf:
-        # --- EL FLUJO NUEVO (SCADA PRO) ---
         col_grafica, col_flujo = st.columns([7, 3])
         with col_grafica:
             st.markdown("<div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea;'>", unsafe_allow_html=True)
@@ -795,7 +794,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 svg_nodes += f'''
                 <g filter="url(#shadow)">
                     <circle cx="320" cy="70" r="35" fill="#ffffff" />
-                    <image href="https://img.icons8.com/color/96/transmission-tower.png" width="46" height="46" x="297" y="47" />
+                    <image href="https://img.icons8.com/fluency/96/electrical.png" width="46" height="46" x="297" y="47" />
                 </g>
                 <rect x="280" y="115" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
                 <text x="320" y="131" font-size="12" font-weight="bold" fill="#3498db" text-anchor="middle">0 W</text>
@@ -1201,9 +1200,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 
                 st.plotly_chart(fig_ac, use_container_width=True)
 
-        # ==========================================
-        # PANTALLA: RADIOGRAFÍA DEL REGISTRADOR
-        # ==========================================
         elif st.session_state["ver_detalle_logger"]:
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
