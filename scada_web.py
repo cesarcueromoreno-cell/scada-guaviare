@@ -757,7 +757,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             t_det_1, t_det_2, t_det_3, t_det_4 = st.tabs(["Detalles", "Alerta", "Arquitectura", "Datos históricos"])
             
             with t_det_1:
-                # 1. Información Básica
                 with st.expander("Información básica", expanded=True):
                     st.markdown(f"""
                     <div class='diag-grid'>
@@ -770,7 +769,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     </div>
                     """, unsafe_allow_html=True)
                 
-                # 2. Información de versión
                 with st.expander("Información de versión", expanded=False):
                     st.markdown("""
                     <div class='diag-grid'>
@@ -785,7 +783,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     </div>
                     """, unsafe_allow_html=True)
                 
-                # 3. Generación Eléctrica
                 with st.expander("Generación eléctrica", expanded=True):
                     col_dc, col_icono, col_ac = st.columns([5, 1, 5])
                     with col_dc:
@@ -816,7 +813,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     st.markdown("<hr style='margin-top:15px; border-color:#eaeaea;'>", unsafe_allow_html=True)
                     st.markdown(f"<span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>PV daily power generation: <b>{d['hoy']} kWh</b></span> <span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>Power factor: <b>0.00</b></span> <span style='color:#7f8c8d; font-size:13px;'>AC Voltage Max: <b>150.00 V</b></span>", unsafe_allow_html=True)
 
-                # 4. Red eléctrica
                 with st.expander("Red eléctrica", expanded=False):
                     st.markdown("""
                     <div class='diag-grid'>
@@ -835,7 +831,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     </div>
                     """, unsafe_allow_html=True)
 
-                # 5. Consumo eléctrico
                 with st.expander("Consumo eléctrico", expanded=False):
                     st.markdown("""
                     <div class='diag-grid'>
@@ -851,7 +846,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     </div>
                     """, unsafe_allow_html=True)
 
-                # 6. Baterías y BMS
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     with st.expander("Batería", expanded=False):
                         st.markdown(f"""
@@ -879,7 +873,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                         </div>
                         """, unsafe_allow_html=True)
 
-                # 7. Temperatura & Estado
                 with st.expander("Temperatura y Estado", expanded=False):
                     st.markdown("""
                     <div class='diag-grid'>
@@ -892,7 +885,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     """, unsafe_allow_html=True)
 
             with t_det_2: 
-                # Pestaña Alerta
                 st.markdown("<h4 style='color:#2c3e50; font-size:16px; margin-top:10px;'>Registro de banderas de hardware</h4>", unsafe_allow_html=True)
                 st.markdown("""
                 <div class='diag-grid' style='background:white; border:1px solid #eaeaea; border-radius:8px;'>
@@ -905,33 +897,63 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 """, unsafe_allow_html=True)
                 
             with t_det_3: 
-                st.write("Diagrama de arquitectura del puerto de comunicaciones... (Pendiente de mapeo visual)")
+                st.write("Diagrama de arquitectura del puerto de comunicaciones...")
                 
             with t_det_4:
-                # Gráfica Histórica de CA (Calcada de la imagen)
-                st.markdown("<h4 style='color:#2c3e50; font-size:16px; margin-top:10px;'>Análisis de Corriente Alterna (CA)</h4>", unsafe_allow_html=True)
+                # --- NUEVA INTERFAZ DE DATOS HISTÓRICOS (COMO LA FOTO) ---
+                st.markdown("<h4 style='color:#2c3e50; font-size:16px; margin-top:10px;'>Datos históricos</h4>", unsafe_allow_html=True)
                 
-                # Generamos datos fijos simulados para igualar la gráfica cuadrada de la imagen
+                # 1. Botones superiores
+                col_r1, col_r2, col_r3, col_r4 = st.columns([4, 2, 2, 2])
+                with col_r1:
+                    st.radio("Periodo", ["Día", "Semana", "Mes", "Año", "Total"], horizontal=True, label_visibility="collapsed")
+                with col_r2:
+                    st.button("Seleccionar parámetros", use_container_width=True)
+                with col_r3:
+                    st.button("Exportar", use_container_width=True)
+                with col_r4:
+                    st.date_input("Fecha", value=datetime.now(), label_visibility="collapsed")
+                    
+                st.markdown("<hr style='margin:10px 0; border-color:#eaeaea;'>", unsafe_allow_html=True)
+                
+                # 2. Plantillas del sistema
+                col_p1, col_p2 = st.columns([2, 8])
+                with col_p1:
+                    st.markdown("<p style='color:#7f8c8d; font-size:14px; margin-top:10px;'>Plantilla del<br>sistema:</p>", unsafe_allow_html=True)
+                with col_p2:
+                    st.radio("Plantilla", ["Datos de CA", "Corriente DC", "Voltaje DC", "Corriente CC y voltaje CC"], horizontal=True, label_visibility="collapsed")
+                    
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                # 3. Gráfica Histórica de CA Mejorada (Con Amperios a la derecha)
                 x_time = pd.date_range(start="00:00", end="21:00", freq="15min")
                 y_vol_R = [121.3 if (6 <= t.hour <= 18) else 0 for t in x_time]
                 y_vol_S = [121.2 if (6 <= t.hour <= 18) else 0 for t in x_time]
                 y_vol_T = [121.3 if (6 <= t.hour <= 18) else 0 for t in x_time]
                 y_freq = [60.0 if (6 <= t.hour <= 18) else 0 for t in x_time]
                 
-                fig_ac = go.Figure()
-                # Voltajes (Áreas cuadradas como en la foto)
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_R, mode='lines', line=dict(color='#3498db', shape='hv'), name='Voltaje CA R/U/A'))
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_S, mode='lines', line=dict(color='#e74c3c', shape='hv'), name='Voltaje CA S/V/B'))
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_T, fill='tozeroy', mode='lines', line=dict(color='#9b59b6', shape='hv'), name='Voltaje CA T/W/C'))
-                # Frecuencia (Línea morada superior)
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_freq, mode='lines', line=dict(color='#8e44ad', width=3, shape='hv'), name='Frecuencia R salida CA'))
+                y_curr_R = [7.5 if (6 <= t.hour <= 18) else 0 for t in x_time]
+                y_curr_S = [7.9 if (6 <= t.hour <= 18) else 0 for t in x_time]
+                y_curr_T = [0.2 if (6 <= t.hour <= 18) else 0 for t in x_time]
+                
+                fig_ac = make_subplots(specs=[[{"secondary_y": True}]])
+                
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_R, mode='lines', line=dict(color='#3498db', shape='hv'), name='Voltaje CA R/U/A'), secondary_y=False)
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_S, mode='lines', line=dict(color='#e74c3c', shape='hv'), name='Voltaje CA S/V/B'), secondary_y=False)
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_T, fill='tozeroy', mode='lines', line=dict(color='#9b59b6', shape='hv'), name='Voltaje CA T/W/C'), secondary_y=False)
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_freq, mode='lines', line=dict(color='#8e44ad', width=3, shape='hv'), name='Frecuencia R salida CA'), secondary_y=False)
+                
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_curr_R, mode='lines', line=dict(color='#2ecc71', shape='hv'), name='Corriente CA R/U/A'), secondary_y=True)
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_curr_S, mode='lines', line=dict(color='#f1c40f', shape='hv'), name='Corriente CA S/V/B'), secondary_y=True)
+                fig_ac.add_trace(go.Scatter(x=x_time, y=y_curr_T, mode='lines', line=dict(color='#1abc9c', shape='hv'), name='Corriente CA T/W/C'), secondary_y=True)
                 
                 fig_ac.update_layout(
                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5),
-                    margin=dict(l=10, r=10, t=10, b=10), height=350
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
+                    margin=dict(l=10, r=10, t=10, b=10), height=400
                 )
-                fig_ac.update_yaxes(title_text="V / Hz", range=[0, 150], gridcolor="#f0f0f0")
+                fig_ac.update_yaxes(title_text="Hz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;V", range=[0, 150], gridcolor="#f0f0f0", secondary_y=False)
+                fig_ac.update_yaxes(title_text="A", range=[0, 10], showgrid=False, secondary_y=True)
                 fig_ac.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f0f0f0")
                 
                 st.plotly_chart(fig_ac, use_container_width=True)
