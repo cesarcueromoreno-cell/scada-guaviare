@@ -694,68 +694,61 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     with t_disp:
         st.markdown("### 🔌 Lista de Dispositivos Registrados")
         
-        # --- AQUÍ ESTÁ LA CORRECCIÓN DEL ERROR ---
         sn_logger = str(p.get('datalogger', 'N/A'))
         marca_inv = str(p.get('inversores', 'Genérico'))
         
-        rows_html = f"""
-        <tr style="border-bottom: 1px solid #ecf0f1;">
-            <td style="padding: 12px;"><b>Inversor {marca_inv}</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
-            <td style="padding: 12px;">Inversor</td>
-            <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
-            <td style="padding: 12px; color: #27ae60;">Normal</td>
-            <td style="padding: 12px;">{round(d['solar']/1000, 2)}</td>
-            <td style="padding: 12px;">{d['hoy']}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #ecf0f1;">
-            <td style="padding: 12px;"><b>Datalogger WiFi</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
-            <td style="padding: 12px;">Registrador</td>
-            <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
-            <td style="padding: 12px; color: #27ae60;">Normal</td>
-            <td style="padding: 12px;">--</td>
-            <td style="padding: 12px;">--</td>
-        </tr>
-        """
+        rows_html = f"""<tr style="border-bottom: 1px solid #ecf0f1;">
+    <td style="padding: 12px;"><b>Inversor {marca_inv}</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
+    <td style="padding: 12px;">Inversor</td>
+    <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
+    <td style="padding: 12px; color: #27ae60;">Normal</td>
+    <td style="padding: 12px;">{round(d['solar']/1000, 2)}</td>
+    <td style="padding: 12px;">{d['hoy']}</td>
+</tr>
+<tr style="border-bottom: 1px solid #ecf0f1;">
+    <td style="padding: 12px;"><b>Datalogger WiFi</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
+    <td style="padding: 12px;">Registrador</td>
+    <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
+    <td style="padding: 12px; color: #27ae60;">Normal</td>
+    <td style="padding: 12px;">--</td>
+    <td style="padding: 12px;">--</td>
+</tr>"""
         
         if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
             rows_html += f"""
-            <tr style="border-bottom: 1px solid #ecf0f1;">
-                <td style="padding: 12px;"><b>Banco de Baterías Litio</b><br><span style="color:#7f8c8d; font-size:12px;">BAT-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></td>
-                <td style="padding: 12px;">Batería</td>
-                <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
-                <td style="padding: 12px; color: #27ae60;">Normal</td>
-                <td style="padding: 12px;">--</td>
-                <td style="padding: 12px;">--</td>
-            </tr>
-            """
+<tr style="border-bottom: 1px solid #ecf0f1;">
+    <td style="padding: 12px;"><b>Banco de Baterías Litio</b><br><span style="color:#7f8c8d; font-size:12px;">BAT-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></td>
+    <td style="padding: 12px;">Batería</td>
+    <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
+    <td style="padding: 12px; color: #27ae60;">Normal</td>
+    <td style="padding: 12px;">--</td>
+    <td style="padding: 12px;">--</td>
+</tr>"""
             
         if smart_meter_actual != "Ninguno":
             rows_html += f"""
-            <tr style="border-bottom: 1px solid #ecf0f1;">
-                <td style="padding: 12px;"><b>{smart_meter_actual}</b><br><span style="color:#7f8c8d; font-size:12px;">MTR-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></td>
-                <td style="padding: 12px;">Medidor</td>
-                <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
-                <td style="padding: 12px; color: #27ae60;">Normal</td>
-                <td style="padding: 12px;">--</td>
-                <td style="padding: 12px;">--</td>
-            </tr>
-            """
+<tr style="border-bottom: 1px solid #ecf0f1;">
+    <td style="padding: 12px;"><b>{smart_meter_actual}</b><br><span style="color:#7f8c8d; font-size:12px;">MTR-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></td>
+    <td style="padding: 12px;">Medidor</td>
+    <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
+    <td style="padding: 12px; color: #27ae60;">Normal</td>
+    <td style="padding: 12px;">--</td>
+    <td style="padding: 12px;">--</td>
+</tr>"""
             
-        html_table = f"""
-        <div style="background-color: white; border-radius: 8px; border: 1px solid #eaeaea; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-top: 10px;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; color: #2c3e50; font-size: 14px;">
-                <tr style="border-bottom: 2px solid #ecf0f1; background-color: #f8f9fa;">
-                    <th style="padding: 12px; color: #7f8c8d;">Nombre/SN</th>
-                    <th style="padding: 12px; color: #7f8c8d;">Tipo</th>
-                    <th style="padding: 12px; color: #7f8c8d;">Estado</th>
-                    <th style="padding: 12px; color: #7f8c8d;">Actuación</th>
-                    <th style="padding: 12px; color: #7f8c8d;">Potencia solar(kW)</th>
-                    <th style="padding: 12px; color: #7f8c8d;">Producción diaria(kWh)</th>
-                </tr>
-                {rows_html}
-            </table>
-        </div>
-        """
+        html_table = f"""<div style="background-color: white; border-radius: 8px; border: 1px solid #eaeaea; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-top: 10px;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; color: #2c3e50; font-size: 14px;">
+        <tr style="border-bottom: 2px solid #ecf0f1; background-color: #f8f9fa;">
+            <th style="padding: 12px; color: #7f8c8d;">Nombre/SN</th>
+            <th style="padding: 12px; color: #7f8c8d;">Tipo</th>
+            <th style="padding: 12px; color: #7f8c8d;">Estado</th>
+            <th style="padding: 12px; color: #7f8c8d;">Actuación</th>
+            <th style="padding: 12px; color: #7f8c8d;">Potencia solar(kW)</th>
+            <th style="padding: 12px; color: #7f8c8d;">Producción diaria(kWh)</th>
+        </tr>
+        {rows_html}
+    </table>
+</div>"""
         st.markdown(html_table, unsafe_allow_html=True)
             
     if t_ctrl:
