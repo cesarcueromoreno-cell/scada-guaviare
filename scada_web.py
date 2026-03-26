@@ -325,6 +325,15 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
 # ==========================================
 # 7. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
 # ==========================================
+
+# Simulación subida de imagen para no colapsar la DB en desarrollo
+def subir_imagen_simulado(uploaded_file):
+    if uploaded_file is not None:
+        with st.spinner("Procesando imagen local..."):
+            time.sleep(1) 
+            return "https://images.unsplash.com/photo-1508514177221-188b1c77eca0?auto=format&fit=crop&w=800&q=80" 
+    return ""
+
 def get_data(pl):
     cap_val = pl.get("capacidad", "5")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
@@ -508,13 +517,28 @@ elif menu == "🌐 Panorama General":
         p_edit = plantas_permitidas[idx]
         st.markdown(f"<h3>✏️ Editar Parámetros e Imagen: {p_edit['nombre']}</h3>", unsafe_allow_html=True)
         
+        # --- MODULO DE IMAGEN RECUPERADO Y MEJORADO (PC Y URL) ---
         img_url_final = p_edit.get('imagen_url', '')
-        with st.expander("🖼️ Gestionar Imagen de la Planta (Enlace URL)", expanded=True):
-            st.markdown("<span style='color:#7f8c8d; font-size:13px;'>Pegue la URL de la imagen de la planta. Se recomienda alojarla en servicios como Imgur o similares.</span>", unsafe_allow_html=True)
-            img_url_final = st.text_input("URL de la imagen", p_edit.get('imagen_url', ''), placeholder="https://ejemplo.com/imagen.jpg")
-            if img_url_final:
-                try: st.image(img_url_final, width=200)
-                except: st.error("⚠️ No se pudo cargar la vista previa de la URL.")
+        with st.expander("🖼️ Gestionar Imagen de la Planta", expanded=True):
+            modo_img = st.radio("Método de subida", ["Dejar imagen actual", "Subir archivo desde PC", "Pegar enlace URL en línea"], horizontal=True, key="modo_edit")
+            
+            if modo_img == "Subir archivo desde PC":
+                st.info("💡 En esta versión de prueba, la foto que subas se reemplazará por una imagen demostrativa para no saturar la base de datos.")
+                uploaded_file = st.file_uploader("Elija una foto o diagrama (PNG, JPG)", type=['png', 'jpg', 'jpeg'], key="file_edit")
+                if uploaded_file:
+                    st.image(uploaded_file, caption="Su imagen (Vista previa local)", width=200)
+                    if st.button("Confirmar subida", key="btn_conf_edit"):
+                        img_url_final = subir_imagen_simulado(uploaded_file)
+                        st.success("✅ Imagen simulada cargada. ¡Guarde los cambios abajo!")
+            
+            elif modo_img == "Pegar enlace URL en línea":
+                img_url_final = st.text_input("Pegue la URL de la imagen aquí", p_edit.get('imagen_url', ''), placeholder="https://ejemplo.com/imagen.jpg", key="url_edit")
+                if img_url_final:
+                    try: st.image(img_url_final, caption="Vista previa de URL", width=200)
+                    except: st.error("⚠️ No se pudo cargar la vista previa de la URL.")
+
+            elif modo_img == "Dejar imagen actual" and img_url_final:
+                 st.image(img_url_final, caption="Imagen actual", width=200)
 
         with st.form("edit"):
             c1, c2, c3 = st.columns([2, 2, 1])
@@ -544,13 +568,25 @@ elif menu == "🌐 Panorama General":
     if st.session_state.get("mostrar_crear"):
         st.markdown("<h3>➕ Crear Nueva Planta</h3>", unsafe_allow_html=True)
         
+        # --- MODULO DE IMAGEN RECUPERADO PARA CREAR ---
         img_url_crear = ""
-        with st.expander("🖼️ Añadir Imagen de la Planta (Enlace URL)", expanded=True):
-            st.markdown("<span style='color:#7f8c8d; font-size:13px;'>Pegue la URL de la imagen de la planta.</span>", unsafe_allow_html=True)
-            img_url_crear = st.text_input("URL de la imagen", placeholder="https://ejemplo.com/imagen.jpg", key="url_crear")
-            if img_url_crear:
-                try: st.image(img_url_crear, width=200)
-                except: st.error("⚠️ No se pudo cargar la vista previa.")
+        with st.expander("🖼️ Añadir Imagen de la Planta (Opcional)", expanded=True):
+            modo_img_crear = st.radio("Método de subida", ["Ninguna", "Subir archivo desde PC", "Pegar enlace URL en línea"], horizontal=True, key="modo_crear")
+            
+            if modo_img_crear == "Subir archivo desde PC":
+                st.info("💡 En esta versión de prueba, la foto que subas se reemplazará por una imagen demostrativa para no saturar la base de datos.")
+                uploaded_file_crear = st.file_uploader("Elija una foto o diagrama (PNG, JPG)", type=['png', 'jpg', 'jpeg'], key="file_crear")
+                if uploaded_file_crear:
+                    st.image(uploaded_file_crear, caption="Su imagen (Vista previa local)", width=200)
+                    if st.button("Confirmar subida", key="btn_conf_crear"):
+                        img_url_crear = subir_imagen_simulado(uploaded_file_crear)
+                        st.success("✅ Imagen simulada cargada. Puede guardar la planta.")
+            
+            elif modo_img_crear == "Pegar enlace URL en línea":
+                img_url_crear = st.text_input("Pegue la URL de la imagen aquí", placeholder="https://ejemplo.com/imagen.jpg", key="url_crear")
+                if img_url_crear:
+                    try: st.image(img_url_crear, caption="Vista previa de URL", width=200)
+                    except: st.error("⚠️ No se pudo cargar la vista previa.")
 
         with st.form("crear_planta_form"):
             c1, c2 = st.columns(2)
@@ -667,7 +703,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         t_ctrl, t_om = None, None
     
     with t_graf:
-        # --- VUELVE LA GRÁFICA GIGANTE A SU ESPACIO ---
         col_grafica, col_flujo = st.columns([7, 3])
         with col_grafica:
             st.markdown("<div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea;'>", unsafe_allow_html=True)
@@ -826,9 +861,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     col6.write("--")
                 st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
-        # ==========================================
-        # RADIOGRAFÍA DEL INVERSOR
-        # ==========================================
         elif st.session_state["ver_detalle_inv"]:
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
                 st.session_state["ver_detalle_inv"] = False
@@ -1002,7 +1034,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 battery_html = ""
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 80px;'><span style='color:#bdc3c7;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
+<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
 <td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
@@ -1088,9 +1120,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 
                 st.plotly_chart(fig_ac, use_container_width=True)
 
-        # ==========================================
-        # PANTALLA: RADIOGRAFÍA DEL REGISTRADOR
-        # ==========================================
         elif st.session_state["ver_detalle_logger"]:
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
