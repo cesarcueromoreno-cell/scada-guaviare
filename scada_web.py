@@ -81,27 +81,7 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
 # ==========================================
-# 3. MANEJO DE VÍNCULOS Y PARÁMETROS (INTERACTIVIDAD)
-# ==========================================
-if "delete" in st.query_params:
-    try:
-        idx = int(st.query_params["delete"])
-        eliminar_planta(idx)
-        st.query_params.clear()
-    except: pass
-if "edit" in st.query_params:
-    try:
-        idx = int(st.query_params["edit"])
-        st.session_state["editando_planta"] = idx
-        st.query_params.clear()
-    except: pass
-# AQUÍ CAPTURAMOS EL CLIC DEL BOTÓN INVERSOR DESDE LA TABLA
-if "view_inv" in st.query_params:
-    st.session_state["ver_detalle_inv"] = True
-    st.query_params.clear()
-
-# ==========================================
-# 4. BASE DE DATOS EN GOOGLE SHEETS
+# 3. BASE DE DATOS EN GOOGLE SHEETS
 # ==========================================
 @st.cache_resource(ttl=600)
 def init_gsheets():
@@ -252,8 +232,21 @@ def eliminar_mantenimiento(planta, indice):
                     count += 1
         except: pass
 
+if "delete" in st.query_params:
+    try:
+        idx = int(st.query_params["delete"])
+        eliminar_planta(idx)
+        st.query_params.clear()
+    except: pass
+if "edit" in st.query_params:
+    try:
+        idx = int(st.query_params["edit"])
+        st.session_state["editando_planta"] = idx
+        st.query_params.clear()
+    except: pass
+
 # ==========================================
-# 5. LOGIN
+# 4. LOGIN
 # ==========================================
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MONISOLAR APP</h1>", unsafe_allow_html=True)
@@ -289,7 +282,7 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 # ==========================================
-# 6. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
+# 5. FILTRADO DE SEGURIDAD Y NAVEGACIÓN
 # ==========================================
 todas_las_plantas = cargar_plantas()
 
@@ -319,7 +312,7 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.rerun()
 
 # ==========================================
-# 7. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
+# 6. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
 # ==========================================
 def get_data(pl):
     cap_val = pl.get("capacidad", "5")
@@ -445,7 +438,7 @@ def generar_pdf(planta, datos):
     return pdf_bytes
 
 # ==========================================
-# 8. VISTAS (ADMINISTRADOR Y CLIENTE)
+# 7. VISTAS (ADMINISTRADOR Y CLIENTE)
 # ==========================================
 
 OPCIONES_SISTEMA = ["Híbrido", "On-Grid", "Off-Grid"]
@@ -685,61 +678,80 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             
     with t_disp:
         if not st.session_state["ver_detalle_inv"]:
+            # ==========================================
+            # NUEVA TABLA NATIVA DE DISPOSITIVOS
+            # ==========================================
             st.markdown("### 🔌 Lista de Dispositivos Registrados")
-            # ==========================================
-            # EL TRUCO: BOTÓN "INVERSOR" COMO HIPERVÍNCULO INTERNO
-            # ==========================================
-            rows_html = f"""<tr style="border-bottom: 1px solid #ecf0f1;">
-        <td style="padding: 12px;"><b>Inversor {marca_inv}</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
-        <td style="padding: 12px;"><a href="?view_inv=true" target="_self" style="background-color: #3498db; color: white; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Inversor 🔍</a></td>
-        <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
-        <td style="padding: 12px; color: #27ae60;">Normal</td>
-        <td style="padding: 12px;">{round(d['solar']/1000, 2)}</td>
-        <td style="padding: 12px;">{d['hoy']}</td>
-    </tr>
-    <tr style="border-bottom: 1px solid #ecf0f1;">
-        <td style="padding: 12px;"><b>Datalogger WiFi</b><br><span style="color:#7f8c8d; font-size:12px;">{sn_logger}</span></td>
-        <td style="padding: 12px;">Registrador</td>
-        <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
-        <td style="padding: 12px; color: #27ae60;">Normal</td>
-        <td style="padding: 12px;">--</td>
-        <td style="padding: 12px;">--</td>
-    </tr>"""
+            st.markdown("""
+            <style>
+            .div-header { background-color: #f8f9fa; padding: 12px; border-radius: 5px 5px 0 0; border: 1px solid #eaeaea; border-bottom: none; display: flex; font-weight: bold; color: #7f8c8d; font-size: 14px; align-items: center; }
+            .div-row { display: flex; align-items: center; padding: 10px 12px; border: 1px solid #eaeaea; border-top: none; background: white; font-size: 14px; color: #2c3e50; }
+            .div-col-1 { flex: 2; } .div-col-2 { flex: 1.5; } .div-col-3 { flex: 1; } .div-col-4 { flex: 1; } .div-col-5 { flex: 1.5; } .div-col-6 { flex: 1.5; } .div-col-7 { flex: 1; }
+            </style>
+            <div class="div-header">
+                <div class="div-col-1">Nombre/SN</div>
+                <div class="div-col-2">Tipo</div>
+                <div class="div-col-3">Estado</div>
+                <div class="div-col-4">Actuación</div>
+                <div class="div-col-5">Pot. solar(kW)</div>
+                <div class="div-col-6">Prod. diaria(kWh)</div>
+                <div class="div-col-7">Acción</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Fila Inversor (Nativa con botón real)
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 1, 1, 1.5, 1.5, 1])
+            with st.container():
+                col1.markdown(f"<div style='padding:10px 0;'><b>Inversor {marca_inv}</b><br><span style='color:#7f8c8d; font-size:12px;'>{sn_logger}</span></div>", unsafe_allow_html=True)
+                col2.markdown("<div style='padding:10px 0;'>Inversor</div>", unsafe_allow_html=True)
+                col3.markdown("<div style='padding:10px 0; color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
+                col4.markdown("<div style='padding:10px 0; color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
+                col5.markdown(f"<div style='padding:10px 0;'>{round(d['solar']/1000, 2)}</div>", unsafe_allow_html=True)
+                col6.markdown(f"<div style='padding:10px 0;'>{d['hoy']}</div>", unsafe_allow_html=True)
+                st.markdown("<div style='margin-top: -30px;'>", unsafe_allow_html=True) # Ajuste visual
+                if col7.button("🔍 Ver", key="btn_inv_diag", type="primary", use_container_width=True):
+                    st.session_state["ver_detalle_inv"] = True
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
+
+            # Fila Datalogger
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 1, 1, 1.5, 1.5, 1])
+            with st.container():
+                col1.markdown(f"<div style='padding:10px 0;'><b>Datalogger WiFi</b><br><span style='color:#7f8c8d; font-size:12px;'>{sn_logger}</span></div>", unsafe_allow_html=True)
+                col2.markdown("<div style='padding:10px 0;'>Registrador</div>", unsafe_allow_html=True)
+                col3.markdown("<div style='padding:10px 0; color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
+                col4.markdown("<div style='padding:10px 0; color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
+                col5.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
+                col6.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
+                col7.empty()
+            st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
+
+            # Fila Batería (Condicional)
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                rows_html += f"""
-    <tr style="border-bottom: 1px solid #ecf0f1;">
-        <td style="padding: 12px;"><b>Banco de Baterías Litio</b><br><span style="color:#7f8c8d; font-size:12px;">BAT-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></td>
-        <td style="padding: 12px;">Batería</td>
-        <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
-        <td style="padding: 12px; color: #27ae60;">Normal</td>
-        <td style="padding: 12px;">--</td>
-        <td style="padding: 12px;">--</td>
-    </tr>"""
+                col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 1, 1, 1.5, 1.5, 1])
+                with st.container():
+                    col1.markdown(f"<div style='padding:10px 0;'><b>Banco Baterías Litio</b><br><span style='color:#7f8c8d; font-size:12px;'>BAT-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></div>", unsafe_allow_html=True)
+                    col2.markdown("<div style='padding:10px 0;'>Batería</div>", unsafe_allow_html=True)
+                    col3.markdown("<div style='padding:10px 0; color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
+                    col4.markdown("<div style='padding:10px 0; color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
+                    col5.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
+                    col6.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
+                    col7.empty()
+                st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
+
+            # Fila Medidor (Condicional)
             if smart_meter_actual != "Ninguno":
-                rows_html += f"""
-    <tr style="border-bottom: 1px solid #ecf0f1;">
-        <td style="padding: 12px;"><b>{smart_meter_actual}</b><br><span style="color:#7f8c8d; font-size:12px;">MTR-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></td>
-        <td style="padding: 12px;">Medidor</td>
-        <td style="padding: 12px; color: #27ae60; font-weight: bold;">🟢 En línea</td>
-        <td style="padding: 12px; color: #27ae60;">Normal</td>
-        <td style="padding: 12px;">--</td>
-        <td style="padding: 12px;">--</td>
-    </tr>"""
-            html_table = f"""<div style="background-color: white; border-radius: 8px; border: 1px solid #eaeaea; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-top: 10px;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; color: #2c3e50; font-size: 14px;">
-            <tr style="border-bottom: 2px solid #ecf0f1; background-color: #f8f9fa;">
-                <th style="padding: 12px; color: #7f8c8d;">Nombre/SN</th>
-                <th style="padding: 12px; color: #7f8c8d;">Tipo</th>
-                <th style="padding: 12px; color: #7f8c8d;">Estado</th>
-                <th style="padding: 12px; color: #7f8c8d;">Actuación</th>
-                <th style="padding: 12px; color: #7f8c8d;">Potencia solar(kW)</th>
-                <th style="padding: 12px; color: #7f8c8d;">Producción diaria(kWh)</th>
-            </tr>
-            {rows_html}
-        </table>
-    </div>"""
-            st.markdown(html_table, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
+                col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 1, 1, 1.5, 1.5, 1])
+                with st.container():
+                    col1.markdown(f"<div style='padding:10px 0;'><b>{smart_meter_actual}</b><br><span style='color:#7f8c8d; font-size:12px;'>MTR-{sn_logger[-4:] if len(sn_logger) > 4 else '001'}</span></div>", unsafe_allow_html=True)
+                    col2.markdown("<div style='padding:10px 0;'>Medidor</div>", unsafe_allow_html=True)
+                    col3.markdown("<div style='padding:10px 0; color:#27ae60; font-weight:bold;'>🟢 En línea</div>", unsafe_allow_html=True)
+                    col4.markdown("<div style='padding:10px 0; color:#27ae60;'>Normal</div>", unsafe_allow_html=True)
+                    col5.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
+                    col6.markdown("<div style='padding:10px 0;'>--</div>", unsafe_allow_html=True)
+                    col7.empty()
+                st.markdown("<hr style='margin:0; padding:0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
 
         # ==========================================
         # RADIOGRAFÍA DEL INVERSOR (Se abre al darle al botón interno)
@@ -816,7 +828,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                             <tr><td style='padding:8px;'>T</td><td>121.30 V</td><td>0.20 A</td><td>--</td></tr>
                         </table>
                         """, unsafe_allow_html=True)
-                    st.markdown("<hr style='margin:10px 0; border-color:#eaeaea;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin-top:15px; border-color:#eaeaea;'>", unsafe_allow_html=True)
                     st.markdown(f"<span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>PV daily power generation: <b>{d['hoy']} kWh</b></span> <span style='color:#7f8c8d; font-size:13px; margin-right:20px;'>Power factor: <b>0.00</b></span> <span style='color:#7f8c8d; font-size:13px;'>AC Voltage Max: <b>150.00 V</b></span>", unsafe_allow_html=True)
 
                 with st.expander("Red eléctrica", expanded=False):
