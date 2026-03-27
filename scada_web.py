@@ -743,26 +743,45 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 hoverlabel=dict(bgcolor="white", font=dict(size=12, family="Arial"))
             )
             
-            fig.update_yaxes(title_text="Potencia (kW)", secondary_y=False, gridcolor="#f1f1f1", color="#2c3e50", titlefont=dict(size=12))
-            fig.update_yaxes(title_text="SOC (%)", secondary_y=True, range=[0, 105], showgrid=False, color="#2c3e50", titlefont=dict(size=12))
-            fig.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f1f1f1", color="#2c3e50", titlefont=dict(size=12))
+            fig.update_yaxes(
+                title_text="Potencia (kW)", 
+                secondary_y=False, 
+                gridcolor="#f1f1f1", 
+                title_font=dict(size=12, color="#2c3e50"), 
+                tickfont=dict(color="#2c3e50")
+            )
+            fig.update_yaxes(
+                title_text="SOC (%)", 
+                secondary_y=True, 
+                range=[0, 105], 
+                showgrid=False, 
+                title_font=dict(size=12, color="#2c3e50"), 
+                tickfont=dict(color="#2c3e50")
+            )
+            fig.update_xaxes(
+                tickformat="%H:%M", 
+                dtick=3 * 3600000, 
+                gridcolor="#f1f1f1", 
+                title_font=dict(size=12, color="#2c3e50"), 
+                tickfont=dict(color="#2c3e50")
+            )
             
-            # --- SOLUCIÓN SEGURA PARA ENCONTRAR PICOS (idxmax) ---
+            # --- SOLUCIÓN SEGURA PARA ENCONTRAR PICOS (idxmax) SIN STR() ---
             idx_max_gen = df_historico['Potencia Solar'].idxmax()
             max_gen = float(df_historico.loc[idx_max_gen, 'Potencia Solar'])
-            max_gen_time = str(df_historico.loc[idx_max_gen, 'timestamp'])
+            max_gen_time = df_historico.loc[idx_max_gen, 'timestamp']
             
             fig.add_annotation(x=max_gen_time, y=max_gen, text=f"Máxima Generación: {max_gen:.1f} kW", 
                                showarrow=True, arrowhead=2, arrowcolor="#f1c40f", 
-                               bgcolor="white", bordercolor="#f1c40f", borderwidth=1, font=dict(color="#f1c40f", size=10))
+                               bgcolor="white", bordercolor="#f1c40f", borderwidth=1, borderpad=4, font=dict(color="#f1c40f", size=10))
 
             idx_max_con = df_historico['Consumo'].idxmax()
             max_con = float(df_historico.loc[idx_max_con, 'Consumo'])
-            max_con_time = str(df_historico.loc[idx_max_con, 'timestamp'])
+            max_con_time = df_historico.loc[idx_max_con, 'timestamp']
             
             fig.add_annotation(x=max_con_time, y=max_con, text=f"Pico de Consumo: {max_con:.1f} kW", 
                                showarrow=True, arrowhead=2, arrowcolor="#e74c3c", 
-                               bgcolor="white", bordercolor="#e74c3c", borderwidth=1, font=dict(color="#e74c3c", size=10))
+                               bgcolor="white", bordercolor="#e74c3c", borderwidth=1, borderpad=4, font=dict(color="#e74c3c", size=10))
 
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
@@ -1245,9 +1264,30 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
                     margin=dict(l=10, r=10, t=10, b=10), height=400
                 )
-                fig_ac.update_yaxes(title_text="Hz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;V", range=[0, 150], gridcolor="#f0f0f0", secondary_y=False)
-                fig_ac.update_yaxes(title_text="A", range=[0, 10], showgrid=False, secondary_y=True)
-                fig_ac.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f0f0f0")
+                
+                fig_ac.update_yaxes(
+                    title_text="Hz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;V", 
+                    range=[0, 150], 
+                    gridcolor="#f0f0f0", 
+                    secondary_y=False,
+                    title_font=dict(size=12, color="#2c3e50"), 
+                    tickfont=dict(color="#2c3e50")
+                )
+                fig_ac.update_yaxes(
+                    title_text="A", 
+                    range=[0, 10], 
+                    showgrid=False, 
+                    secondary_y=True,
+                    title_font=dict(size=12, color="#2c3e50"), 
+                    tickfont=dict(color="#2c3e50")
+                )
+                fig_ac.update_xaxes(
+                    tickformat="%H:%M", 
+                    dtick=3 * 3600000, 
+                    gridcolor="#f0f0f0",
+                    title_font=dict(size=12, color="#2c3e50"), 
+                    tickfont=dict(color="#2c3e50")
+                )
                 
                 st.plotly_chart(fig_ac, use_container_width=True)
 
