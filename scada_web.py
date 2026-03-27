@@ -56,6 +56,7 @@ div[data-testid="stButton"] button[kind="primary"] p { color: white !important; 
 div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
 div[data-testid="stButton"] button[kind="secondary"] { border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
 div[data-testid="stButton"] button[kind="secondary"] p { color: #2d8cf0 !important; }
+/* Estilos para la radiografía */
 .diag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; font-size: 13px; color: #2c3e50; padding: 10px; }
 .diag-grid div { margin-bottom: 10px; }
 .diag-lbl { color: #7f8c8d; display: block; margin-bottom: 2px; }
@@ -739,37 +740,17 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5, font=dict(size=11)),
                 margin=dict(l=10, r=10, t=40, b=10), 
                 height=450,
-                hovermode="x unified",
-                hoverlabel=dict(bgcolor="white", font=dict(size=12, family="Arial"))
+                hovermode="x unified"
             )
             
-            fig.update_yaxes(
-                title_text="Potencia (kW)", 
-                secondary_y=False, 
-                gridcolor="#f1f1f1", 
-                title_font=dict(size=12, color="#2c3e50"), 
-                tickfont=dict(color="#2c3e50")
-            )
-            fig.update_yaxes(
-                title_text="SOC (%)", 
-                secondary_y=True, 
-                range=[0, 105], 
-                showgrid=False, 
-                title_font=dict(size=12, color="#2c3e50"), 
-                tickfont=dict(color="#2c3e50")
-            )
-            fig.update_xaxes(
-                tickformat="%H:%M", 
-                dtick=3 * 3600000, 
-                gridcolor="#f1f1f1", 
-                title_font=dict(size=12, color="#2c3e50"), 
-                tickfont=dict(color="#2c3e50")
-            )
+            fig.update_yaxes(title_text="Potencia (kW)", secondary_y=False, gridcolor="#f1f1f1", titlefont=dict(size=12, color="#2c3e50"), tickfont=dict(color="#2c3e50"))
+            fig.update_yaxes(title_text="SOC (%)", secondary_y=True, range=[0, 105], showgrid=False, titlefont=dict(size=12, color="#2c3e50"), tickfont=dict(color="#2c3e50"))
+            fig.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f1f1f1", titlefont=dict(size=12, color="#2c3e50"), tickfont=dict(color="#2c3e50"))
             
-            # --- SOLUCIÓN SEGURA PARA ENCONTRAR PICOS (idxmax) SIN STR() ---
+            # --- SOLUCIÓN SEGURA PARA ENCONTRAR PICOS SIN ERRORES ---
             idx_max_gen = df_historico['Potencia Solar'].idxmax()
             max_gen = float(df_historico.loc[idx_max_gen, 'Potencia Solar'])
-            max_gen_time = df_historico.loc[idx_max_gen, 'timestamp']
+            max_gen_time = df_historico.loc[idx_max_gen, 'timestamp'] 
             
             fig.add_annotation(x=max_gen_time, y=max_gen, text=f"Máxima Generación: {max_gen:.1f} kW", 
                                showarrow=True, arrowhead=2, arrowcolor="#f1c40f", 
@@ -777,7 +758,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 
             idx_max_con = df_historico['Consumo'].idxmax()
             max_con = float(df_historico.loc[idx_max_con, 'Consumo'])
-            max_con_time = df_historico.loc[idx_max_con, 'timestamp']
+            max_con_time = df_historico.loc[idx_max_con, 'timestamp'] 
             
             fig.add_annotation(x=max_con_time, y=max_con, text=f"Pico de Consumo: {max_con:.1f} kW", 
                                showarrow=True, arrowhead=2, arrowcolor="#e74c3c", 
@@ -788,111 +769,97 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 
         with col_flujo:
             pot_bat_val = d["solar"] - d["casa"]
-            color_solar = "#f39c12"
-            color_grid = "#e74c3c"
-            color_house = "#e74c3c"
-            color_bat = "#2ecc71" if d["soc"] > 20 else "#e74c3c"
 
-            dir_bat = "M 200 235 V 290 H 125" if pot_bat_val > 0 else "M 125 290 H 200 V 235"
-            dir_grid = "M 285 70 H 200 V 115"
-            if tipo_sistema_actual == "On-Grid" and pot_bat_val > 0:
-                dir_grid = "M 200 115 V 70 H 285"
+            # Line paths
+            line_solar = "M 80 100 V 145 H 160"
+            line_grid = "M 320 100 V 145 H 240"
+            line_bat = "M 80 200 V 165 H 160"
+            line_house = "M 240 165 H 320 V 200"
 
-            track_solar = "M 125 70 H 200 V 115"
-            track_house = "M 200 235 V 290 H 285"
-            track_grid = "M 285 70 H 200 V 115"
-            track_bat = "M 125 290 H 200 V 235"
-
-            svg_paths = f'''
-            <defs>
-              <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.1"/>
-              </filter>
-            </defs>
-            <path d="{track_solar}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>
-            <path d="{track_house}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>
+            svg_lines = f'''
+            <path d="{line_solar}" fill="none" stroke="#7f8c8d" stroke-width="2" stroke-dasharray="6,6" stroke-linecap="round"/>
+            <path d="{line_house}" fill="none" stroke="#7f8c8d" stroke-width="2" stroke-dasharray="6,6" stroke-linecap="round"/>
             '''
-            
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_paths += f'<path d="{track_grid}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>'
+                svg_lines += f'<path d="{line_grid}" fill="none" stroke="#7f8c8d" stroke-width="2" stroke-dasharray="6,6" stroke-linecap="round"/>'
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_paths += f'<path d="{track_bat}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>'
+                svg_lines += f'<path d="{line_bat}" fill="none" stroke="#7f8c8d" stroke-width="2" stroke-dasharray="6,6" stroke-linecap="round"/>'
 
-            svg_circles = f'''
-            <circle r="4" fill="{color_solar}"><animateMotion dur="1.5s" repeatCount="indefinite" path="{track_solar}" /></circle>
-            <circle r="4" fill="{color_house}"><animateMotion dur="1.5s" repeatCount="indefinite" path="{track_house}" /></circle>
-            '''
-            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_circles += f'<circle r="4" fill="#3498db"><animateMotion dur="2s" repeatCount="indefinite" path="{dir_grid}" /></circle>'
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_circles += f'<circle r="4" fill="{color_bat}"><animateMotion dur="2s" repeatCount="indefinite" path="{dir_bat}" /></circle>'
+            # Animation paths
+            path_solar = line_solar
+            path_house = line_house
+            path_bat = line_bat if pot_bat_val < 0 else "M 160 165 H 80 V 200"
+            path_grid = "M 320 100 V 145 H 240"
 
-            svg_inversor = f'''
-            <g filter="url(#shadow)">
-                <rect x="150" y="115" width="100" height="120" rx="8" fill="#ffffff" stroke="#bdc3c7" stroke-width="1"/>
-                <rect x="150" y="115" width="100" height="25" rx="8" fill="#2c3e50" />
-                <rect x="150" y="125" width="100" height="15" fill="#2c3e50" />
-                <rect x="165" y="148" width="70" height="40" rx="4" fill="#1e272e" />
-                <text x="200" y="165" text-anchor="middle" font-size="10" fill="#00d2d3" font-weight="bold">DEYE</text>
-                <text x="200" y="180" text-anchor="middle" font-size="8" fill="#ffffff">{tipo_sistema_actual}</text>
-                <circle cx="165" cy="127" r="3" fill="#2ecc71" />
-                <circle cx="175" cy="127" r="3" fill="#f1c40f" />
-                <circle cx="185" cy="127" r="3" fill="#e74c3c" />
-                <path d="M 165 200 v 25 M 175 200 v 25 M 185 200 v 25 M 195 200 v 25 M 205 200 v 25 M 215 200 v 25 M 225 200 v 25 M 235 200 v 25" stroke="#ecf0f1" stroke-width="2" stroke-linecap="round" />
-            </g>
-            '''
-
-            txt_meter = f'<text x="320" y="25" font-size="10" font-weight="bold" fill="#7f8c8d" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
-
-            svg_nodes = f'''
-            <g filter="url(#shadow)">
-                <circle cx="80" cy="70" r="35" fill="#ffffff" />
-                <image href="https://img.icons8.com/color/96/solar-panel.png" width="46" height="46" x="57" y="47" />
-            </g>
-            <rect x="40" y="115" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
-            <text x="80" y="131" font-size="12" font-weight="bold" fill="{color_solar}" text-anchor="middle">{d["solar"]} W</text>
-            
-            <g filter="url(#shadow)">
-                <circle cx="320" cy="290" r="35" fill="#ffffff" />
-                <image href="https://img.icons8.com/color/96/home.png" width="46" height="46" x="297" y="267" />
-            </g>
-            <rect x="280" y="335" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
-            <text x="320" y="351" font-size="12" font-weight="bold" fill="{color_house}" text-anchor="middle">{d["casa"]} W</text>
-            '''
-            
-            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_nodes += f'''
-                <g filter="url(#shadow)">
-                    <circle cx="320" cy="70" r="35" fill="#ffffff" />
-                    <image href="https://img.icons8.com/color/96/high-voltage.png" width="46" height="46" x="297" y="47" />
+            def make_particle(path, duration="2s"):
+                return f'''
+                <g>
+                    <animateMotion dur="{duration}" repeatCount="indefinite" path="{path}" />
+                    <circle cx="0" cy="0" r="7" fill="#f1c40f" stroke="#e67e22" stroke-width="1"/>
+                    <path d="M -2 -4 L -4 1 H -1 L -3 5 L 3 -1 H 0 Z" fill="#ffffff"/>
                 </g>
-                <rect x="280" y="115" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
-                <text x="320" y="131" font-size="12" font-weight="bold" fill="#3498db" text-anchor="middle">0 W</text>
+                '''
+            
+            svg_particles = make_particle(path_solar, "1.5s") + make_particle(path_house, "1.5s")
+            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+                svg_particles += make_particle(path_grid, "2s")
+            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+                svg_particles += make_particle(path_bat, "2s")
+
+            # Center Inverter
+            svg_inverter = f'''
+            <g transform="translate(160, 115)">
+                <rect x="0" y="0" width="80" height="80" rx="4" fill="#ffffff" stroke="#576574" stroke-width="3"/>
+                <rect x="0" y="0" width="80" height="15" rx="4" fill="#576574"/>
+                <rect x="0" y="8" width="80" height="7" fill="#576574"/>
+                <circle cx="15" cy="7.5" r="3" fill="#ffffff"/>
+                <circle cx="30" cy="7.5" r="3" fill="#ffffff"/>
+                <rect x="15" y="-6" width="12" height="6" rx="2" fill="#576574"/>
+                <rect x="53" y="-6" width="12" height="6" rx="2" fill="#576574"/>
+                <path d="M 45 25 L 35 45 H 45 L 35 65 L 60 35 H 45 Z" fill="#f1c40f" stroke="#e67e22" stroke-width="1"/>
+                <path d="M 10 25 H 30 M 10 35 H 30 M 10 45 H 30 M 10 55 H 30" stroke="#576574" stroke-width="3" stroke-linecap="round"/>
+            </g>
+            '''
+
+            # Nodes
+            svg_nodes = f'''
+            <text x="80" y="20" font-size="16" fill="#7f8c8d" text-anchor="middle">Producción</text>
+            <image href="https://img.icons8.com/color/96/solar-panel--v1.png" width="60" height="60" x="50" y="30" />
+            <text x="80" y="110" font-size="14" font-weight="bold" fill="#2c3e50" text-anchor="middle">{d["solar"]} W</text>
+
+            <image href="https://img.icons8.com/color/96/home.png" width="60" height="60" x="290" y="200" />
+            <text x="320" y="280" font-size="16" fill="#7f8c8d" text-anchor="middle">Consumo</text>
+            <text x="320" y="300" font-size="14" font-weight="bold" fill="#2c3e50" text-anchor="middle">{d["casa"]} W</text>
+            '''
+            
+            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+                txt_meter = f'<text x="320" y="130" font-size="10" font-weight="bold" fill="#95a5a6" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
+                svg_nodes += f'''
+                <text x="320" y="20" font-size="16" fill="#7f8c8d" text-anchor="middle">Red</text>
+                <image href="https://img.icons8.com/color/96/electrical-grid.png" width="60" height="60" x="290" y="30" />
+                <text x="320" y="110" font-size="14" font-weight="bold" fill="#2c3e50" text-anchor="middle">0 W</text>
                 {txt_meter}
                 '''
 
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 svg_nodes += f'''
-                <g filter="url(#shadow)">
-                    <circle cx="80" cy="290" r="35" fill="#ffffff" />
-                    <image href="https://img.icons8.com/color/96/car-battery.png" width="46" height="46" x="57" y="267" />
-                </g>
-                <rect x="35" y="335" width="90" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
-                <text x="80" y="351" font-size="12" font-weight="bold" fill="{color_bat}" text-anchor="middle">{abs(pot_bat_val)} W</text>
-                <text x="80" y="375" font-size="11" font-weight="bold" fill="{color_bat}" text-anchor="middle">SOC: {d["soc"]}%</text>
+                <image href="https://img.icons8.com/color/96/car-battery.png" width="60" height="60" x="50" y="200" />
+                <text x="80" y="280" font-size="16" fill="#7f8c8d" text-anchor="middle">Batería</text>
+                <text x="80" y="300" font-size="14" font-weight="bold" fill="#2c3e50" text-anchor="middle">{abs(pot_bat_val)} W</text>
+                <text x="80" y="320" font-size="12" fill="#95a5a6" text-anchor="middle">{d["soc"]}%</text>
                 '''
-                
+
             diagrama_svg = f"""
             <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #eaeaea; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);">
-                <svg viewBox="0 0 400 390" width="100%" style="max-width: 450px;">
-                    {svg_paths}
-                    {svg_circles}
-                    {svg_inversor}
+                <svg viewBox="0 0 400 330" width="100%" style="max-width: 450px;">
+                    {svg_lines}
+                    {svg_particles}
+                    {svg_inverter}
                     {svg_nodes}
                 </svg>
             </div>
             """
-            components.html(diagrama_svg, height=430)
+            components.html(diagrama_svg, height=360)
             
             st.markdown(f"""
             <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-top: 15px;">
@@ -1264,30 +1231,9 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
                     margin=dict(l=10, r=10, t=10, b=10), height=400
                 )
-                
-                fig_ac.update_yaxes(
-                    title_text="Hz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;V", 
-                    range=[0, 150], 
-                    gridcolor="#f0f0f0", 
-                    secondary_y=False,
-                    title_font=dict(size=12, color="#2c3e50"), 
-                    tickfont=dict(color="#2c3e50")
-                )
-                fig_ac.update_yaxes(
-                    title_text="A", 
-                    range=[0, 10], 
-                    showgrid=False, 
-                    secondary_y=True,
-                    title_font=dict(size=12, color="#2c3e50"), 
-                    tickfont=dict(color="#2c3e50")
-                )
-                fig_ac.update_xaxes(
-                    tickformat="%H:%M", 
-                    dtick=3 * 3600000, 
-                    gridcolor="#f0f0f0",
-                    title_font=dict(size=12, color="#2c3e50"), 
-                    tickfont=dict(color="#2c3e50")
-                )
+                fig_ac.update_yaxes(title_text="Hz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;V", range=[0, 150], gridcolor="#f0f0f0", secondary_y=False)
+                fig_ac.update_yaxes(title_text="A", range=[0, 10], showgrid=False, secondary_y=True)
+                fig_ac.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f0f0f0")
                 
                 st.plotly_chart(fig_ac, use_container_width=True)
 
@@ -1430,7 +1376,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 </div>
                 <span style='color:#7f8c8d; font-size:13px;'>{datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')}</span>
             </div>
-            <hr style='margin-top:0px; border-color:#eaeaea;'>
+            <hr style='margin:top:0px; border-color:#eaeaea;'>
             """, unsafe_allow_html=True)
             
             t_bat_1, t_bat_2, t_bat_3, t_bat_4 = st.tabs(["Detalles", "Alerta", "Arquitectura", "Datos históricos"])
@@ -1524,15 +1470,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </table>
 </div>"""
                 st.markdown(table_html, unsafe_allow_html=True)
-                
-            with t_bat_4:
-                st.markdown("""
-                <div style='text-align:center; padding: 40px 0;'>
-                    <img src="https://img.icons8.com/ios/100/ced6e0/document--v1.png" width="60"/>
-                    <p style='color:#7f8c8d; margin-top:10px; font-size:14px;'>Datos no disponibles</p>
-                </div>
-                """, unsafe_allow_html=True)
-
 
     if t_ctrl:
         with t_ctrl:
