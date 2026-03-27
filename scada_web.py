@@ -56,7 +56,6 @@ div[data-testid="stButton"] button[kind="primary"] p { color: white !important; 
 div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
 div[data-testid="stButton"] button[kind="secondary"] { border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
 div[data-testid="stButton"] button[kind="secondary"] p { color: #2d8cf0 !important; }
-/* Estilos para la radiografía */
 .diag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; font-size: 13px; color: #2c3e50; padding: 10px; }
 .diag-grid div { margin-bottom: 10px; }
 .diag-lbl { color: #7f8c8d; display: block; margin-bottom: 2px; }
@@ -742,18 +741,15 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 height=450,
                 hovermode="x unified",
                 hoverlabel=dict(bgcolor="white", font=dict(size=12, family="Arial")),
-                font=dict(color="#2c3e50") # CONFIGURACIÓN DE FUENTE GLOBAL SEGURA
+                font=dict(color="#2c3e50")
             )
             
-            # --- SE REMOVIERON LOS PARÁMETROS TICKFONT/TITLEFONT PROBLEMÁTICOS ---
             fig.update_yaxes(title_text="Potencia (kW)", secondary_y=False, gridcolor="#f1f1f1")
             fig.update_yaxes(title_text="SOC (%)", secondary_y=True, range=[0, 105], showgrid=False)
             fig.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f1f1f1")
             
-            # --- IDENTIFICADOR DE PICOS MATEMÁTICO BLINDADO ---
             idx_max_gen = df_historico['Potencia Solar'].idxmax()
             max_gen = float(df_historico.loc[idx_max_gen, 'Potencia Solar'])
-            # No convertimos a string para que Plotly respete el formato de fecha interno
             max_gen_time = df_historico.loc[idx_max_gen, 'timestamp'] 
             
             fig.add_annotation(x=max_gen_time, y=max_gen, text=f"Máxima Generación: {max_gen:.1f} kW", 
@@ -773,106 +769,90 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 
         with col_flujo:
             pot_bat_val = d["solar"] - d["casa"]
-            color_solar = "#f39c12"
-            color_grid = "#e74c3c"
-            color_house = "#e74c3c"
-            color_bat = "#2ecc71" if d["soc"] > 20 else "#e74c3c"
+            color_dark = "#2c3e50"
+            color_gray = "#7f8c8d"
 
-            dir_bat = "M 200 235 V 290 H 125" if pot_bat_val > 0 else "M 125 290 H 200 V 235"
-            dir_grid = "M 285 70 H 200 V 115"
-            if tipo_sistema_actual == "On-Grid" and pot_bat_val > 0:
-                dir_grid = "M 200 115 V 70 H 285"
+            line_solar = "M 80 130 V 180 H 130"
+            line_grid = "M 320 130 V 180 H 270"
+            line_bat = "M 80 230 V 220 H 130"
+            line_house = "M 320 230 V 220 H 270"
 
-            track_solar = "M 125 70 H 200 V 115"
-            track_house = "M 200 235 V 290 H 285"
-            track_grid = "M 285 70 H 200 V 115"
-            track_bat = "M 125 290 H 200 V 235"
-
-            svg_paths = f'''
-            <defs>
-              <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.1"/>
-              </filter>
-            </defs>
-            <path d="{track_solar}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>
-            <path d="{track_house}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>
+            svg_lines = f'''
+            <path d="{line_solar}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>
+            <path d="{line_house}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>
             '''
+            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+                svg_lines += f'<path d="{line_grid}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>'
+            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+                svg_lines += f'<path d="{line_bat}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>'
+
+            path_solar = "M 80 130 V 180 H 130"
+            path_house = "M 270 220 H 320 V 230"
+            path_grid = "M 320 130 V 180 H 270" if not (tipo_sistema_actual == "On-Grid" and pot_bat_val > 0) else "M 270 180 H 320 V 130"
+            path_bat = "M 130 220 H 80 V 230" if pot_bat_val > 0 else "M 80 230 V 220 H 130"
             
-            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_paths += f'<path d="{track_grid}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>'
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_paths += f'<path d="{track_bat}" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-linecap="round"/>'
+            def make_particle(path, duration="2s"):
+                return f'''
+                <g>
+                    <animateMotion dur="{duration}" repeatCount="indefinite" path="{path}" />
+                    <circle cx="0" cy="0" r="10" fill="#f1c40f"/>
+                    <path d="M -3 -5 L -6 1 H -1 L -2 6 L 5 -1 H 1 Z" fill="#ffffff"/>
+                </g>
+                '''
 
-            svg_circles = f'''
-            <circle r="4" fill="{color_solar}"><animateMotion dur="1.5s" repeatCount="indefinite" path="{track_solar}" /></circle>
-            <circle r="4" fill="{color_house}"><animateMotion dur="1.5s" repeatCount="indefinite" path="{track_house}" /></circle>
-            '''
+            svg_particles = make_particle(path_solar, "1.5s") + make_particle(path_house, "1.5s")
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_circles += f'<circle r="4" fill="#3498db"><animateMotion dur="2s" repeatCount="indefinite" path="{dir_grid}" /></circle>'
+                svg_particles += make_particle(path_grid, "2s")
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_circles += f'<circle r="4" fill="{color_bat}"><animateMotion dur="2s" repeatCount="indefinite" path="{dir_bat}" /></circle>'
+                svg_particles += make_particle(path_bat, "2s")
 
-            svg_inversor = f'''
-            <g filter="url(#shadow)">
-                <rect x="150" y="115" width="100" height="120" rx="8" fill="#ffffff" stroke="#bdc3c7" stroke-width="1"/>
-                <rect x="150" y="115" width="100" height="25" rx="8" fill="#2c3e50" />
-                <rect x="150" y="125" width="100" height="15" fill="#2c3e50" />
-                <rect x="165" y="148" width="70" height="40" rx="4" fill="#1e272e" />
-                <text x="200" y="165" text-anchor="middle" font-size="10" fill="#00d2d3" font-weight="bold">DEYE</text>
-                <text x="200" y="180" text-anchor="middle" font-size="8" fill="#ffffff">{tipo_sistema_actual}</text>
-                <circle cx="165" cy="127" r="3" fill="#2ecc71" />
-                <circle cx="175" cy="127" r="3" fill="#f1c40f" />
-                <circle cx="185" cy="127" r="3" fill="#e74c3c" />
-                <path d="M 165 200 v 25 M 175 200 v 25 M 185 200 v 25 M 195 200 v 25 M 205 200 v 25 M 215 200 v 25 M 225 200 v 25 M 235 200 v 25" stroke="#ecf0f1" stroke-width="2" stroke-linecap="round" />
+            svg_inverter = f'''
+            <g transform="translate(130, 150)">
+                <rect x="0" y="10" width="140" height="80" rx="4" fill="#ffffff" stroke="#576574" stroke-width="3"/>
+                <rect x="0" y="0" width="140" height="15" rx="4" fill="#576574"/>
+                <rect x="0" y="8" width="140" height="7" fill="#576574"/>
+                <rect x="40" y="30" width="60" height="40" rx="2" fill="none" stroke="#576574" stroke-width="3"/>
+                <rect x="50" y="25" width="10" height="5" fill="#576574"/>
+                <rect x="80" y="25" width="10" height="5" fill="#576574"/>
+                <path d="M 45 40 H 60 M 45 50 H 60 M 45 60 H 60" stroke="#576574" stroke-width="3" stroke-linecap="round"/>
+                <path d="M 75 35 L 65 50 H 75 L 65 65 L 90 45 H 80 Z" fill="#f1c40f"/>
+                <path d="M 80 60 Q 85 55, 90 60 T 100 60" fill="none" stroke="#576574" stroke-width="2"/>
             </g>
             '''
-
-            txt_meter = f'<text x="320" y="25" font-size="10" font-weight="bold" fill="#7f8c8d" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
 
             svg_nodes = f'''
-            <g filter="url(#shadow)">
-                <circle cx="80" cy="70" r="35" fill="#ffffff" />
-                <image href="https://img.icons8.com/color/96/solar-panel.png" width="46" height="46" x="57" y="47" />
-            </g>
-            <rect x="40" y="115" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
-            <text x="80" y="131" font-size="12" font-weight="bold" fill="{color_solar}" text-anchor="middle">{d["solar"]} W</text>
-            
-            <g filter="url(#shadow)">
-                <circle cx="320" cy="290" r="35" fill="#ffffff" />
-                <image href="https://img.icons8.com/color/96/home.png" width="46" height="46" x="297" y="267" />
-            </g>
-            <rect x="280" y="335" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
-            <text x="320" y="351" font-size="12" font-weight="bold" fill="{color_house}" text-anchor="middle">{d["casa"]} W</text>
+            <text x="80" y="40" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["solar"]} W</text>
+            <text x="80" y="60" font-size="16" fill="{color_gray}" text-anchor="middle">Producción</text>
+            <image href="https://img.icons8.com/color/96/solar-panel--v1.png" width="60" height="60" x="50" y="70" />
+
+            <image href="https://img.icons8.com/color/96/home.png" width="60" height="60" x="290" y="230" />
+            <text x="320" y="315" font-size="16" fill="{color_gray}" text-anchor="middle">Consumo</text>
+            <text x="320" y="335" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["casa"]} W</text>
             '''
             
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+                txt_meter = f'<text x="320" y="110" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
                 svg_nodes += f'''
-                <g filter="url(#shadow)">
-                    <circle cx="320" cy="70" r="35" fill="#ffffff" />
-                    <image href="https://img.icons8.com/color/96/high-voltage.png" width="46" height="46" x="297" y="47" />
-                </g>
-                <rect x="280" y="115" width="80" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
-                <text x="320" y="131" font-size="12" font-weight="bold" fill="#3498db" text-anchor="middle">0 W</text>
+                <text x="320" y="40" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">0 W</text>
+                <text x="320" y="60" font-size="16" fill="{color_gray}" text-anchor="middle">Red</text>
+                <image href="https://img.icons8.com/ios/96/576574/transmission-tower.png" width="60" height="60" x="290" y="70" />
                 {txt_meter}
                 '''
 
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 svg_nodes += f'''
-                <g filter="url(#shadow)">
-                    <circle cx="80" cy="290" r="35" fill="#ffffff" />
-                    <image href="https://img.icons8.com/color/96/car-battery.png" width="46" height="46" x="57" y="267" />
-                </g>
-                <rect x="35" y="335" width="90" height="24" rx="12" fill="#ffffff" stroke="#eaeaea" stroke-width="1" filter="url(#shadow)"/>
-                <text x="80" y="351" font-size="12" font-weight="bold" fill="{color_bat}" text-anchor="middle">{abs(pot_bat_val)} W</text>
-                <text x="80" y="375" font-size="11" font-weight="bold" fill="{color_bat}" text-anchor="middle">SOC: {d["soc"]}%</text>
+                <image href="https://img.icons8.com/color/96/charged-battery.png" width="60" height="60" x="50" y="230" />
+                <text x="80" y="315" font-size="16" fill="{color_gray}" text-anchor="middle">Batería</text>
+                <text x="80" y="335" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{abs(pot_bat_val)} W</text>
+                <text x="80" y="355" font-size="14" fill="{color_gray}" text-anchor="middle">{d["soc"]}%</text>
                 '''
-                
+
             diagrama_svg = f"""
             <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #eaeaea; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);">
-                <svg viewBox="0 0 400 390" width="100%" style="max-width: 450px;">
-                    {svg_paths}
-                    {svg_circles}
-                    {svg_inversor}
+                <svg viewBox="0 0 400 380" width="100%" style="max-width: 450px;">
+                    {svg_lines}
+                    {svg_particles}
+                    {svg_inverter}
                     {svg_nodes}
                 </svg>
             </div>
@@ -1170,12 +1150,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>"""
 
@@ -1186,12 +1166,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 50px;'><span style='color:#3498db; font-weight:bold;'>▼ Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 {battery_html}
@@ -1351,12 +1331,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>"""
 
@@ -1367,12 +1347,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left:20px;'><span style='color:#3498db; font-weight:bold;'>▼ Registrador</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> Inversor<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 {battery_html}
@@ -1460,12 +1440,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 
                 battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Batería</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>"""
 
@@ -1476,12 +1456,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> Inversor<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/color/24/high-voltage.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 {battery_html}
