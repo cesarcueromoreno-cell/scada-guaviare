@@ -4,4 +4,4 @@ plotly
 fpdf
 requests
 pymodbus
-supabase==2.3.4
+supabase
