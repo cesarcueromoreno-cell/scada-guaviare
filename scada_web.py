@@ -127,21 +127,21 @@ def solicitar_usuario(usuario, contrasena):
     if usuario in db: return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
     if supabase:
         try:
-            supabase.table("usuarios").insert({"usuario": usuario, "pwd": contrasena, "estado": "pending", "rol": "viewer", "planta_asignada": "Pendiente Asignar"}).execute()
+            supabase.table("usuarios").insert({"usuario": str(usuario), "pwd": str(contrasena), "estado": "pending", "rol": "viewer", "planta_asignada": "Pendiente Asignar"}).execute()
             return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
         except: pass
     return False, "❌ Error de conexión a la base de datos."
 
 def actualizar_usuario_bd(usuario_id, nuevo_estado, nuevo_rol, nueva_planta, nueva_pwd=None):
     if supabase:
-        datos = {"estado": nuevo_estado, "rol": nuevo_rol, "planta_asignada": nueva_planta}
-        if nueva_pwd: datos["pwd"] = nueva_pwd
-        try: supabase.table("usuarios").update(datos).eq("usuario", usuario_id).execute()
+        datos = {"estado": str(nuevo_estado), "rol": str(nuevo_rol), "planta_asignada": str(nueva_planta)}
+        if nueva_pwd: datos["pwd"] = str(nueva_pwd)
+        try: supabase.table("usuarios").update(datos).eq("usuario", str(usuario_id)).execute()
         except: pass
 
 def eliminar_usuario_bd(usuario_id):
     if supabase:
-        try: supabase.table("usuarios").delete().eq("usuario", usuario_id).execute()
+        try: supabase.table("usuarios").delete().eq("usuario", str(usuario_id)).execute()
         except: pass
 
 def cargar_plantas():
@@ -153,14 +153,14 @@ def cargar_plantas():
 def guardar_planta(nueva):
     if supabase:
         try: supabase.table("plantas").insert(nueva).execute()
-        except: pass
+        except Exception as e: st.error(f"Error guardando planta: {e}")
 
 def actualizar_planta(idx, p_edit):
     if supabase:
         try:
             plantas = cargar_plantas()
             if idx < len(plantas):
-                datos = {k: v for k, v in p_edit.items() if k not in ["id", "creado_en"]}
+                datos = {k: str(v) for k, v in p_edit.items() if k not in ["id", "creado_en"]}
                 supabase.table("plantas").update(datos).eq("id", plantas[idx]["id"]).execute()
         except: pass
 
@@ -189,23 +189,23 @@ def guardar_mantenimiento(planta, datos_mant):
     if supabase:
         try:
             supabase.table("mantenimientos").insert({
-                "planta_nombre": planta, "fecha": str(datos_mant["fecha"]), "tipo_tarea": datos_mant["tipo"],
-                "tecnico": datos_mant["resp"], "notas": datos_mant["notas"], "estado": datos_mant["estado"]
+                "planta_nombre": str(planta), "fecha": str(datos_mant["fecha"]), "tipo_tarea": str(datos_mant["tipo"]),
+                "tecnico": str(datos_mant["resp"]), "notas": str(datos_mant["notas"]), "estado": str(datos_mant["estado"])
             }).execute()
         except: pass
 
 def actualizar_estado_mantenimiento(planta, indice, nuevo_estado):
     if supabase:
         try:
-            res = supabase.table("mantenimientos").select("*").eq("planta_nombre", planta).order("id").execute()
+            res = supabase.table("mantenimientos").select("*").eq("planta_nombre", str(planta)).order("id").execute()
             if indice < len(res.data):
-                supabase.table("mantenimientos").update({"estado": nuevo_estado}).eq("id", res.data[indice]["id"]).execute()
+                supabase.table("mantenimientos").update({"estado": str(nuevo_estado)}).eq("id", res.data[indice]["id"]).execute()
         except: pass
 
 def eliminar_mantenimiento(planta, indice):
     if supabase:
         try:
-            res = supabase.table("mantenimientos").select("*").eq("planta_nombre", planta).order("id").execute()
+            res = supabase.table("mantenimientos").select("*").eq("planta_nombre", str(planta)).order("id").execute()
             if indice < len(res.data):
                 supabase.table("mantenimientos").delete().eq("id", res.data[indice]["id"]).execute()
         except: pass
@@ -508,9 +508,9 @@ elif menu == "🌐 Panorama General":
 
             if st.form_submit_button("💾 Guardar Cambios"):
                 p_edit.update({
-                    "nombre": n, "ubicacion": u, "capacidad": c, 
-                    "datalogger": sn, "tipo_sistema": n_tipo, 
-                    "smart_meter": n_meter, "imagen_url": img_url_final 
+                    "nombre": str(n), "ubicacion": str(u), "capacidad": str(c), 
+                    "datalogger": str(sn), "tipo_sistema": str(n_tipo), 
+                    "smart_meter": str(n_meter), "imagen_url": str(img_url_final) 
                 })
                 actualizar_planta(idx, p_edit)
                 st.session_state["editando_planta"] = None
@@ -555,15 +555,24 @@ elif menu == "🌐 Panorama General":
             s1, s2 = st.columns(2)
             if s1.form_submit_button("💾 Guardar Nueva Planta"):
                 if n_nom:
-                    guardar_planta({
-                        "nombre": n_nom, "ubicacion": n_ubi, "capacidad": n_cap, 
-                        "inversores": n_inv, "datalogger": n_sn, "tipo_sistema": n_tipo, 
-                        "smart_meter": n_meter, "imagen_url": img_url_crear 
-                    })
+                    # FORZAR A TEXTO SIMPLE PARA EVITAR ERROR 'list'
+                    payload = {
+                        "nombre": str(n_nom), 
+                        "ubicacion": str(n_ubi), 
+                        "capacidad": str(n_cap), 
+                        "inversores": str(n_inv), 
+                        "datalogger": str(n_sn), 
+                        "tipo_sistema": str(n_tipo), 
+                        "smart_meter": str(n_meter), 
+                        "imagen_url": str(img_url_crear) 
+                    }
+                    guardar_planta(payload)
                     st.session_state["mostrar_crear"] = False
                     st.success("✅ Planta creada.")
                     time.sleep(1)
                     st.rerun()
+                else:
+                    st.error("⚠️ El nombre de la planta es obligatorio.")
             if s2.form_submit_button("❌ Cancelar"):
                 st.session_state["mostrar_crear"] = False
                 st.rerun()
@@ -1110,7 +1119,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 battery_html = ""
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Batería</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
+<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
 <td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
@@ -1614,7 +1623,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 m_resp = mc3.text_input("Técnico")
                 m_notas = st.text_input("Observaciones")
                 if st.form_submit_button("➕ Agendar"):
-                    guardar_mantenimiento(p['nombre'], {"fecha": str(m_fecha), "tipo": m_tipo, "resp": m_resp, "notas": m_notas, "estado": "⏳ Pendiente"})
+                    guardar_mantenimiento(p['nombre'], {"fecha": str(m_fecha), "tipo": str(m_tipo), "resp": str(m_resp), "notas": str(m_notas), "estado": "⏳ Pendiente"})
                     st.rerun()
             st.markdown("<br><h4>📋 Historial</h4>", unsafe_allow_html=True)
             mantenimientos = cargar_mantenimientos().get(p['nombre'], [])
