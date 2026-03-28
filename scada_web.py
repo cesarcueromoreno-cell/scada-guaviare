@@ -896,23 +896,47 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         with col_bot_r:
             st.markdown("<div style='background:#ffffff; border-radius:8px; padding:15px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03); height: 100%;'>", unsafe_allow_html=True)
             
-            # Gráfica de Barras Azul (Producción Planificada Mensual)
+            # Cabecera de Producción Planificada simulando la interfaz de la imagen
+            st.markdown("""
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4 style="margin: 0; color: #2c3e50; font-size: 15px; font-weight: normal;">Producción Planificada</h4>
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <div style="display: flex;">
+                        <button style="border:1px solid #3498db; background:#e6f7ff; color:#3498db; padding:2px 8px; border-radius:4px 0 0 4px; font-size:12px; cursor:pointer;">Año</button>
+                        <button style="border:1px solid #eaeaea; border-left:none; background:white; color:#7f8c8d; padding:2px 8px; border-radius:0 4px 4px 0; font-size:12px; cursor:pointer;">Total</button>
+                    </div>
+                    <button style="border:none; background:#1890ff; color:white; padding:3px 12px; border-radius:4px; font-size:12px; margin-left:5px; cursor:pointer;">Exportar</button>
+                    <span style="color:#7f8c8d; margin-left:10px; cursor:pointer;">&lt;</span>
+                    <span style="border:1px solid #eaeaea; padding:2px 10px; border-radius:4px; font-size:12px; color:#7f8c8d; display:flex; align-items:center; gap:5px;">2025 <img src="https://img.icons8.com/material-outlined/24/7f8c8d/calendar--v1.png" width="14"/></span>
+                    <span style="color:#7f8c8d; cursor:pointer;">&gt;</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
             df_mensual = simular_produccion_mensual(p)
             
             fig2 = go.Figure()
-            fig2.add_trace(go.Bar(x=df_mensual['Mes'], y=df_mensual['Producción solar mensual'], name='Producción solar mensual', marker_color='#1890ff', width=0.4))
+            # Barra real azul
+            fig2.add_trace(go.Bar(x=df_mensual['Mes'], y=df_mensual['Producción solar mensual'], name='Producción solar mensual', marker_color='#1890ff', width=0.3))
+            
+            # Trazos invisibles para la leyenda exacta de la imagen
+            fig2.add_trace(go.Bar(x=[None], y=[None], name='Producción Planificada Mensual', marker_color='#d9d9d9'))
+            fig2.add_trace(go.Scatter(x=[None], y=[None], mode='markers', name='Finalización mensual', marker=dict(color='#bfbfbf', size=10)))
 
             fig2.update_layout(
-                title=dict(text="Producción Planificada", font=dict(size=15, color='#2c3e50', family="Arial", weight="normal")),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
                 barmode='group',
-                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="left", x=0, font=dict(size=12, color="#7f8c8d")),
-                margin=dict(l=10, r=10, t=40, b=10), height=250
+                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5, font=dict(size=11, color="#7f8c8d")),
+                margin=dict(l=10, r=10, t=25, b=10), height=250
             )
-            fig2.update_yaxes(title_text="kWh", gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), title_font=dict(color="#7f8c8d", size=11))
-            fig2.update_xaxes(gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), tickmode='linear')
             
-            st.plotly_chart(fig2, use_container_width=True)
+            fig2.add_annotation(x=0, y=1.15, xref="paper", yref="paper", text="kWh", showarrow=False, font=dict(size=11, color="#7f8c8d"), xanchor="left")
+            fig2.add_annotation(x=1, y=1.15, xref="paper", yref="paper", text="%", showarrow=False, font=dict(size=11, color="#7f8c8d"), xanchor="right")
+            
+            fig2.update_yaxes(gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), showline=False, zeroline=False)
+            fig2.update_xaxes(gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), tickmode='linear', showline=False, zeroline=False)
+            
+            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
             st.markdown("</div>", unsafe_allow_html=True)
             
     with t_disp:
@@ -1187,188 +1211,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 battery_html = ""
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
-<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-</tr>
-<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
-<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-</tr>"""
-
-                table_html = f"""<div style='background:white; border:1px solid #eaeaea; border-radius:8px; overflow:hidden;'>
-<table style='width:100%; text-align:left; font-size:14px; border-collapse:collapse;'>
-<tr style='background-color:#f8f9fa; border-bottom:1px solid #eaeaea; color:#2c3e50;'>
-<th style='padding:12px 20px;'>Tipo/SN</th><th style='padding:12px;'>Estado</th><th style='padding:12px;'>Actualizado</th>
-</tr>
-<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
-<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-</tr>
-<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 50px;'><span style='color:#3498db; font-weight:bold;'>▼ Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
-<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-</tr>
-{battery_html}
-</table>
-</div>"""
-                st.markdown(table_html, unsafe_allow_html=True)
-                
-            with t_det_4:
-                st.markdown("<h4 style='color:#2c3e50; font-size:16px; margin-top:10px;'>Datos históricos</h4>", unsafe_allow_html=True)
-                
-                col_r1, col_r2, col_r3, col_r4 = st.columns([4, 2, 2, 2])
-                with col_r1:
-                    st.radio("Periodo", ["Día", "Semana", "Mes", "Año", "Total"], horizontal=True, label_visibility="collapsed")
-                with col_r2:
-                    st.button("Seleccionar parámetros", use_container_width=True)
-                with col_r3:
-                    st.button("Exportar", use_container_width=True)
-                with col_r4:
-                    st.date_input("Fecha", value=datetime.now(), label_visibility="collapsed")
-                    
-                st.markdown("<hr style='margin:10px 0; border-color:#eaeaea;'>", unsafe_allow_html=True)
-                
-                col_p1, col_p2 = st.columns([2, 8])
-                with col_p1:
-                    st.markdown("<p style='color:#7f8c8d; font-size:14px; margin-top:10px;'>Plantilla del<br>sistema:</p>", unsafe_allow_html=True)
-                with col_p2:
-                    st.radio("Plantilla", ["Datos de CA", "Corriente DC", "Voltaje DC", "Corriente CC y voltaje CC"], horizontal=True, label_visibility="collapsed")
-                    
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("<a href='https://www.yuque.com/vwyy8s/za5o30/toaw7t?#%20%E3%80%8AHow%20to%20create%20my%20module%E3%80%8B' target='_blank' style='color:#3498db; font-size:14px; text-decoration:none;'>¿Cómo crear mi plantilla?</a>", unsafe_allow_html=True)
-
-                x_time = pd.date_range(start="00:00", end="21:00", freq="15min")
-                y_vol_R = [121.3 if (6 <= t.hour <= 18) else 0 for t in x_time]
-                y_vol_S = [121.2 if (6 <= t.hour <= 18) else 0 for t in x_time]
-                y_vol_T = [121.3 if (6 <= t.hour <= 18) else 0 for t in x_time]
-                y_freq = [60.0 if (6 <= t.hour <= 18) else 0 for t in x_time]
-                
-                y_curr_R = [7.5 if (6 <= t.hour <= 18) else 0 for t in x_time]
-                y_curr_S = [7.9 if (6 <= t.hour <= 18) else 0 for t in x_time]
-                y_curr_T = [0.2 if (6 <= t.hour <= 18) else 0 for t in x_time]
-                
-                fig_ac = make_subplots(specs=[[{"secondary_y": True}]])
-                
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_R, mode='lines', line=dict(color='#3498db', shape='hv'), name='Voltaje CA R/U/A'), secondary_y=False)
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_S, mode='lines', line=dict(color='#e74c3c', shape='hv'), name='Voltaje CA S/V/B'), secondary_y=False)
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_vol_T, fill='tozeroy', mode='lines', line=dict(color='#9b59b6', shape='hv'), name='Voltaje CA T/W/C'), secondary_y=False)
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_freq, mode='lines', line=dict(color='#8e44ad', width=3, shape='hv'), name='Frecuencia R salida CA'), secondary_y=False)
-                
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_curr_R, mode='lines', line=dict(color='#2ecc71', shape='hv'), name='Corriente CA R/U/A'), secondary_y=True)
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_curr_S, mode='lines', line=dict(color='#f1c40f', shape='hv'), name='Corriente CA S/V/B'), secondary_y=True)
-                fig_ac.add_trace(go.Scatter(x=x_time, y=y_curr_T, mode='lines', line=dict(color='#1abc9c', shape='hv'), name='Corriente CA T/W/C'), secondary_y=True)
-                
-                fig_ac.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
-                    margin=dict(l=10, r=10, t=10, b=10), height=400
-                )
-                fig_ac.update_yaxes(title_text="Hz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;V", range=[0, 150], gridcolor="#f0f0f0", secondary_y=False)
-                fig_ac.update_yaxes(title_text="A", range=[0, 10], showgrid=False, secondary_y=True)
-                fig_ac.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f0f0f0")
-                
-                st.plotly_chart(fig_ac, use_container_width=True)
-
-        elif st.session_state["ver_detalle_logger"]:
-            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-            if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
-                st.session_state["ver_detalle_logger"] = False
-                st.rerun()
-            
-            st.markdown(f"""
-            <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px; margin-top:10px;'>
-                <div>
-                    <h2 style='margin-bottom:0; font-size: 24px;'>Registrador wifi:{sn_logger}</h2>
-                    <span style='color:#27ae60; font-weight:bold; font-size:14px;'>🟢 En línea</span>
-                </div>
-                <span style='color:#7f8c8d; font-size:13px;'>{datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')}</span>
-            </div>
-            <hr style='margin-top:0px; border-color:#eaeaea;'>
-            """, unsafe_allow_html=True)
-            
-            t_log_1, t_log_2, t_log_3 = st.tabs(["Detalles", "Alerta", "Arquitectura"])
-            
-            with t_log_1:
-                st.markdown("<div style='height:15px;'></div>", unsafe_allow_html=True)
-                with st.expander("Información básica", expanded=True):
-                    st.markdown(f"""
-                    <div class='diag-grid'>
-                        <div><span class='diag-lbl'>SN:</span> {sn_logger}</div>
-                        <div><span class='diag-lbl'>Modelo:</span> LSW-3</div>
-                        <div><span class='diag-lbl'>Versión hardware:</span> LSW3_01_7A_0102</div>
-                        <div><span class='diag-lbl'>Versión de firmware:</span> V1.0.6.28</div>
-                        <div><span class='diag-lbl'>Versión protocolo:</span> 0104</div>
-                        <div><span class='diag-lbl'>Hora del sistema:</span> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with st.expander("Información de Wi-Fi", expanded=False):
-                    st.markdown("""
-                    <div class='diag-grid'>
-                        <div><span class='diag-lbl'>SSID Conectado:</span> CV_SOLAR_GUEST</div>
-                        <div><span class='diag-lbl'>Dirección IP Logger:</span> 192.168.1.105</div>
-                        <div><span class='diag-lbl'>Intensidad de señal:</span> -65 dBm (Buena)</div>
-                        <div><span class='diag-lbl'>Dirección MAC:</span> AA:BB:CC:DD:EE:FF</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with st.expander("Estado", expanded=False):
-                    st.markdown("""
-                    <div class='diag-grid'>
-                        <div><span class='diag-lbl'>Última actualización:</span> 15 segundos</div>
-                        <div><span class='diag-lbl'>IP Servidor Remoto:</span> 47.102.152.71</div>
-                        <div><span class='diag-lbl'>Tiempo Ping Servidor:</span> 180ms</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with t_log_2:
-                st.markdown("""
-                <div style='display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #eaeaea; padding-bottom:10px; margin-bottom:15px; margin-top:10px;'>
-                    <div style='display:flex; gap:20px; font-weight:bold; color:#7f8c8d; font-size:14px; align-items:center;'>
-                        <span style='cursor:pointer;'>Todo</span>
-                        <span style='color:#3498db; border-bottom:3px solid #3498db; padding-bottom:8px; margin-bottom:-11px; cursor:pointer;'>Abierto</span>
-                        <span style='cursor:pointer;'>Cerrado</span>
-                        <span style='cursor:pointer; border-left:1px solid #eaeaea; padding-left:15px;'>Filtrar ▼</span>
-                    </div>
-                    <div style='display:flex; gap:10px;'>
-                        <button style='background:white; border:1px solid #eaeaea; border-radius:4px; padding:4px 8px; cursor:pointer;'>📥</button>
-                        <button style='background:white; border:1px solid #eaeaea; border-radius:4px; padding:4px 8px; cursor:pointer; color:#7f8c8d; font-size:13px;'>🔄 Cerca ▼</button>
-                    </div>
-                </div>
-                <p style='font-size:12px; color:#7f8c8d; line-height:1.5;'>La alerta "abierta" se refiere a la alerta que se está produciendo actualmente. Además, el ciclo de actualización del estado de alerta del dispositivo es de 5 minutos, por lo que el estado de alerta del dispositivo puede retrasarse. Es normal que a veces el dispositivo esté en estado de alerta, pero no hay una alerta "abierta".</p>
-                
-                <div style='text-align:center; padding: 60px 0;'>
-                    <img src="https://img.icons8.com/ios/100/ced6e0/document--v1.png" width="60"/>
-                    <p style='color:#7f8c8d; margin-top:10px; font-size:14px;'>Datos no disponibles</p>
-                </div>
-                
-                <div style='display:flex; justify-content:flex-end; color:#bdc3c7; font-size:12px; align-items:center; gap:10px; margin-top:20px;'>
-                    <span>< 1 ></span>
-                    <select style='border:1px solid #eaeaea; border-radius:4px; padding:2px 5px; color:#bdc3c7;'><option>50/página</option></select>
-                    <span>Ir a <input type="text" value="1" style="width:30px; text-align:center; border:1px solid #eaeaea; border-radius:4px; color:#bdc3c7;"> Página <b style='color:#bdc3c7;'>Total 0</b></span>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with t_log_3:
-                st.markdown("""
-                <div style='display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;'>
-                    <div style='color:#3498db; font-weight:bold; font-size:16px; border-bottom: 3px solid #3498db; padding-bottom: 8px; margin-bottom: -12px;'>Relación de comunicación</div>
-                    <button style='background-color:#3498db; color:white; border:none; border-radius:4px; padding:6px 15px; font-weight:bold; cursor:pointer;'>Exportar</button>
-                </div>
-                <p style='color:#7f8c8d; font-size:13px; margin-top:15px;'>La topología de red real reflejada cuando el dispositivo está cargando datos.</p>
-                """, unsafe_allow_html=True)
-
-                time_str = datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')
-                fake_logger_sn = sn_logger
-                
-                battery_html = ""
-                if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                    battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
+<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Batería</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
 <td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
