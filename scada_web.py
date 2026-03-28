@@ -11,11 +11,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import time
-import gspread
-from google.oauth2.service_account import Credentials
 from fpdf import FPDF
 import tempfile
 import requests
+from supabase import create_client, Client
 
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y ESTILO (CSS)
@@ -56,7 +55,6 @@ div[data-testid="stButton"] button[kind="primary"] p { color: white !important; 
 div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
 div[data-testid="stButton"] button[kind="secondary"] { border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
 div[data-testid="stButton"] button[kind="secondary"] p { color: #2d8cf0 !important; }
-/* Estilos para la radiografía */
 .diag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; font-size: 13px; color: #2c3e50; padding: 10px; }
 .diag-grid div { margin-bottom: 10px; }
 .diag-lbl { color: #7f8c8d; display: block; margin-bottom: 2px; }
@@ -99,159 +97,117 @@ if "edit" in st.query_params:
     except: pass
 
 # ==========================================
-# 4. BASE DE DATOS EN GOOGLE SHEETS
+# 4. BASE DE DATOS EN SUPABASE
 # ==========================================
-@st.cache_resource(ttl=600)
-def init_gsheets():
-    if "GOOGLE_JSON" in st.secrets:
-        try:
-            creds_dict = json.loads(st.secrets["GOOGLE_JSON"], strict=False)
-            scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-            return gspread.authorize(creds).open("BD_MONISOLAR")
-        except Exception as e:
-            st.error(f"⚠️ Error conectando a Google Sheets: {e}")
-    return None
+@st.cache_resource
+def init_db():
+    try:
+        url = st.secrets["SUPABASE_URL"]
+        key = st.secrets["SUPABASE_KEY"]
+        return create_client(url, key)
+    except Exception as e:
+        return None
 
-db_sheet = init_gsheets()
+supabase: Client = init_db()
 
 PLANTA_HEADERS = ["nombre", "ubicacion", "capacidad", "inversores", "datalogger", "tipo_sistema", "smart_meter", "imagen_url"]
 
-def check_headers(sheet, headers):
-    if not sheet.row_values(1): sheet.append_row(headers)
-
 def cargar_usuarios():
-    if not db_sheet: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin", "planta_asignada": "Todas"}}
+    if not supabase: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin", "planta_asignada": "Todas"}}
     try:
-        sheet = db_sheet.worksheet("usuarios")
-        check_headers(sheet, ["usuario", "pwd", "status", "role", "planta_asignada"])
-        records = sheet.get_all_records()
-        if not records:
-            sheet.append_row(["admin", "solar123", "active", "admin", "Todas"])
+        res = supabase.table("usuarios").select("*").execute()
+        if not res.data:
+            supabase.table("usuarios").insert({"usuario": "admin", "pwd": "solar123", "rol": "admin", "estado": "active", "planta_asignada": "Todas"}).execute()
             return {"admin": {"pwd": "solar123", "status": "active", "role": "admin", "planta_asignada": "Todas"}}
-        return {str(r["usuario"]): {"pwd": str(r["pwd"]), "status": str(r["status"]), "role": str(r["role"]), "planta_asignada": str(r.get("planta_asignada", "Todas"))} for r in records}
+        return {r["usuario"]: {"pwd": r["pwd"], "status": r["estado"], "role": r["rol"], "planta_asignada": r["planta_asignada"]} for r in res.data}
     except: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin", "planta_asignada": "Todas"}}
 
 def solicitar_usuario(usuario, contrasena):
     db = cargar_usuarios()
     if usuario in db: return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
-    if db_sheet:
+    if supabase:
         try:
-            db_sheet.worksheet("usuarios").append_row([usuario, contrasena, "pending", "viewer", "Pendiente Asignar"])
+            supabase.table("usuarios").insert({"usuario": usuario, "pwd": contrasena, "estado": "pending", "rol": "viewer", "planta_asignada": "Pendiente Asignar"}).execute()
             return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
         except: pass
     return False, "❌ Error de conexión a la base de datos."
 
 def actualizar_usuario_bd(usuario_id, nuevo_estado, nuevo_rol, nueva_planta, nueva_pwd=None):
-    if db_sheet:
-        try:
-            sheet = db_sheet.worksheet("usuarios")
-            records = sheet.get_all_records()
-            for i, r in enumerate(records):
-                if str(r["usuario"]) == usuario_id:
-                    if nueva_pwd: sheet.update_cell(i + 2, 2, nueva_pwd)
-                    sheet.update_cell(i + 2, 3, nuevo_estado)
-                    sheet.update_cell(i + 2, 4, nuevo_rol)
-                    sheet.update_cell(i + 2, 5, nueva_planta)
-                    break
-        except Exception as e: st.error(f"Error actualizando usuario: {e}")
+    if supabase:
+        datos = {"estado": nuevo_estado, "rol": nuevo_rol, "planta_asignada": nueva_planta}
+        if nueva_pwd: datos["pwd"] = nueva_pwd
+        try: supabase.table("usuarios").update(datos).eq("usuario", usuario_id).execute()
+        except: pass
 
 def eliminar_usuario_bd(usuario_id):
-    if db_sheet:
-        try:
-            sheet = db_sheet.worksheet("usuarios")
-            records = sheet.get_all_records()
-            for i, r in enumerate(records):
-                if str(r["usuario"]) == usuario_id:
-                    sheet.delete_rows(i + 2)
-                    break
-        except Exception as e: pass
+    if supabase:
+        try: supabase.table("usuarios").delete().eq("usuario", usuario_id).execute()
+        except: pass
 
 def cargar_plantas():
-    if not db_sheet: return []
-    try:
-        sheet = db_sheet.worksheet("plantas")
-        check_headers(sheet, PLANTA_HEADERS)
-        return sheet.get_all_records()
-    except: return []
+    if supabase:
+        try: return supabase.table("plantas").select("*").order("id").execute().data
+        except: return []
+    return []
 
 def guardar_planta(nueva):
-    if db_sheet:
-        try: 
-            db_sheet.worksheet("plantas").append_row([
-                nueva.get("nombre",""), nueva.get("ubicacion",""), nueva.get("capacidad",""), 
-                nueva.get("inversores",""), nueva.get("datalogger",""), 
-                nueva.get("tipo_sistema","Híbrido"), nueva.get("smart_meter","Ninguno"),
-                nueva.get("imagen_url", "")
-            ])
+    if supabase:
+        try: supabase.table("plantas").insert(nueva).execute()
         except: pass
 
 def actualizar_planta(idx, p_edit):
-    if db_sheet:
+    if supabase:
         try:
-            sheet = db_sheet.worksheet("plantas")
-            row_idx = idx + 2
-            cell_list = sheet.range(f"A{row_idx}:H{row_idx}")
-            vals = [
-                p_edit.get("nombre",""), p_edit.get("ubicacion",""), p_edit.get("capacidad",""), 
-                p_edit.get("inversores",""), p_edit.get("datalogger",""),
-                p_edit.get("tipo_sistema","Híbrido"), p_edit.get("smart_meter","Ninguno"),
-                p_edit.get("imagen_url", "")
-            ]
-            for i, val in enumerate(vals): cell_list[i].value = str(val)
-            sheet.update_cells(cell_list)
+            plantas = cargar_plantas()
+            if idx < len(plantas):
+                datos = {k: v for k, v in p_edit.items() if k not in ["id", "creado_en"]}
+                supabase.table("plantas").update(datos).eq("id", plantas[idx]["id"]).execute()
         except: pass
 
 def eliminar_planta(idx):
-    if db_sheet:
-        try: db_sheet.worksheet("plantas").delete_rows(idx + 2)
+    if supabase:
+        try:
+            plantas = cargar_plantas()
+            if idx < len(plantas):
+                supabase.table("plantas").delete().eq("id", plantas[idx]["id"]).execute()
         except: pass
 
 def cargar_mantenimientos():
-    if not db_sheet: return {}
-    try:
-        sheet = db_sheet.worksheet("mantenimientos")
-        check_headers(sheet, ["planta", "fecha", "tipo", "resp", "notas", "estado"])
-        records = sheet.get_all_records()
-        mants = {}
-        for r in records:
-            planta = str(r["planta"])
-            if planta not in mants: mants[planta] = []
-            mants[planta].append({"fecha": str(r["fecha"]), "tipo": str(r["tipo"]), "resp": str(r["resp"]), "notas": str(r["notas"]), "estado": str(r["estado"])})
-        return mants
-    except: return {}
+    if supabase:
+        try:
+            res = supabase.table("mantenimientos").select("*").order("id").execute()
+            mants = {}
+            for r in res.data:
+                planta = r["planta_nombre"]
+                if planta not in mants: mants[planta] = []
+                mants[planta].append({"fecha": str(r["fecha"]), "tipo": r["tipo_tarea"], "resp": r["tecnico"], "notas": r["notas"], "estado": r["estado"]})
+            return mants
+        except: return {}
+    return {}
 
 def guardar_mantenimiento(planta, datos_mant):
-    if db_sheet:
-        try: db_sheet.worksheet("mantenimientos").append_row([planta, datos_mant["fecha"], datos_mant["tipo"], datos_mant["resp"], datos_mant["notas"], datos_mant["estado"]])
+    if supabase:
+        try:
+            supabase.table("mantenimientos").insert({
+                "planta_nombre": planta, "fecha": str(datos_mant["fecha"]), "tipo_tarea": datos_mant["tipo"],
+                "tecnico": datos_mant["resp"], "notas": datos_mant["notas"], "estado": datos_mant["estado"]
+            }).execute()
         except: pass
 
 def actualizar_estado_mantenimiento(planta, indice, nuevo_estado):
-    if db_sheet:
+    if supabase:
         try:
-            sheet = db_sheet.worksheet("mantenimientos")
-            records = sheet.get_all_records()
-            count = 0
-            for i, r in enumerate(records):
-                if str(r["planta"]) == planta:
-                    if count == indice:
-                        sheet.update_cell(i + 2, 6, nuevo_estado)
-                        break
-                    count += 1
+            res = supabase.table("mantenimientos").select("*").eq("planta_nombre", planta).order("id").execute()
+            if indice < len(res.data):
+                supabase.table("mantenimientos").update({"estado": nuevo_estado}).eq("id", res.data[indice]["id"]).execute()
         except: pass
 
 def eliminar_mantenimiento(planta, indice):
-    if db_sheet:
+    if supabase:
         try:
-            sheet = db_sheet.worksheet("mantenimientos")
-            records = sheet.get_all_records()
-            count = 0
-            for i, r in enumerate(records):
-                if str(r["planta"]) == planta:
-                    if count == indice:
-                        sheet.delete_rows(i + 2)
-                        break
-                    count += 1
+            res = supabase.table("mantenimientos").select("*").eq("planta_nombre", planta).order("id").execute()
+            if indice < len(res.data):
+                supabase.table("mantenimientos").delete().eq("id", res.data[indice]["id"]).execute()
         except: pass
 
 # ==========================================
@@ -823,38 +779,38 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 
             svg_nodes = f'''
             <text x="80" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Producción</text>
-            <image href="https://img.icons8.com/color/96/solar-panel.png" width="60" height="60" x="50" y="70" />
-            <text x="80" y="150" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["solar"]} W</text>
+            <image href="https://img.icons8.com/color/48/solar-panel--v1.png" width="60" height="60" x="50" y="55" />
+            <text x="80" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["solar"]} W</text>
 
-            <image href="https://img.icons8.com/color/96/home.png" width="60" height="60" x="290" y="190" />
-            <text x="320" y="280" font-size="16" fill="{color_gray}" text-anchor="middle">Consumo</text>
-            <text x="320" y="300" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["casa"]} W</text>
+            <image href="https://img.icons8.com/color/48/home.png" width="60" height="60" x="290" y="240" />
+            <text x="320" y="325" font-size="16" fill="{color_gray}" text-anchor="middle">Consumo</text>
+            <text x="320" y="345" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["casa"]} W</text>
             '''
             
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                txt_meter = f'<text x="320" y="165" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
+                txt_meter = f'<text x="320" y="160" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
                 svg_nodes += f'''
                 <text x="320" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Red</text>
-                <image href="https://img.icons8.com/ios/96/576574/transmission-tower.png" width="60" height="60" x="290" y="70" />
-                <text x="320" y="150" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">0 W</text>
+                <image href="https://img.icons8.com/ios/48/576574/transmission-tower.png" width="60" height="60" x="290" y="55" />
+                <text x="320" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">0 W</text>
                 {txt_meter}
                 '''
 
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 svg_nodes += f'''
-                <g transform="translate(45, 195)">
-                    <rect x="10" y="18" width="44" height="24" rx="3" fill="#2ecc71" stroke="#576574" stroke-width="2"/>
-                    <rect x="54" y="24" width="4" height="12" rx="1" fill="#576574"/>
-                    <path d="M 32 14 L 24 28 H 30 L 28 40 L 38 26 H 32 Z" fill="#f1c40f" stroke="#e67e22" stroke-width="1"/>
+                <g transform="translate(45, 235)">
+                    <rect x="5" y="15" width="50" height="30" rx="4" fill="#2ecc71" stroke="#576574" stroke-width="2"/>
+                    <rect x="55" y="22" width="4" height="16" rx="2" fill="#576574"/>
+                    <path d="M 30 18 L 22 30 H 30 L 27 42 L 40 25 H 32 Z" fill="#f1c40f" stroke="#e67e22" stroke-width="1"/>
                 </g>
-                <text x="80" y="280" font-size="16" fill="{color_gray}" text-anchor="middle">Batería</text>
-                <text x="80" y="300" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{abs(pot_bat_val)} W</text>
-                <text x="80" y="320" font-size="12" fill="#95a5a6" text-anchor="middle">{d["soc"]}%</text>
+                <text x="80" y="315" font-size="16" fill="{color_gray}" text-anchor="middle">Batería</text>
+                <text x="80" y="335" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{abs(pot_bat_val)} W</text>
+                <text x="80" y="355" font-size="14" fill="{color_gray}" text-anchor="middle">{d["soc"]}%</text>
                 '''
 
             diagrama_svg = f"""
             <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #eaeaea; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);">
-                <svg viewBox="0 0 400 330" width="100%" style="max-width: 450px;">
+                <svg viewBox="0 0 400 380" width="100%" style="max-width: 450px;">
                     {svg_lines}
                     {svg_particles}
                     {svg_inverter}
@@ -862,7 +818,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 </svg>
             </div>
             """
-            components.html(diagrama_svg, height=360)
+            components.html(diagrama_svg, height=430)
             
             st.markdown(f"""
             <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-top: 15px;">
@@ -1154,13 +1110,13 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 battery_html = ""
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Batería</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>"""
 
@@ -1171,12 +1127,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 50px;'><span style='color:#3498db; font-weight:bold;'>▼ Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 {battery_html}
@@ -1336,12 +1292,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>"""
 
@@ -1351,13 +1307,13 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 <th style='padding:12px 20px;'>Tipo/SN</th><th style='padding:12px;'>Estado</th><th style='padding:12px;'>Actualizado</th>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left:20px;'><span style='color:#3498db; font-weight:bold;'>▼ Registrador</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> Inversor<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px; padding-left: 50px;'><span style='color:#3498db; font-weight:bold;'>▼ Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 {battery_html}
@@ -1445,12 +1401,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 
                 battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Batería</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>"""
 
@@ -1461,12 +1417,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> Inversor<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
+<td style='padding:12px; padding-left: 50px;'><span style='color:#3498db; font-weight:bold;'>▼ Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 {battery_html}
