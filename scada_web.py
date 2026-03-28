@@ -81,34 +81,19 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
 # ==========================================
-# 3. MANEJO DE VÍNCULOS Y PARÁMETROS
+# 4. BASE DE DATOS EN SUPABASE (SIN CACHÉ PARA EVITAR ERRORES)
 # ==========================================
-if "delete" in st.query_params:
-    try:
-        idx = int(st.query_params["delete"])
-        eliminar_planta(idx) # Esta función se llama luego
-        st.query_params.clear()
-    except: pass
-if "edit" in st.query_params:
-    try:
-        idx = int(st.query_params["edit"])
-        st.session_state["editando_planta"] = idx
-        st.query_params.clear()
-    except: pass
-
-# ==========================================
-# 4. BASE DE DATOS EN SUPABASE
-# ==========================================
-@st.cache_resource
 def init_db():
+    if "SUPABASE_URL" not in st.secrets or "SUPABASE_KEY" not in st.secrets:
+        return None, "❌ Las llaves de Supabase no se encuentran en los Secrets."
     try:
         url = st.secrets["SUPABASE_URL"]
         key = st.secrets["SUPABASE_KEY"]
-        return create_client(url, key)
+        return create_client(url, key), "OK"
     except Exception as e:
-        return None
+        return None, f"❌ Error de conexión al servidor: {e}"
 
-supabase: Client = init_db()
+supabase, db_estado = init_db()
 
 PLANTA_HEADERS = ["nombre", "ubicacion", "capacidad", "inversores", "datalogger", "tipo_sistema", "smart_meter", "imagen_url"]
 
@@ -130,7 +115,7 @@ def solicitar_usuario(usuario, contrasena):
             supabase.table("usuarios").insert({"usuario": str(usuario), "pwd": str(contrasena), "estado": "pending", "rol": "viewer", "planta_asignada": "Pendiente Asignar"}).execute()
             return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
         except: pass
-    return False, "❌ Error de conexión a la base de datos."
+    return False, f"❌ {db_estado}"
 
 def actualizar_usuario_bd(usuario_id, nuevo_estado, nuevo_rol, nueva_planta, nueva_pwd=None):
     if supabase:
@@ -151,25 +136,24 @@ def cargar_plantas():
     return []
 
 def guardar_planta(nueva):
-    if supabase:
-        try: 
-            supabase.table("plantas").insert(nueva).execute()
-            return True, ""
-        except Exception as e: 
-            return False, str(e)
-    return False, "No hay conexión con la base de datos"
+    if not supabase: return False, db_estado
+    try: 
+        supabase.table("plantas").insert(nueva).execute()
+        return True, ""
+    except Exception as e: 
+        return False, str(e)
 
 def actualizar_planta(idx, p_edit):
-    if supabase:
-        try:
-            plantas = cargar_plantas()
-            if idx < len(plantas):
-                datos = {k: v for k, v in p_edit.items() if k not in ["id", "creado_en"]}
-                supabase.table("plantas").update(datos).eq("id", plantas[idx]["id"]).execute()
-                return True, ""
-        except Exception as e:
-            return False, str(e)
-    return False, "Error al conectar"
+    if not supabase: return False, db_estado
+    try:
+        plantas = cargar_plantas()
+        if idx < len(plantas):
+            datos = {k: str(v) for k, v in p_edit.items() if k not in ["id", "creado_en"]}
+            supabase.table("plantas").update(datos).eq("id", plantas[idx]["id"]).execute()
+            return True, ""
+    except Exception as e:
+        return False, str(e)
+    return False, "Error desconocido"
 
 def eliminar_planta(idx):
     if supabase:
@@ -218,11 +202,32 @@ def eliminar_mantenimiento(planta, indice):
         except: pass
 
 # ==========================================
+# 3. MANEJO DE VÍNCULOS Y PARÁMETROS
+# ==========================================
+if "delete" in st.query_params:
+    try:
+        idx = int(st.query_params["delete"])
+        eliminar_planta(idx)
+        st.query_params.clear()
+        st.rerun()
+    except: pass
+if "edit" in st.query_params:
+    try:
+        idx = int(st.query_params["edit"])
+        st.session_state["editando_planta"] = idx
+        st.query_params.clear()
+    except: pass
+
+# ==========================================
 # 5. LOGIN
 # ==========================================
 if not st.session_state["autenticado"]:
     st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #f1c40f !important;'>☀️ MONISOLAR APP</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: white !important;'>Plataforma de Gestión - CV INGENIERÍA SAS</h3><br>", unsafe_allow_html=True)
+    
+    if not supabase:
+        st.error(f"🔴 ESTADO DE CONEXIÓN: {db_estado}. Por favor verifica el cuadro de Secrets en Streamlit.")
+        
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     with col_l2:
         with st.form("login"):
@@ -514,7 +519,6 @@ elif menu == "🌐 Panorama General":
             n_meter = c6.selectbox("Smart Meter (Medidor Inteligente)", OPCIONES_METERS, index=idx_meter)
 
             if st.form_submit_button("💾 Guardar Cambios"):
-                # LIMPIEZA DE DATOS PARA EVITAR ERRORES EN SUPABASE
                 nums = re.findall(r"[-+]?\d*\.\d+|\d+", str(c))
                 cap_val = float(nums[0]) if nums else 0.0
                 dl_val = str(sn).strip() if str(sn).strip() else f"SN-{random.randint(10000,99999)}"
@@ -570,7 +574,6 @@ elif menu == "🌐 Panorama General":
             s1, s2 = st.columns(2)
             if s1.form_submit_button("💾 Guardar Nueva Planta"):
                 if n_nom:
-                    # EXTRACCION DE SOLO NÚMEROS Y EVITAR DATALOGGER REPETIDO
                     nums = re.findall(r"[-+]?\d*\.\d+|\d+", str(n_cap))
                     cap_val = float(nums[0]) if nums else 0.0
                     dl_val = str(n_sn).strip() if str(n_sn).strip() else f"SN-{random.randint(10000,99999)}"
@@ -586,7 +589,6 @@ elif menu == "🌐 Panorama General":
                         "imagen_url": str(img_url_crear) 
                     }
                     
-                    # GUARDADO CON CONTROL DE ERRORES VISIBLE
                     ok, msg = guardar_planta(payload)
                     if ok:
                         st.session_state["mostrar_crear"] = False
@@ -594,7 +596,7 @@ elif menu == "🌐 Panorama General":
                         time.sleep(1)
                         st.rerun()
                     else:
-                        st.error(f"❌ La base de datos rechazó los datos (Revisa que el Nombre o Datalogger no estén repetidos). Detalle: {msg}")
+                        st.error(f"❌ {msg}")
                 else:
                     st.error("⚠️ El nombre de la planta es obligatorio.")
             
