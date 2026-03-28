@@ -309,41 +309,45 @@ def get_data(pl):
     return {"solar": p_sol, "casa": int(p_sol*0.4) + random.randint(500, 1500), "soc": soc, "hoy": e_dia, "alertas": []}
 
 def simular_historico_24h_avanzado(planta):
-    # ¡AQUÍ ESTÁ LA CORRECCIÓN! pl.get cambiado a planta.get
     cap_val = planta.get("capacidad", "30")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 30.0
     inicio_dia = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     datos = []
     
-    for m in range(0, 24 * 60, 15):
+    for m in range(0, 24 * 60, 30):
         t = inicio_dia + timedelta(minutes=m)
         h = t.hour + t.minute/60.0
         
+        # Simulación de campana de Gauss para el sol
         gen = max(0, cap * math.exp(-0.5 * ((h - 13) / 2.5)**2) * random.uniform(0.9, 1.1)) if 6 <= h <= 18 else 0
         con = max(cap * 0.15, cap * 0.3 * math.exp(-0.5 * ((h - 8) / 2)**2) + cap * 0.4 * math.exp(-0.5 * ((h - 19) / 2.5)**2)) * random.uniform(0.9, 1.1)
         
         diff = gen - con
-        grid_purchase = max(0, -diff) if planta.get('tipo_sistema', 'Híbrido') != 'Off-Grid' else 0
+        grid_feed = max(0, diff) if pl.get('tipo_sistema', 'Híbrido') != 'Off-Grid' else 0
+        grid_purchase = max(0, -diff) if pl.get('tipo_sistema', 'Híbrido') != 'Off-Grid' else 0
         
         datos.append({
             "timestamp": t,
-            "Potencia solar": round(gen * 1000, 2), # Pasado a Watts
-            "Consumo": round(con * 1000, 2),
-            "Red": round(grid_purchase * 1000, 2)
+            "Generation PV": round(gen, 2),
+            "Total Consumption": round(con, 2),
+            "Grid Purchase": round(grid_purchase, 2),
+            "Grid Feed-in": round(grid_feed, 2)
         })
     return pd.DataFrame(datos)
 
-def simular_produccion_mensual(planta):
+def simular_datos_7_dias(planta):
     cap_val = planta.get("capacidad", "30")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 30.0
+    
+    fechas = [(datetime.now() - timedelta(days=i)).strftime("%a\n(%b %d)") for i in range(6, -1, -1)]
     datos = []
-    mes_actual = datetime.now().month
-    for i in range(1, 13):
-        if i <= mes_actual:
-            val = cap * random.uniform(0.6, 0.9)
-        else:
-            val = 0
-        datos.append({"Mes": str(i), "Producción solar mensual": round(val, 1)})
+    for f in fechas:
+        gen_pv = round(cap * random.uniform(3.5, 5.0), 1)
+        cons = round(gen_pv * random.uniform(0.6, 1.2), 1)
+        grid_p = round(cons * random.uniform(0.1, 0.4), 1)
+        grid_f = round(gen_pv * random.uniform(0.05, 0.3), 1)
+        datos.append({"Día": f, "Gen PV": gen_pv, "Cons Total": cons, "Grid Purchase": grid_p, "Grid Feed-in": grid_f})
+    
     return pd.DataFrame(datos)
 
 def generar_pdf(planta, datos):
@@ -667,7 +671,138 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         c4.markdown(f"<div class='solarman-card' style='border-top: 4px solid #bdc3c7;'><div style='font-size:20px; font-weight:bold; color:#bdc3c7;'>--</div><div class='solarman-lbl'>Aislado (Off-Grid)</div></div>", unsafe_allow_html=True)
         
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # ==========================================
+    # NUEVO ORDEN: DIAGRAMA DE FLUJO ARRIBA
+    # ==========================================
+    with st.container():
+        st.markdown("### 🌐 Visualización de Flujo de Energía en Tiempo Real")
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        pot_bat_val = d["solar"] - d["casa"]
+        color_dark = "#2c3e50"
+        color_gray = "#7f8c8d"
+
+        # Coordenadas de las líneas y nodos
+        line_solar = "M 80 130 V 180 H 130"
+        line_grid = "M 320 130 V 180 H 270"
+        line_bat = "M 80 230 V 220 H 130"
+        line_house = "M 320 230 V 220 H 270"
+
+        # Definición de líneas estáticas de flujo
+        svg_lines = f'''
+        <path d="{line_solar}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>
+        <path d="{line_house}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>
+        '''
+        if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+            svg_lines += f'<path d="{line_grid}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>'
+        if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+            svg_lines += f'<path d="{line_bat}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>'
+
+12. # Definición de las partículas y su dirección
+        path_solar = "M 80 130 V 180 H 130"
+        path_house = "M 270 220 H 320 V 230"
+        # Dirección Grid: si exporta o importa
+        path_grid = "M 320 130 V 180 H 270" if not (tipo_sistema_actual == "On-Grid" and pot_bat_val > 0) else "M 270 180 H 320 V 130"
+        # Dirección Batería: si carga o descarga
+        path_bat = "M 130 220 H 80 V 230" if pot_bat_val > 0 else "M 80 230 V 220 H 130"
+        
+        def make_particle(path, duration="2s"):
+            return f'''
+            <g>
+                <animateMotion dur="{duration}" repeatCount="indefinite" path="{path}" />
+                <circle cx="0" cy="0" r="10" fill="#f1c40f"/>
+                <path d="M -3 -5 L -6 1 H -1 L -2 6 L 5 -1 H 1 Z" fill="#ffffff"/>
+            </g>
+            '''
+
+        svg_particles = make_particle(path_solar, "1.5s") + make_particle(path_house, "1.5s")
+        if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+            svg_particles += make_particle(path_grid, "2s")
+        if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+            svg_particles += make_particle(path_bat, "2s")
+
+        # Inversor central Deye HV
+        svg_inverter = f'''
+        <g transform="translate(130, 150)">
+            <rect x="0" y="10" width="140" height="80" rx="4" fill="#ffffff" stroke="#576574" stroke-width="3"/>
+            <rect x="0" y="0" width="140" height="15" rx="4" fill="#576574"/>
+            <rect x="0" y="8" width="140" height="7" fill="#576574"/>
+            <rect x="40" y="30" width="60" height="40" rx="2" fill="none" stroke="#576574" stroke-width="3"/>
+            <rect x="50" y="25" width="10" height="5" fill="#576574"/>
+            <rect x="80" y="25" width="10" height="5" fill="#576574"/>
+            <path d="M 45 40 H 60 M 45 50 H 60 M 45 60 H 60" stroke="#576574" stroke-width="3" stroke-linecap="round"/>
+            <path d="M 75 35 L 65 50 H 75 L 65 65 L 90 45 H 80 Z" fill="#f1c40f"/>
+            <path d="M 80 60 Q 85 55, 90 60 T 100 60" fill="none" stroke="#576574" stroke-width="2"/>
+        </g>
+        '''
+
+        # Nodos con Iconos y Valores reales simulados
+        svg_nodes = f'''
+        <text x="80" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Producción</text>
+        <image href="https://img.icons8.com/color/48/solar-panel--v1.png" width="60" height="60" x="50" y="55" />
+        <text x="80" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["solar"]} W</text>
+
+        <image href="https://img.icons8.com/color/48/home.png" width="60" height="60" x="290" y="240" />
+        <text x="320" y="325" font-size="16" fill="{color_gray}" text-anchor="middle">Consumo</text>
+        <text x="320" y="345" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["casa"]} W</text>
+        '''
+        
+        if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+            txt_meter = f'<text x="320" y="160" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
+            svg_nodes += f'''
+            <text x="320" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Red</text>
+            <image href="https://img.icons8.com/ios/48/576574/transmission-tower.png" width="60" height="60" x="290" y="55" />
+            <text x="320" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">0 W</text>
+            {txt_meter}
+            '''
+
+        if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
+            svg_nodes += f'''
+            <g transform="translate(45, 235)">
+                <rect x="5" y="15" width="50" height="30" rx="4" fill="#2ecc71" stroke="#576574" stroke-width="2"/>
+                <rect x="55" y="22" width="4" height="16" rx="2" fill="#576574"/>
+                <path d="M 30 18 L 22 30 H 30 L 27 42 L 40 25 H 32 Z" fill="#f1c40f" stroke="#e67e22" stroke-width="1"/>
+            </g>
+            <text x="80" y="315" font-size="16" fill="{color_gray}" text-anchor="middle">Batería</text>
+            <text x="80" y="335" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{abs(pot_bat_val)} W</text>
+            <text x="80" y="355" font-size="14" fill="{color_gray}" text-anchor="middle">{d["soc"]}%</text>
+            '''
+
+        diagrama_svg = f"""
+        <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #eaeaea; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);">
+            <svg viewBox="0 0 400 380" width="100%" style="max-width: 450px;">
+                {svg_lines}
+                {svg_particles}
+                {svg_inverter}
+                {svg_nodes}
+            </svg>
+        </div>
+        """
+        components.html(diagrama_svg, height=430)
+        
+        st.markdown(f"""
+        <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-top: 15px;">
+            <h4 style="margin-top:0; margin-bottom:15px; color:#2c3e50; font-size:14px;">Beneficios ambientales y económicos ❔</h4>
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/coal.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Ahorro de carbón estándar</span></div>
+                <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 0.026, 2)} t</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/carbon-dioxide.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Reducción de emisiones CO2</span></div>
+                <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 0.068, 2)} t</div>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+                <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/deciduous-tree.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Árboles plantados</span></div>
+                <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 4.7, 2)} Árboles</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
+    st.markdown("<br><hr style='margin:10px 0; border-color:#e0e0e0;'><br>", unsafe_allow_html=True)
+
+    # ==========================================
+    # PESTAÑAS (GRÁFICAS Y OTROS) ABAJO
+    # ==========================================
     if st.session_state['rol'] == 'admin':
         t_graf, t_disp, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico", "🔌 Dispositivos", "⚙️ Control Remoto", "📄 Reportes PDF", "🛠️ O&M"])
     else:
@@ -675,6 +810,8 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         t_ctrl, t_om = None, None
     
     with t_graf:
+        st.markdown("### 📊 Gráficas de Análisis de Energía")
+        st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
         col_g1, col_g2 = st.columns([1, 1])
         
         with col_g1:
@@ -683,29 +820,42 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             
             fig1 = go.Figure()
             
-            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Potencia solar'], 
+            # Gráfica de Líneas con Sombreado (Flujo de Potencia Diario)
+            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Generation PV'], 
                                      fill='tozeroy', mode='lines', 
-                                     line=dict(color='#3498db', width=2), fillcolor='rgba(52, 152, 219, 0.2)',
-                                     name='Potencia solar'))
+                                     line=dict(color='#f1c40f', width=2), 
+                                     name='Generation PV',
+                                     hovertemplate='%{y:.2f} kW<extra></extra>'))
             
-            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Consumo'], 
-                                     fill='tozeroy', mode='lines', 
-                                     line=dict(color='#e74c3c', width=2), fillcolor='rgba(231, 76, 60, 0.1)',
-                                     name='Consumo'))
+            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Total Consumption'], 
+                                     mode='lines', 
+                                     line=dict(color='#e74c3c', width=2.5), 
+                                     name='Total Consumption',
+                                     hovertemplate='%{y:.2f} kW<extra></extra>'))
                                      
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Red'], 
+                fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Grid Purchase'], 
                                          mode='lines', 
-                                         line=dict(color='#f39c12', width=2), 
-                                         name='Red'))
+                                         line=dict(color='#9b59b6', width=2), 
+                                         name='Grid Purchase',
+                                         hovertemplate='%{y:.2f} kW<extra></extra>'))
+                
+                fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Grid Feed-in'], 
+                                         mode='lines', 
+                                         line=dict(color='#3498db', width=2), 
+                                         name='Grid Feed-in',
+                                         hovertemplate='%{y:.2f} kW<extra></extra>'))
 
             fig1.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
-                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5, font=dict(size=12, color="#7f8c8d")),
-                margin=dict(l=10, r=10, t=10, b=10), height=350,
+                title=dict(text="Daily Power Flow Detail (Past 24 Hours Real-time)", font=dict(size=14, color='#2c3e50', family="Arial")),
+                paper_bgcolor="rgba(0,0,0,0)", 
+                plot_bgcolor="rgba(0,0,0,0)", 
+                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5, font=dict(size=11, color="#7f8c8d")),
+                margin=dict(l=10, r=10, t=40, b=10), 
+                height=350,
                 hovermode="x unified"
             )
-            fig1.update_yaxes(title_text="W", gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), title_font=dict(color="#7f8c8d"))
+            fig1.update_yaxes(title_text="kW", gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), title_font=dict(color="#7f8c8d"))
             fig1.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"))
             
             st.plotly_chart(fig1, use_container_width=True)
@@ -714,7 +864,11 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         with col_g2:
             st.markdown("<div style='background:#ffffff; border-radius:8px; padding:15px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03);'>", unsafe_allow_html=True)
             
-            df_mensual = simular_produccion_mensual(p)
+            # Gráfica de Barras Blue (Producción Planificada Mensual)
+            datos_meses = []
+            for i in range(1, 13):
+                datos_meses.append({"Mes": str(i), "Producción solar mensual": random.randint(150, 400)})
+            df_mensual = pd.DataFrame(datos_meses)
             
             fig2 = go.Figure()
             fig2.add_trace(go.Bar(x=df_mensual['Mes'], y=df_mensual['Producción solar mensual'], name='Producción solar mensual', marker_color='#1890ff', width=0.4))
@@ -723,129 +877,14 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 title=dict(text="Producción Planificada", font=dict(size=14, color='#2c3e50', family="Arial")),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
                 barmode='group',
-                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5, font=dict(size=12, color="#7f8c8d")),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5, font=dict(size=11, color="#7f8c8d")),
                 margin=dict(l=10, r=10, t=40, b=10), height=350
             )
             fig2.update_yaxes(title_text="kWh", gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), title_font=dict(color="#7f8c8d"))
-            fig2.update_xaxes(gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), tickmode='linear')
+            fig2.update_xaxes(gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"))
             
             st.plotly_chart(fig2, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
-            
-        with st.container():
-            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-            pot_bat_val = d["solar"] - d["casa"]
-            color_dark = "#2c3e50"
-            color_gray = "#7f8c8d"
-
-            line_solar = "M 80 130 V 180 H 130"
-            line_grid = "M 320 130 V 180 H 270"
-            line_bat = "M 80 230 V 220 H 130"
-            line_house = "M 320 230 V 220 H 270"
-
-            svg_lines = f'''
-            <path d="{line_solar}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>
-            <path d="{line_house}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>
-            '''
-            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_lines += f'<path d="{line_grid}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>'
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_lines += f'<path d="{line_bat}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>'
-
-            path_solar = "M 80 130 V 180 H 130"
-            path_house = "M 270 220 H 320 V 230"
-            path_grid = "M 320 130 V 180 H 270" if not (tipo_sistema_actual == "On-Grid" and pot_bat_val > 0) else "M 270 180 H 320 V 130"
-            path_bat = "M 130 220 H 80 V 230" if pot_bat_val > 0 else "M 80 230 V 220 H 130"
-            
-            def make_particle(path, duration="2s"):
-                return f'''
-                <g>
-                    <animateMotion dur="{duration}" repeatCount="indefinite" path="{path}" />
-                    <circle cx="0" cy="0" r="10" fill="#f1c40f"/>
-                    <path d="M -3 -5 L -6 1 H -1 L -2 6 L 5 -1 H 1 Z" fill="#ffffff"/>
-                </g>
-                '''
-
-            svg_particles = make_particle(path_solar, "1.5s") + make_particle(path_house, "1.5s")
-            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_particles += make_particle(path_grid, "2s")
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_particles += make_particle(path_bat, "2s")
-
-            svg_inverter = f'''
-            <g transform="translate(130, 150)">
-                <rect x="0" y="10" width="140" height="80" rx="4" fill="#ffffff" stroke="#576574" stroke-width="3"/>
-                <rect x="0" y="0" width="140" height="15" rx="4" fill="#576574"/>
-                <rect x="0" y="8" width="140" height="7" fill="#576574"/>
-                <rect x="40" y="30" width="60" height="40" rx="2" fill="none" stroke="#576574" stroke-width="3"/>
-                <rect x="50" y="25" width="10" height="5" fill="#576574"/>
-                <rect x="80" y="25" width="10" height="5" fill="#576574"/>
-                <path d="M 45 40 H 60 M 45 50 H 60 M 45 60 H 60" stroke="#576574" stroke-width="3" stroke-linecap="round"/>
-                <path d="M 75 35 L 65 50 H 75 L 65 65 L 90 45 H 80 Z" fill="#f1c40f"/>
-                <path d="M 80 60 Q 85 55, 90 60 T 100 60" fill="none" stroke="#576574" stroke-width="2"/>
-            </g>
-            '''
-
-            svg_nodes = f'''
-            <text x="80" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Producción</text>
-            <image href="https://img.icons8.com/color/48/solar-panel--v1.png" width="60" height="60" x="50" y="55" />
-            <text x="80" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["solar"]} W</text>
-
-            <image href="https://img.icons8.com/color/48/home.png" width="60" height="60" x="290" y="240" />
-            <text x="320" y="325" font-size="16" fill="{color_gray}" text-anchor="middle">Consumo</text>
-            <text x="320" y="345" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["casa"]} W</text>
-            '''
-            
-            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                txt_meter = f'<text x="320" y="160" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
-                svg_nodes += f'''
-                <text x="320" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Red</text>
-                <image href="https://img.icons8.com/ios/48/576574/transmission-tower.png" width="60" height="60" x="290" y="55" />
-                <text x="320" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">0 W</text>
-                {txt_meter}
-                '''
-
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_nodes += f'''
-                <g transform="translate(45, 235)">
-                    <rect x="5" y="15" width="50" height="30" rx="4" fill="#2ecc71" stroke="#576574" stroke-width="2"/>
-                    <rect x="55" y="22" width="4" height="16" rx="2" fill="#576574"/>
-                    <path d="M 30 18 L 22 30 H 30 L 27 42 L 40 25 H 32 Z" fill="#f1c40f" stroke="#e67e22" stroke-width="1"/>
-                </g>
-                <text x="80" y="315" font-size="16" fill="{color_gray}" text-anchor="middle">Batería</text>
-                <text x="80" y="335" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{abs(pot_bat_val)} W</text>
-                <text x="80" y="355" font-size="14" fill="{color_gray}" text-anchor="middle">{d["soc"]}%</text>
-                '''
-
-            diagrama_svg = f"""
-            <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #eaeaea; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);">
-                <svg viewBox="0 0 400 380" width="100%" style="max-width: 450px;">
-                    {svg_lines}
-                    {svg_particles}
-                    {svg_inverter}
-                    {svg_nodes}
-                </svg>
-            </div>
-            """
-            components.html(diagrama_svg, height=430)
-            
-            st.markdown(f"""
-            <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-top: 15px;">
-                <h4 style="margin-top:0; margin-bottom:15px; color:#2c3e50; font-size:14px;">Beneficios ambientales y económicos ❔</h4>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/coal.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Ahorro de carbón estándar</span></div>
-                    <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 0.026, 2)} t</div>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/carbon-dioxide.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Reducción de emisiones CO2</span></div>
-                    <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 0.068, 2)} t</div>
-                </div>
-                <div style="display:flex; justify-content:space-between;">
-                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/deciduous-tree.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Árboles plantados</span></div>
-                    <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 4.7, 2)} Árboles</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
             
     with t_disp:
         if not st.session_state["ver_detalle_inv"] and not st.session_state["ver_detalle_logger"] and not st.session_state["ver_detalle_bateria"]:
