@@ -81,7 +81,7 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
     st.session_state["autenticado"] = False
 
 # ==========================================
-# 4. BASE DE DATOS EN SUPABASE (SIN CACHÉ PARA EVITAR ERRORES)
+# 4. BASE DE DATOS EN SUPABASE
 # ==========================================
 def init_db():
     if "SUPABASE_URL" not in st.secrets or "SUPABASE_KEY" not in st.secrets:
@@ -291,7 +291,7 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
     st.rerun()
 
 # ==========================================
-# 7. FUNCIONES DE SIMULACIÓN / EXTRACCIÓN Y PDF
+# 7. FUNCIONES DE SIMULACIÓN Y GRÁFICOS
 # ==========================================
 def subir_imagen_simulado(uploaded_file):
     if uploaded_file is not None:
@@ -303,62 +303,51 @@ def subir_imagen_simulado(uploaded_file):
 def get_data(pl):
     cap_val = pl.get("capacidad", "5")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
-    id_planta = str(pl.get("datalogger", "")).strip()
-    
-    if "SOLARMAN_USER" in st.secrets and "SOLARMAN_PWD" in st.secrets and id_planta != "":
-        try:
-            sesion = requests.Session()
-            sesion.headers.update({
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                "Accept": "application/json, text/plain, */*"
-            })
-            url_login = "https://pro.solarmanpv.com/api/v1.0/pwd/login"
-            payload = {"email": st.secrets["SOLARMAN_USER"], "password": st.secrets["SOLARMAN_PWD"]}
-            res_login = sesion.post(url_login, json=payload, timeout=3)
-            if res_login.status_code == 200:
-                url_datos = f"https://pro.solarmanpv.com/api/v1.0/station/{id_planta}/flow"
-                res_datos = sesion.get(url_datos, timeout=3)
-                if res_datos.status_code == 200:
-                    pass
-        except Exception as e:
-            pass 
-
     p_sol = int(cap * random.uniform(0.1, 0.8))
     e_dia = round((p_sol * random.uniform(3.5, 5.0)) / 1000, 1)
     soc = random.randint(15, 99) 
     return {"solar": p_sol, "casa": int(p_sol*0.4) + random.randint(500, 1500), "soc": soc, "hoy": e_dia, "alertas": []}
 
 def simular_historico_24h_avanzado(planta):
-    cap_val = planta.get("capacidad", "5")
-    cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5.0
+    cap_val = planta.get("capacidad", "30")
+    cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 30.0
     inicio_dia = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     datos = []
-    soc_actual = 65.0
     
-    for m in range(0, 24 * 60, 15):
+    for m in range(0, 24 * 60, 30):
         t = inicio_dia + timedelta(minutes=m)
-        h = t.hour
-        gen = max(0, (cap * 0.9) * math.sin((h - 6) / 12 * math.pi) * random.uniform(0.95, 1.05)) if 6 <= h <= 18 else 0
-        con = max(cap * 0.1, cap * 0.2 + (cap * 0.3 * math.sin((h-7)/2 * math.pi) if 7<=h<=9 else (cap * 0.4 * math.sin((h-18)/3 * math.pi) if 18<=h<=21 else 0)))
+        h = t.hour + t.minute/60.0
+        
+        # Simulación de campana de Gauss para el sol
+        gen = max(0, cap * math.exp(-0.5 * ((h - 13) / 2.5)**2) * random.uniform(0.9, 1.1)) if 6 <= h <= 18 else 0
+        con = max(cap * 0.15, cap * 0.3 * math.exp(-0.5 * ((h - 8) / 2)**2) + cap * 0.4 * math.exp(-0.5 * ((h - 19) / 2.5)**2)) * random.uniform(0.9, 1.1)
+        
         diff = gen - con
-        bat_power = 0
-        if diff > 0 and soc_actual < 100:
-            bat_power = min(diff, cap * 0.5) 
-            soc_actual = min(100, soc_actual + (bat_power * 0.25 / (cap*2)) * 100)
-        elif diff < 0 and soc_actual > 20:
-            bat_power = max(diff, -cap * 0.5) 
-            soc_actual = max(20, soc_actual + (bat_power * 0.25 / (cap*2)) * 100)
-            
-        red = 0 if planta.get('tipo_sistema', 'Off-Grid') == 'Off-Grid' else max(0, con - gen + bat_power)
-
+        grid_feed = max(0, diff) if pl.get('tipo_sistema', 'Híbrido') != 'Off-Grid' else 0
+        grid_purchase = max(0, -diff) if pl.get('tipo_sistema', 'Híbrido') != 'Off-Grid' else 0
+        
         datos.append({
             "timestamp": t,
-            "Potencia Solar": round(gen, 2),
-            "Consumo": round(con, 2),
-            "Batería": round(bat_power, 2),
-            "Red": round(red, 2),
-            "SOC": round(soc_actual, 1)
+            "Generation PV": round(gen, 2),
+            "Total Consumption": round(con, 2),
+            "Grid Purchase": round(grid_purchase, 2),
+            "Grid Feed-in": round(grid_feed, 2)
         })
+    return pd.DataFrame(datos)
+
+def simular_datos_7_dias(planta):
+    cap_val = planta.get("capacidad", "30")
+    cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 30.0
+    
+    fechas = [(datetime.now() - timedelta(days=i)).strftime("%a\n(%b %d)") for i in range(6, -1, -1)]
+    datos = []
+    for f in fechas:
+        gen_pv = round(cap * random.uniform(3.5, 5.0), 1)
+        cons = round(gen_pv * random.uniform(0.6, 1.2), 1)
+        grid_p = round(cons * random.uniform(0.1, 0.4), 1)
+        grid_f = round(gen_pv * random.uniform(0.05, 0.3), 1)
+        datos.append({"Día": f, "Gen PV": gen_pv, "Cons Total": cons, "Grid Purchase": grid_p, "Grid Feed-in": grid_f})
+    
     return pd.DataFrame(datos)
 
 def generar_pdf(planta, datos):
@@ -668,16 +657,16 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     st.markdown(f"<h2>{p['nombre']} <span style='font-size:14px; color:#7f8c8d; font-weight:normal;'>| 🟢 En línea | Tipo: {tipo_sistema_actual} | SN: {sn_logger}</span></h2><hr style='margin-top:0px; margin-bottom:20px; border-color:#e0e0e0;'>", unsafe_allow_html=True)
     
     c1, c2, c3, c4 = st.columns([3, 3, 2, 2])
-    c1.markdown(f"<div class='solarman-card' style='border-top: 4px solid #3498db;'><div class='solarman-val'>{d['hoy']} kWh</div><div class='solarman-lbl'>Producción Solar</div></div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='solarman-card' style='border-top: 4px solid #e74c3c;'><div class='solarman-val'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl'>Consumo</div></div>", unsafe_allow_html=True)
+    c1.markdown(f"<div class='solarman-card' style='border-top: 4px solid #f1c40f;'><div class='solarman-val'>{d['hoy']} kWh</div><div class='solarman-lbl'>Producción Solar Hoy</div></div>", unsafe_allow_html=True)
+    c2.markdown(f"<div class='solarman-card' style='border-top: 4px solid #e74c3c;'><div class='solarman-val'>{round(d['hoy']*0.45,1)} kWh</div><div class='solarman-lbl'>Consumo Hoy</div></div>", unsafe_allow_html=True)
     
     if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-        c3.markdown(f"<div class='solarman-card' style='border-top: 4px solid #2ecc71;'><div style='font-size:14px; font-weight:bold; color:#2c3e50;'>🔋 {round(d['hoy']*0.2,1)} kWh <span class='solarman-lbl-sm'>Cargar</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px; color:#2c3e50;'>🔋 {round(d['hoy']*0.1,1)} kWh <span class='solarman-lbl-sm'>Descargar</span></div></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='solarman-card' style='border-top: 4px solid #9b59b6;'><div style='font-size:14px; font-weight:bold; color:#2c3e50;'>SOC {d['soc']}% </div><div style='font-size:14px; font-weight:bold; margin-top:5px; color:#2c3e50;'>🔋 {round(d['hoy']*0.2,1)} kWh <span class='solarman-lbl-sm'>Carga</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px; color:#2c3e50;'>🔋 {round(d['hoy']*0.1,1)} kWh <span class='solarman-lbl-sm'>Descarga</span></div></div>", unsafe_allow_html=True)
     else:
         c3.markdown(f"<div class='solarman-card' style='border-top: 4px solid #bdc3c7;'><div style='font-size:20px; font-weight:bold; color:#bdc3c7;'>--</div><div class='solarman-lbl'>Sin Baterías</div></div>", unsafe_allow_html=True)
 
     if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-        c4.markdown(f"<div class='solarman-card' style='border-top: 4px solid #f1c40f;'><div style='font-size:14px; font-weight:bold; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>A Red</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px; color:#2c3e50;'>⚡ 0 kWh <span class='solarman-lbl-sm'>De Red</span></div></div>", unsafe_allow_html=True)
+        c4.markdown(f"<div class='solarman-card' style='border-top: 4px solid #3498db;'><div style='font-size:14px; font-weight:bold; color:#2c3e50;'>⚡ 500 W <span class='solarman-lbl-sm'>A Red</span></div><div style='font-size:14px; font-weight:bold; margin-top:5px; color:#2c3e50;'>⚡ 300 W <span class='solarman-lbl-sm'>De Red</span></div></div>", unsafe_allow_html=True)
     else:
         c4.markdown(f"<div class='solarman-card' style='border-top: 4px solid #bdc3c7;'><div style='font-size:20px; font-weight:bold; color:#bdc3c7;'>--</div><div class='solarman-lbl'>Aislado (Off-Grid)</div></div>", unsafe_allow_html=True)
         
@@ -690,189 +679,94 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         t_ctrl, t_om = None, None
     
     with t_graf:
-        st.markdown("### 📈 Gráfica de Producción y Consumo (Últimas 24h)")
+        col_g1, col_g2 = st.columns([1, 1])
         
-        col_grafica, col_flujo = st.columns([7, 3])
-        with col_grafica:
-            st.markdown("<div style='background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03);'>", unsafe_allow_html=True)
+        with col_g1:
+            st.markdown("<div style='background:#1f2937; border-radius:8px; padding:15px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);'>", unsafe_allow_html=True)
             df_historico = simular_historico_24h_avanzado(p)
             
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
+            fig1 = make_subplots(specs=[[{"secondary_y": False}]])
             
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                fig.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Batería'], 
-                                         fill='tozeroy', mode='lines', 
-                                         line=dict(color='rgba(155, 89, 182, 0.8)', width=1.5), 
-                                         name='Descarga de Batería (kW)',
-                                         hovertemplate='Batería: %{y:.2f} kW<extra></extra>'), secondary_y=False)
-                
-            fig.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Potencia Solar'], 
+            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Generation PV'], 
                                      fill='tozeroy', mode='lines', 
-                                     line=dict(color='rgba(241, 196, 15, 0.9)', width=2), 
-                                     name='Producción Solar (kW)',
-                                     hovertemplate='Solar: %{y:.2f} kW<extra></extra>'), secondary_y=False)
+                                     line=dict(color='#f1c40f', width=2), 
+                                     name='Generation PV',
+                                     hovertemplate='%{y:.2f} kW<extra></extra>'))
             
-            fig.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Consumo'], 
+            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Total Consumption'], 
                                      mode='lines', 
-                                     line=dict(color='rgba(231, 76, 60, 0.9)', width=2.5), 
-                                     name='Consumo de Red (kW)',
-                                     hovertemplate='Consumo: %{y:.2f} kW<extra></extra>'), secondary_y=False)
-            
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                fig.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['SOC'], 
+                                     line=dict(color='#e74c3c', width=2.5), 
+                                     name='Total Consumption',
+                                     hovertemplate='%{y:.2f} kW<extra></extra>'))
+                                     
+            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
+                fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Grid Purchase'], 
                                          mode='lines', 
-                                         line=dict(color='rgba(39, 174, 96, 1)', width=2, dash='solid'), 
-                                         name='SOC de Batería (%)',
-                                         hovertemplate='SOC: %{y:.1f}%<extra></extra>'), secondary_y=True)
-            
-            fig.update_layout(
-                title=dict(text="PRODUCCIÓN SOLAR Y CONSUMO", font=dict(size=16, color='#2c3e50', family="Arial")),
+                                         line=dict(color='#9b59b6', width=2), 
+                                         name='Grid Purchase',
+                                         hovertemplate='%{y:.2f} kW<extra></extra>'))
+                
+                fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Grid Feed-in'], 
+                                         mode='lines', 
+                                         line=dict(color='#3498db', width=2), 
+                                         name='Grid Feed-in',
+                                         hovertemplate='%{y:.2f} kW<extra></extra>'))
+
+            fig1.update_layout(
+                title=dict(text="Daily Power Flow Detail (Past 24 Hours Real-time)", font=dict(size=16, color='white', family="Arial")),
                 paper_bgcolor="rgba(0,0,0,0)", 
                 plot_bgcolor="rgba(0,0,0,0)", 
-                legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5, font=dict(size=11, color="#2c3e50")),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5, font=dict(size=11, color="white")),
                 margin=dict(l=10, r=10, t=40, b=10), 
                 height=450,
                 hovermode="x unified",
-                hoverlabel=dict(bgcolor="white", font=dict(size=12, family="Arial")),
-                font=dict(color="#2c3e50")
+                hoverlabel=dict(bgcolor="#2c3e50", font=dict(size=12, color="white", family="Arial"))
             )
             
-            fig.update_yaxes(title_text="Potencia (kW)", secondary_y=False, gridcolor="#f1f1f1")
-            fig.update_yaxes(title_text="SOC (%)", secondary_y=True, range=[0, 105], showgrid=False)
-            fig.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f1f1f1")
+            fig1.update_yaxes(title_text="kW", gridcolor="#374151", tickfont=dict(color="white"))
+            fig1.update_xaxes(tickformat="%I %p", dtick=3 * 3600000, gridcolor="#374151", tickfont=dict(color="white"))
             
-            idx_max_gen = df_historico['Potencia Solar'].idxmax()
-            max_gen = float(df_historico.loc[idx_max_gen, 'Potencia Solar'])
+            idx_max_gen = df_historico['Generation PV'].idxmax()
+            max_gen = float(df_historico.loc[idx_max_gen, 'Generation PV'])
             max_gen_time = df_historico.loc[idx_max_gen, 'timestamp'] 
             
-            fig.add_annotation(x=max_gen_time, y=max_gen, text=f"Máxima Generación: {max_gen:.1f} kW", 
-                               showarrow=True, arrowhead=2, arrowcolor="#f1c40f", 
-                               bgcolor="white", bordercolor="#f1c40f", borderwidth=1, borderpad=4, font=dict(color="#f1c40f", size=10))
+            fig1.add_annotation(x=max_gen_time, y=max_gen, text=f"Peak Solar: {max_gen:.0f} kW at 1 PM", 
+                               showarrow=True, arrowhead=1, arrowcolor="#f1c40f", 
+                               bgcolor="white", bordercolor="#f1c40f", font=dict(color="black", size=10))
 
-            idx_max_con = df_historico['Consumo'].idxmax()
-            max_con = float(df_historico.loc[idx_max_con, 'Consumo'])
-            max_con_time = df_historico.loc[idx_max_con, 'timestamp'] 
-            
-            fig.add_annotation(x=max_con_time, y=max_con, text=f"Pico de Consumo: {max_con:.1f} kW", 
-                               showarrow=True, arrowhead=2, arrowcolor="#e74c3c", 
-                               bgcolor="white", bordercolor="#e74c3c", borderwidth=1, borderpad=4, font=dict(color="#e74c3c", size=10))
-
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig1, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        with col_flujo:
-            pot_bat_val = d["solar"] - d["casa"]
-            color_dark = "#2c3e50"
-            color_gray = "#7f8c8d"
-
-            line_solar = "M 80 130 V 180 H 130"
-            line_grid = "M 320 130 V 180 H 270"
-            line_bat = "M 80 230 V 220 H 130"
-            line_house = "M 320 230 V 220 H 270"
-
-            svg_lines = f'''
-            <path d="{line_solar}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>
-            <path d="{line_house}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>
-            '''
-            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_lines += f'<path d="{line_grid}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>'
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_lines += f'<path d="{line_bat}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>'
-
-            path_solar = "M 80 130 V 180 H 130"
-            path_house = "M 270 220 H 320 V 230"
-            path_grid = "M 320 130 V 180 H 270" if not (tipo_sistema_actual == "On-Grid" and pot_bat_val > 0) else "M 270 180 H 320 V 130"
-            path_bat = "M 130 220 H 80 V 230" if pot_bat_val > 0 else "M 80 230 V 220 H 130"
+        with col_g2:
+            st.markdown("<div style='background:#1f2937; border-radius:8px; padding:15px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);'>", unsafe_allow_html=True)
             
-            def make_particle(path, duration="2s"):
-                return f'''
-                <g>
-                    <animateMotion dur="{duration}" repeatCount="indefinite" path="{path}" />
-                    <circle cx="0" cy="0" r="10" fill="#f1c40f"/>
-                    <path d="M -3 -5 L -6 1 H -1 L -2 6 L 5 -1 H 1 Z" fill="#ffffff"/>
-                </g>
-                '''
-
-            svg_particles = make_particle(path_solar, "1.5s") + make_particle(path_house, "1.5s")
-            if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                svg_particles += make_particle(path_grid, "2s")
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_particles += make_particle(path_bat, "2s")
-
-            svg_inverter = f'''
-            <g transform="translate(130, 150)">
-                <rect x="0" y="10" width="140" height="80" rx="4" fill="#ffffff" stroke="#576574" stroke-width="3"/>
-                <rect x="0" y="0" width="140" height="15" rx="4" fill="#576574"/>
-                <rect x="0" y="8" width="140" height="7" fill="#576574"/>
-                <rect x="40" y="30" width="60" height="40" rx="2" fill="none" stroke="#576574" stroke-width="3"/>
-                <rect x="50" y="25" width="10" height="5" fill="#576574"/>
-                <rect x="80" y="25" width="10" height="5" fill="#576574"/>
-                <path d="M 45 40 H 60 M 45 50 H 60 M 45 60 H 60" stroke="#576574" stroke-width="3" stroke-linecap="round"/>
-                <path d="M 75 35 L 65 50 H 75 L 65 65 L 90 45 H 80 Z" fill="#f1c40f"/>
-                <path d="M 80 60 Q 85 55, 90 60 T 100 60" fill="none" stroke="#576574" stroke-width="2"/>
-            </g>
-            '''
-
-            svg_nodes = f'''
-            <text x="80" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Producción</text>
-            <image href="https://img.icons8.com/color/48/solar-panel--v1.png" width="60" height="60" x="50" y="55" />
-            <text x="80" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["solar"]} W</text>
-
-            <image href="https://img.icons8.com/color/48/home.png" width="60" height="60" x="290" y="240" />
-            <text x="320" y="325" font-size="16" fill="{color_gray}" text-anchor="middle">Consumo</text>
-            <text x="320" y="345" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["casa"]} W</text>
-            '''
+            df_7dias = simular_datos_7_dias(p)
+            
+            fig2 = go.Figure()
+            
+            fig2.add_trace(go.Bar(x=df_7dias['Día'], y=df_7dias['Gen PV'], name='Gen PV', marker_color='#f1c40f', text=df_7dias['Gen PV'], textposition='outside'))
+            fig2.add_trace(go.Bar(x=df_7dias['Día'], y=df_7dias['Cons Total'], name='Cons Total', marker_color='#e74c3c', text=df_7dias['Cons Total'], textposition='outside'))
             
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                txt_meter = f'<text x="320" y="160" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
-                svg_nodes += f'''
-                <text x="320" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Red</text>
-                <image href="https://img.icons8.com/ios/48/576574/transmission-tower.png" width="60" height="60" x="290" y="55" />
-                <text x="320" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">0 W</text>
-                {txt_meter}
-                '''
+                fig2.add_trace(go.Bar(x=df_7dias['Día'], y=df_7dias['Grid Purchase'], name='Grid Purchase', marker_color='#9b59b6', text=df_7dias['Grid Purchase'], textposition='outside'))
+                fig2.add_trace(go.Bar(x=df_7dias['Día'], y=df_7dias['Grid Feed-in'], name='Grid Feed-in', marker_color='#3498db', text=df_7dias['Grid Feed-in'], textposition='outside'))
 
-            if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
-                svg_nodes += f'''
-                <g transform="translate(45, 235)">
-                    <rect x="5" y="15" width="50" height="30" rx="4" fill="#2ecc71" stroke="#576574" stroke-width="2"/>
-                    <rect x="55" y="22" width="4" height="16" rx="2" fill="#576574"/>
-                    <path d="M 30 18 L 22 30 H 30 L 27 42 L 40 25 H 32 Z" fill="#f1c40f" stroke="#e67e22" stroke-width="1"/>
-                </g>
-                <text x="80" y="315" font-size="16" fill="{color_gray}" text-anchor="middle">Batería</text>
-                <text x="80" y="335" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{abs(pot_bat_val)} W</text>
-                <text x="80" y="355" font-size="14" fill="{color_gray}" text-anchor="middle">{d["soc"]}%</text>
-                '''
-
-            diagrama_svg = f"""
-            <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #eaeaea; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);">
-                <svg viewBox="0 0 400 380" width="100%" style="max-width: 450px;">
-                    {svg_lines}
-                    {svg_particles}
-                    {svg_inverter}
-                    {svg_nodes}
-                </svg>
-            </div>
-            """
-            components.html(diagrama_svg, height=430)
+            fig2.update_layout(
+                title=dict(text="Daily Energy Category Comparison (kWh) - Past 7 Days", font=dict(size=16, color='white', family="Arial")),
+                paper_bgcolor="rgba(0,0,0,0)", 
+                plot_bgcolor="rgba(0,0,0,0)", 
+                barmode='group',
+                legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5, font=dict(size=11, color="white")),
+                margin=dict(l=10, r=10, t=40, b=10), 
+                height=450,
+                hoverlabel=dict(bgcolor="#2c3e50", font=dict(size=12, color="white", family="Arial"))
+            )
             
-            st.markdown(f"""
-            <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #eaeaea; margin-top: 15px;">
-                <h4 style="margin-top:0; margin-bottom:15px; color:#2c3e50; font-size:14px;">Beneficios ambientales y económicos ❔</h4>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/coal.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Ahorro de carbón estándar</span></div>
-                    <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 0.026, 2)} t</div>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/carbon-dioxide.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Reducción de emisiones CO2</span></div>
-                    <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 0.068, 2)} t</div>
-                </div>
-                <div style="display:flex; justify-content:space-between;">
-                    <div style="display:flex; align-items:center;"><img src="https://img.icons8.com/color/24/deciduous-tree.png" style="margin-right:10px;"/><span style="color:#7f8c8d; font-size:13px;">Árboles plantados</span></div>
-                    <div style="font-weight:bold; color:#2c3e50;">{round(d['hoy'] * 4.7, 2)} Árboles</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            fig2.update_yaxes(gridcolor="#374151", tickfont=dict(color="white"))
+            fig2.update_xaxes(tickfont=dict(color="white"))
+            
+            st.plotly_chart(fig2, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
             
     with t_disp:
         if not st.session_state["ver_detalle_inv"] and not st.session_state["ver_detalle_logger"] and not st.session_state["ver_detalle_bateria"]:
