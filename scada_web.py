@@ -728,8 +728,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             st.markdown("</div>", unsafe_allow_html=True)
 
         with col_side:
-            # Diagrama de flujo SVG adaptado al ancho
-            st.markdown("<div style='background:#ffffff; border-radius:8px; padding:15px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03); margin-bottom: 15px; display: flex; align-items: center; justify-content: center; height: 260px;'>", unsafe_allow_html=True)
+            # Diagrama de flujo SVG adaptado y empaquetado en HTML puro para Streamlit
             pot_bat_val = d["solar"] - d["casa"]
             color_dark = "#2c3e50"
             color_gray = "#7f8c8d"
@@ -783,21 +782,21 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             '''
 
             svg_nodes = f'''
-            <text x="80" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Producción</text>
+            <text x="80" y="40" font-size="16" fill="{color_gray}" text-anchor="middle" font-family="sans-serif">Producción</text>
             <image href="https://img.icons8.com/color/48/solar-panel--v1.png" width="60" height="60" x="50" y="55" />
-            <text x="80" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{round(d["solar"]/1000, 2)} kW</text>
+            <text x="80" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle" font-family="sans-serif">{round(d["solar"]/1000, 2)} kW</text>
 
             <image href="https://img.icons8.com/color/48/home.png" width="60" height="60" x="290" y="240" />
-            <text x="320" y="325" font-size="16" fill="{color_gray}" text-anchor="middle">Consumo</text>
-            <text x="320" y="345" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{round(d["casa"]/1000, 2)} kW</text>
+            <text x="320" y="325" font-size="16" fill="{color_gray}" text-anchor="middle" font-family="sans-serif">Consumo</text>
+            <text x="320" y="345" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle" font-family="sans-serif">{round(d["casa"]/1000, 2)} kW</text>
             '''
             
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                txt_meter = f'<text x="320" y="160" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
+                txt_meter = f'<text x="320" y="160" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle" font-family="sans-serif">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
                 svg_nodes += f'''
-                <text x="320" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Red</text>
+                <text x="320" y="40" font-size="16" fill="{color_gray}" text-anchor="middle" font-family="sans-serif">Red</text>
                 <image href="https://img.icons8.com/ios/48/576574/transmission-tower.png" width="60" height="60" x="290" y="55" />
-                <text x="320" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">0 kW</text>
+                <text x="320" y="140" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle" font-family="sans-serif">0 kW</text>
                 {txt_meter}
                 '''
 
@@ -808,20 +807,32 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     <rect x="55" y="22" width="4" height="16" rx="2" fill="#576574"/>
                     <path d="M 30 18 L 22 30 H 30 L 27 42 L 40 25 H 32 Z" fill="#f1c40f" stroke="#e67e22" stroke-width="1"/>
                 </g>
-                <text x="80" y="315" font-size="16" fill="{color_gray}" text-anchor="middle">Batería</text>
-                <text x="80" y="335" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{round(abs(pot_bat_val)/1000, 2)} kW</text>
-                <text x="80" y="355" font-size="14" fill="{color_gray}" text-anchor="middle">{d["soc"]}%</text>
+                <text x="80" y="315" font-size="16" fill="{color_gray}" text-anchor="middle" font-family="sans-serif">Batería</text>
+                <text x="80" y="335" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle" font-family="sans-serif">{round(abs(pot_bat_val)/1000, 2)} kW</text>
+                <text x="80" y="355" font-size="14" fill="{color_gray}" text-anchor="middle" font-family="sans-serif">{d["soc"]}%</text>
                 '''
 
-            components.html(f"""
-            <svg viewBox="0 0 400 380" width="100%" height="100%" style="max-height: 230px;">
-                {svg_lines}
-                {svg_particles}
-                {svg_inverter}
-                {svg_nodes}
-            </svg>
-            """, height=230)
-            st.markdown("</div>", unsafe_allow_html=True)
+            html_code = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <style>
+                body {{ margin: 0; padding: 0; overflow: hidden; background-color: transparent; }}
+            </style>
+            </head>
+            <body>
+                <div style="background:#ffffff; border-radius:8px; padding:15px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: center; height: 260px; box-sizing: border-box; margin-bottom: 15px;">
+                    <svg viewBox="0 0 400 380" width="100%" height="100%" style="max-height: 240px;">
+                        {svg_lines}
+                        {svg_particles}
+                        {svg_inverter}
+                        {svg_nodes}
+                    </svg>
+                </div>
+            </body>
+            </html>
+            """
+            components.html(html_code, height=275)
             
             # Beneficios Ambientales
             st.markdown(f"""
