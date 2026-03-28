@@ -56,6 +56,7 @@ div[data-testid="stButton"] button[kind="primary"] p { color: white !important; 
 div[data-testid="stButton"] button[kind="primary"]:hover { background-color: #57a3f3 !important; }
 div[data-testid="stButton"] button[kind="secondary"] { border-color: #2d8cf0 !important; border-radius: 4px !important; background-color: white !important; }
 div[data-testid="stButton"] button[kind="secondary"] p { color: #2d8cf0 !important; }
+/* Estilos para la radiografía */
 .diag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; font-size: 13px; color: #2c3e50; padding: 10px; }
 .diag-grid div { margin-bottom: 10px; }
 .diag-lbl { color: #7f8c8d; display: block; margin-bottom: 2px; }
@@ -821,27 +822,31 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             '''
 
             svg_nodes = f'''
-            <text x="80" y="40" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["solar"]} W</text>
-            <text x="80" y="60" font-size="16" fill="{color_gray}" text-anchor="middle">Producción</text>
-            <image href="https://img.icons8.com/color/48/solar-panel--v1.png" width="60" height="60" x="50" y="70" />
+            <text x="80" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Producción</text>
+            <image href="https://img.icons8.com/color/96/solar-panel.png" width="60" height="60" x="50" y="70" />
+            <text x="80" y="150" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["solar"]} W</text>
 
-            <image href="https://img.icons8.com/color/48/home.png" width="60" height="60" x="290" y="200" />
+            <image href="https://img.icons8.com/color/96/home.png" width="60" height="60" x="290" y="190" />
             <text x="320" y="280" font-size="16" fill="{color_gray}" text-anchor="middle">Consumo</text>
             <text x="320" y="300" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{d["casa"]} W</text>
             '''
             
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                txt_meter = f'<text x="320" y="130" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
+                txt_meter = f'<text x="320" y="165" font-size="10" font-weight="bold" fill="{color_gray}" text-anchor="middle">{smart_meter_actual}</text>' if smart_meter_actual != "Ninguno" else ""
                 svg_nodes += f'''
-                <text x="320" y="40" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">0 W</text>
-                <text x="320" y="60" font-size="16" fill="{color_gray}" text-anchor="middle">Red</text>
-                <image href="https://img.icons8.com/ios/48/576574/transmission-tower.png" width="60" height="60" x="290" y="70" />
+                <text x="320" y="40" font-size="16" fill="{color_gray}" text-anchor="middle">Red</text>
+                <image href="https://img.icons8.com/ios/96/576574/transmission-tower.png" width="60" height="60" x="290" y="70" />
+                <text x="320" y="150" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">0 W</text>
                 {txt_meter}
                 '''
 
             if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                 svg_nodes += f'''
-                <image href="https://img.icons8.com/color/48/charged-battery.png" width="60" height="60" x="50" y="200" />
+                <g transform="translate(45, 195)">
+                    <rect x="10" y="18" width="44" height="24" rx="3" fill="#2ecc71" stroke="#576574" stroke-width="2"/>
+                    <rect x="54" y="24" width="4" height="12" rx="1" fill="#576574"/>
+                    <path d="M 32 14 L 24 28 H 30 L 28 40 L 38 26 H 32 Z" fill="#f1c40f" stroke="#e67e22" stroke-width="1"/>
+                </g>
                 <text x="80" y="280" font-size="16" fill="{color_gray}" text-anchor="middle">Batería</text>
                 <text x="80" y="300" font-size="14" font-weight="bold" fill="{color_dark}" text-anchor="middle">{abs(pot_bat_val)} W</text>
                 <text x="80" y="320" font-size="12" fill="#95a5a6" text-anchor="middle">{d["soc"]}%</text>
@@ -1150,12 +1155,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>"""
 
@@ -1166,12 +1171,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 50px;'><span style='color:#3498db; font-weight:bold;'>▼ Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 {battery_html}
@@ -1331,12 +1336,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
                     battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> Batería<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>"""
 
@@ -1347,12 +1352,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left:20px;'><span style='color:#3498db; font-weight:bold;'>▼ Registrador</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> Inversor<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 {battery_html}
@@ -1374,7 +1379,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 </div>
                 <span style='color:#7f8c8d; font-size:13px;'>{datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')}</span>
             </div>
-            <hr style='margin:top:0px; border-color:#eaeaea;'>
+            <hr style='margin-top:0px; border-color:#eaeaea;'>
             """, unsafe_allow_html=True)
             
             t_bat_1, t_bat_2, t_bat_3, t_bat_4 = st.tabs(["Detalles", "Alerta", "Arquitectura", "Datos históricos"])
@@ -1440,12 +1445,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 
                 battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Batería</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>"""
 
@@ -1456,12 +1461,12 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 <tr style='border-bottom:1px solid #f8f9fa;'>
 <td style='padding:12px; padding-left: 50px;'><span style='color:#7f8c8d;'>▼</span> Inversor<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/27ae60/antenna.png" width="16" /></td>
+<td style='padding:12px;'><img src="https://img.icons8.com/material-rounded/24/2ecc71/antenna.png" width="16" /></td>
 <td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
 </tr>
 {battery_html}
