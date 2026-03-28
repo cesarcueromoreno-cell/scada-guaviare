@@ -1,9 +1,7 @@
 streamlit
-requests
-pymodbus
-plotly
 pandas
-gspread
-google-auth
+plotly
 fpdf
 requests
+pymodbus
+supabase==2.3.4
