@@ -314,40 +314,35 @@ def simular_historico_24h_avanzado(planta):
     inicio_dia = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     datos = []
     
-    for m in range(0, 24 * 60, 30):
+    for m in range(0, 24 * 60, 15):
         t = inicio_dia + timedelta(minutes=m)
         h = t.hour + t.minute/60.0
         
-        # Simulación de campana de Gauss para el sol
         gen = max(0, cap * math.exp(-0.5 * ((h - 13) / 2.5)**2) * random.uniform(0.9, 1.1)) if 6 <= h <= 18 else 0
         con = max(cap * 0.15, cap * 0.3 * math.exp(-0.5 * ((h - 8) / 2)**2) + cap * 0.4 * math.exp(-0.5 * ((h - 19) / 2.5)**2)) * random.uniform(0.9, 1.1)
         
         diff = gen - con
-        grid_feed = max(0, diff) if pl.get('tipo_sistema', 'Híbrido') != 'Off-Grid' else 0
-        grid_purchase = max(0, -diff) if pl.get('tipo_sistema', 'Híbrido') != 'Off-Grid' else 0
+        grid_purchase = max(0, -diff) if planta.get('tipo_sistema', 'Híbrido') != 'Off-Grid' else 0
         
         datos.append({
             "timestamp": t,
-            "Generation PV": round(gen, 2),
-            "Total Consumption": round(con, 2),
-            "Grid Purchase": round(grid_purchase, 2),
-            "Grid Feed-in": round(grid_feed, 2)
+            "Potencia solar": round(gen * 1000, 2), # Pasado a Watts
+            "Consumo": round(con * 1000, 2),
+            "Red": round(grid_purchase * 1000, 2)
         })
     return pd.DataFrame(datos)
 
-def simular_datos_7_dias(planta):
+def simular_produccion_mensual(planta):
     cap_val = planta.get("capacidad", "30")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 30.0
-    
-    fechas = [(datetime.now() - timedelta(days=i)).strftime("%a\n(%b %d)") for i in range(6, -1, -1)]
     datos = []
-    for f in fechas:
-        gen_pv = round(cap * random.uniform(3.5, 5.0), 1)
-        cons = round(gen_pv * random.uniform(0.6, 1.2), 1)
-        grid_p = round(cons * random.uniform(0.1, 0.4), 1)
-        grid_f = round(gen_pv * random.uniform(0.05, 0.3), 1)
-        datos.append({"Día": f, "Gen PV": gen_pv, "Cons Total": cons, "Grid Purchase": grid_p, "Grid Feed-in": grid_f})
-    
+    mes_actual = datetime.now().month
+    for i in range(1, 13):
+        if i <= mes_actual:
+            val = cap * random.uniform(0.6, 0.9)
+        else:
+            val = 0
+        datos.append({"Mes": str(i), "Producción solar mensual": round(val, 1)})
     return pd.DataFrame(datos)
 
 def generar_pdf(planta, datos):
@@ -698,7 +693,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         if tipo_sistema_actual in ["Híbrido", "Off-Grid"]:
             svg_lines += f'<path d="{line_bat}" fill="none" stroke="{color_gray}" stroke-width="4" stroke-dasharray="8,6" stroke-linecap="round"/>'
 
-12. # Definición de las partículas y su dirección
+        # Definición de las partículas y su dirección
         path_solar = "M 80 130 V 180 H 130"
         path_house = "M 270 220 H 320 V 230"
         # Dirección Grid: si exporta o importa
@@ -821,41 +816,29 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             fig1 = go.Figure()
             
             # Gráfica de Líneas con Sombreado (Flujo de Potencia Diario)
-            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Generation PV'], 
+            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Potencia solar'], 
                                      fill='tozeroy', mode='lines', 
-                                     line=dict(color='#f1c40f', width=2), 
-                                     name='Generation PV',
-                                     hovertemplate='%{y:.2f} kW<extra></extra>'))
+                                     line=dict(color='#3498db', width=2), fillcolor='rgba(52, 152, 219, 0.2)',
+                                     name='Potencia solar'))
             
-            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Total Consumption'], 
-                                     mode='lines', 
-                                     line=dict(color='#e74c3c', width=2.5), 
-                                     name='Total Consumption',
-                                     hovertemplate='%{y:.2f} kW<extra></extra>'))
+            fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Consumo'], 
+                                     fill='tozeroy', mode='lines', 
+                                     line=dict(color='#e74c3c', width=2), fillcolor='rgba(231, 76, 60, 0.1)',
+                                     name='Consumo'))
                                      
             if tipo_sistema_actual in ["Híbrido", "On-Grid"]:
-                fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Grid Purchase'], 
+                fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Red'], 
                                          mode='lines', 
-                                         line=dict(color='#9b59b6', width=2), 
-                                         name='Grid Purchase',
-                                         hovertemplate='%{y:.2f} kW<extra></extra>'))
-                
-                fig1.add_trace(go.Scatter(x=df_historico['timestamp'], y=df_historico['Grid Feed-in'], 
-                                         mode='lines', 
-                                         line=dict(color='#3498db', width=2), 
-                                         name='Grid Feed-in',
-                                         hovertemplate='%{y:.2f} kW<extra></extra>'))
+                                         line=dict(color='#f39c12', width=2), 
+                                         name='Red'))
 
             fig1.update_layout(
-                title=dict(text="Daily Power Flow Detail (Past 24 Hours Real-time)", font=dict(size=14, color='#2c3e50', family="Arial")),
-                paper_bgcolor="rgba(0,0,0,0)", 
-                plot_bgcolor="rgba(0,0,0,0)", 
-                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5, font=dict(size=11, color="#7f8c8d")),
-                margin=dict(l=10, r=10, t=40, b=10), 
-                height=350,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5, font=dict(size=12, color="#7f8c8d")),
+                margin=dict(l=10, r=10, t=10, b=10), height=350,
                 hovermode="x unified"
             )
-            fig1.update_yaxes(title_text="kW", gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), title_font=dict(color="#7f8c8d"))
+            fig1.update_yaxes(title_text="W", gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), title_font=dict(color="#7f8c8d"))
             fig1.update_xaxes(tickformat="%H:%M", dtick=3 * 3600000, gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"))
             
             st.plotly_chart(fig1, use_container_width=True)
@@ -864,11 +847,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         with col_g2:
             st.markdown("<div style='background:#ffffff; border-radius:8px; padding:15px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03);'>", unsafe_allow_html=True)
             
-            # Gráfica de Barras Blue (Producción Planificada Mensual)
-            datos_meses = []
-            for i in range(1, 13):
-                datos_meses.append({"Mes": str(i), "Producción solar mensual": random.randint(150, 400)})
-            df_mensual = pd.DataFrame(datos_meses)
+            df_mensual = simular_produccion_mensual(p)
             
             fig2 = go.Figure()
             fig2.add_trace(go.Bar(x=df_mensual['Mes'], y=df_mensual['Producción solar mensual'], name='Producción solar mensual', marker_color='#1890ff', width=0.4))
@@ -877,11 +856,11 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 title=dict(text="Producción Planificada", font=dict(size=14, color='#2c3e50', family="Arial")),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
                 barmode='group',
-                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5, font=dict(size=11, color="#7f8c8d")),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5, font=dict(size=12, color="#7f8c8d")),
                 margin=dict(l=10, r=10, t=40, b=10), height=350
             )
             fig2.update_yaxes(title_text="kWh", gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), title_font=dict(color="#7f8c8d"))
-            fig2.update_xaxes(gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"))
+            fig2.update_xaxes(gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), tickmode='linear')
             
             st.plotly_chart(fig2, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
