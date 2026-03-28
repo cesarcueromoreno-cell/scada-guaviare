@@ -86,7 +86,7 @@ if st.session_state["autenticado"] and st.session_state["usuario"] is None:
 if "delete" in st.query_params:
     try:
         idx = int(st.query_params["delete"])
-        eliminar_planta(idx)
+        eliminar_planta(idx) # Esta función se llama luego
         st.query_params.clear()
     except: pass
 if "edit" in st.query_params:
@@ -152,17 +152,24 @@ def cargar_plantas():
 
 def guardar_planta(nueva):
     if supabase:
-        try: supabase.table("plantas").insert(nueva).execute()
-        except Exception as e: st.error(f"Error guardando planta: {e}")
+        try: 
+            supabase.table("plantas").insert(nueva).execute()
+            return True, ""
+        except Exception as e: 
+            return False, str(e)
+    return False, "No hay conexión con la base de datos"
 
 def actualizar_planta(idx, p_edit):
     if supabase:
         try:
             plantas = cargar_plantas()
             if idx < len(plantas):
-                datos = {k: str(v) for k, v in p_edit.items() if k not in ["id", "creado_en"]}
+                datos = {k: v for k, v in p_edit.items() if k not in ["id", "creado_en"]}
                 supabase.table("plantas").update(datos).eq("id", plantas[idx]["id"]).execute()
-        except: pass
+                return True, ""
+        except Exception as e:
+            return False, str(e)
+    return False, "Error al conectar"
 
 def eliminar_planta(idx):
     if supabase:
@@ -507,16 +514,24 @@ elif menu == "🌐 Panorama General":
             n_meter = c6.selectbox("Smart Meter (Medidor Inteligente)", OPCIONES_METERS, index=idx_meter)
 
             if st.form_submit_button("💾 Guardar Cambios"):
+                # LIMPIEZA DE DATOS PARA EVITAR ERRORES EN SUPABASE
+                nums = re.findall(r"[-+]?\d*\.\d+|\d+", str(c))
+                cap_val = float(nums[0]) if nums else 0.0
+                dl_val = str(sn).strip() if str(sn).strip() else f"SN-{random.randint(10000,99999)}"
+                
                 p_edit.update({
-                    "nombre": str(n), "ubicacion": str(u), "capacidad": str(c), 
-                    "datalogger": str(sn), "tipo_sistema": str(n_tipo), 
+                    "nombre": str(n).strip(), "ubicacion": str(u).strip(), "capacidad": cap_val, 
+                    "datalogger": dl_val, "tipo_sistema": str(n_tipo), 
                     "smart_meter": str(n_meter), "imagen_url": str(img_url_final) 
                 })
-                actualizar_planta(idx, p_edit)
-                st.session_state["editando_planta"] = None
-                st.success("✅ Planta actualizada correctamente.")
-                time.sleep(1)
-                st.rerun()
+                ok, msg = actualizar_planta(idx, p_edit)
+                if ok:
+                    st.session_state["editando_planta"] = None
+                    st.success("✅ Planta actualizada correctamente.")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(f"❌ Error al actualizar. Detalle: {msg}")
 
     if st.session_state.get("mostrar_crear"):
         st.markdown("<h3>➕ Crear Nueva Planta</h3>", unsafe_allow_html=True)
@@ -555,24 +570,34 @@ elif menu == "🌐 Panorama General":
             s1, s2 = st.columns(2)
             if s1.form_submit_button("💾 Guardar Nueva Planta"):
                 if n_nom:
-                    # FORZAR A TEXTO SIMPLE PARA EVITAR ERROR 'list'
+                    # EXTRACCION DE SOLO NÚMEROS Y EVITAR DATALOGGER REPETIDO
+                    nums = re.findall(r"[-+]?\d*\.\d+|\d+", str(n_cap))
+                    cap_val = float(nums[0]) if nums else 0.0
+                    dl_val = str(n_sn).strip() if str(n_sn).strip() else f"SN-{random.randint(10000,99999)}"
+                    
                     payload = {
-                        "nombre": str(n_nom), 
-                        "ubicacion": str(n_ubi), 
-                        "capacidad": str(n_cap), 
+                        "nombre": str(n_nom).strip(), 
+                        "ubicacion": str(n_ubi).strip(), 
+                        "capacidad": cap_val, 
                         "inversores": str(n_inv), 
-                        "datalogger": str(n_sn), 
+                        "datalogger": dl_val, 
                         "tipo_sistema": str(n_tipo), 
                         "smart_meter": str(n_meter), 
                         "imagen_url": str(img_url_crear) 
                     }
-                    guardar_planta(payload)
-                    st.session_state["mostrar_crear"] = False
-                    st.success("✅ Planta creada.")
-                    time.sleep(1)
-                    st.rerun()
+                    
+                    # GUARDADO CON CONTROL DE ERRORES VISIBLE
+                    ok, msg = guardar_planta(payload)
+                    if ok:
+                        st.session_state["mostrar_crear"] = False
+                        st.success("✅ Planta creada con éxito.")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error(f"❌ La base de datos rechazó los datos (Revisa que el Nombre o Datalogger no estén repetidos). Detalle: {msg}")
                 else:
                     st.error("⚠️ El nombre de la planta es obligatorio.")
+            
             if s2.form_submit_button("❌ Cancelar"):
                 st.session_state["mostrar_crear"] = False
                 st.rerun()
