@@ -421,7 +421,7 @@ if menu == "👥 Gestión de Usuarios":
     
     st.markdown("<br>", unsafe_allow_html=True)
     for usr, datos in db_usuarios.items():
-        if usr == "admin": continue
+        if usr == "admin"; continue
         estado_color = "#27ae60" if datos['status'] == 'active' else "#f39c12"
         estado_texto = "🟢 Activo" if datos['status'] == 'active' else "⏳ Pendiente"
         st.markdown(f"""
@@ -894,18 +894,19 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             st.markdown("<div style='background:#ffffff; border-radius:8px; padding:15px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03); height: 100%;'>", unsafe_allow_html=True)
             
             # Cabecera de Producción Planificada simulando la interfaz de la imagen
+            # Se han ajustado los estilos CSS para los botones y la navegación para coincidir exactamente con la referencia
             st.markdown("""
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h4 style="margin: 0; color: #2c3e50; font-size: 15px; font-weight: normal;">Producción Planificada</h4>
                 <div style="display: flex; gap: 5px; align-items: center;">
                     <div style="display: flex;">
-                        <button style="border:1px solid #3498db; background:#e6f7ff; color:#3498db; padding:2px 8px; border-radius:4px 0 0 4px; font-size:12px; cursor:pointer;">Año</button>
-                        <button style="border:1px solid #eaeaea; border-left:none; background:white; color:#7f8c8d; padding:2px 8px; border-radius:0 4px 4px 0; font-size:12px; cursor:pointer;">Total</button>
+                        <button style="border:1px solid #1890ff; background:#e6f7ff; color:#1890ff; padding:3px 10px; border-radius:4px 0 0 4px; font-size:12px; cursor:pointer; font-family:sans-serif;">Año</button>
+                        <button style="border:1px solid #eaeaea; border-left:none; background:white; color:#7f8c8d; padding:3px 10px; border-radius:0 4px 4px 0; font-size:12px; cursor:pointer; font-family:sans-serif;">Total</button>
                     </div>
-                    <button style="border:none; background:#1890ff; color:white; padding:3px 12px; border-radius:4px; font-size:12px; margin-left:5px; cursor:pointer;">Exportar</button>
-                    <span style="color:#7f8c8d; margin-left:10px; cursor:pointer;">&lt;</span>
-                    <span style="border:1px solid #eaeaea; padding:2px 10px; border-radius:4px; font-size:12px; color:#7f8c8d; display:flex; align-items:center; gap:5px;">2025 <img src="https://img.icons8.com/material-outlined/24/7f8c8d/calendar--v1.png" width="14"/></span>
-                    <span style="color:#7f8c8d; cursor:pointer;">&gt;</span>
+                    <button style="border:1px solid #eaeaea; background:white; color:#7f8c8d; padding:3px 15px; border-radius:4px; font-size:12px; margin-left:5px; cursor:pointer; font-family:sans-serif;">Exportar</button>
+                    <span style="color:#7f8c8d; margin-left:15px; cursor:pointer; font-size:14px; font-weight:bold;">&lt;</span>
+                    <span style="border:1px solid #eaeaea; padding:3px 12px; border-radius:4px; font-size:12px; color:#2c3e50; display:flex; align-items:center; gap:8px; font-family:sans-serif;">2025 <img src="https://img.icons8.com/material-outlined/24/7f8c8d/calendar--v1.png" width="14"/></span>
+                    <span style="color:#7f8c8d; cursor:pointer; font-size:14px; font-weight:bold;">&gt;</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -913,25 +914,26 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             df_mensual = simular_produccion_mensual(p)
             
             fig2 = go.Figure()
-            # Barra real azul
-            fig2.add_trace(go.Bar(x=df_mensual['Mes'], y=df_mensual['Producción solar mensual'], name='Producción solar mensual', marker_color='#1890ff', width=0.3))
+            # Barra real azul (Ajustado ancho a 0.4 para coincidir visualmente)
+            fig2.add_trace(go.Bar(x=df_mensual['Mes'], y=df_mensual['Producción solar mensual'], name='Producción solar mensual', marker_color='#1890ff', width=0.4))
             
-            # Trazos invisibles para la leyenda exacta de la imagen
-            fig2.add_trace(go.Bar(x=[None], y=[None], name='Producción Planificada Mensual', marker_color='#d9d9d9'))
-            fig2.add_trace(go.Scatter(x=[None], y=[None], mode='markers', name='Finalización mensual', marker=dict(color='#bfbfbf', size=10)))
+            # Trazos invisibles para la leyenda exacta de la imagen (Ajustado color a #bfbfbf)
+            fig2.add_trace(go.Bar(x=[None], y=[None], name='Producción Planificada Mensual', marker_color='#bfbfbf'))
+            fig2.add_trace(go.Scatter(x=[None], y=[None], mode='markers', name='Finalización mensual', marker=dict(color='#bfbfbf', size=10, symbol='square')))
 
+            # Se ha refinado el layout para eliminar líneas de eje y configurar la cuadrícula suave y leyendas/anotaciones idénticas
             fig2.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
                 barmode='group',
-                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5, font=dict(size=11, color="#7f8c8d")),
-                margin=dict(l=10, r=10, t=25, b=10), height=250
+                legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5, font=dict(size=12, color="#2c3e50"), itemgap=20),
+                margin=dict(l=10, r=10, t=10, b=10), height=300,
+                xaxis=dict(showline=False, showgrid=False, zeroline=False, tickfont=dict(color="#7f8c8d", size=12), tickmode='linear', dtick=1),
+                yaxis=dict(showline=False, showgrid=True, gridcolor="#f0f0f0", zeroline=False, tickfont=dict(color="#7f8c8d", size=12))
             )
             
-            fig2.add_annotation(x=0, y=1.15, xref="paper", yref="paper", text="kWh", showarrow=False, font=dict(size=11, color="#7f8c8d"), xanchor="left")
-            fig2.add_annotation(x=1, y=1.15, xref="paper", yref="paper", text="%", showarrow=False, font=dict(size=11, color="#7f8c8d"), xanchor="right")
-            
-            fig2.update_yaxes(gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), showline=False, zeroline=False)
-            fig2.update_xaxes(gridcolor="#f0f0f0", tickfont=dict(color="#7f8c8d"), tickmode='linear', showline=False, zeroline=False)
+            # Posicionamiento de las anotaciones de ejes (kWh y %) exactamente como en la imagen de referencia
+            fig2.add_annotation(x=0, y=1, xref="paper", yref="paper", text="kWh", showarrow=False, font=dict(size=11, color="#7f8c8d"), xanchor="left", yanchor="bottom")
+            fig2.add_annotation(x=1, y=1, xref="paper", yref="paper", text="%", showarrow=False, font=dict(size=11, color="#7f8c8d"), xanchor="right", yanchor="bottom")
             
             st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
             st.markdown("</div>", unsafe_allow_html=True)
