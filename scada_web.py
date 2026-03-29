@@ -421,7 +421,7 @@ if menu == "👥 Gestión de Usuarios":
     
     st.markdown("<br>", unsafe_allow_html=True)
     for usr, datos in db_usuarios.items():
-        if usr == "admin"; continue
+        if usr == "admin": continue
         estado_color = "#27ae60" if datos['status'] == 'active' else "#f39c12"
         estado_texto = "🟢 Activo" if datos['status'] == 'active' else "⏳ Pendiente"
         st.markdown(f"""
