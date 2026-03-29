@@ -274,7 +274,6 @@ st.sidebar.write(f"👤 **{st.session_state.get('usuario', '')}** | Rol: {'Insta
 
 opciones_menu = []
 if st.session_state.get('rol') == 'admin':
-    # SE ELIMINÓ EL "PANORAMA GENERAL" DE AQUÍ
     opciones_menu = ["📊 Panel de Planta", "🚨 Centro de Alertas", "👥 Gestión de Usuarios"]
 else:
     opciones_menu = ["📊 Panel de Mi Planta"]
@@ -813,23 +812,24 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 <text x="80" y="355" font-size="14" fill="{color_gray}" text-anchor="middle" font-family="sans-serif">{d["soc"]}%</text>
                 '''
 
-            # Este bloque ancla el SVG perfectamente en la columna sin que se desborde hacia arriba
-            st.markdown("<div style='background:#ffffff; border-radius:8px; padding:15px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: center; height: 260px; margin-bottom: 15px;'>", unsafe_allow_html=True)
-            components.html(f"""
+            # Empaquetamos el fondo blanco DENTRO del iframe para que no se separe nunca
+            html_code = f"""
             <!DOCTYPE html>
             <html>
             <head><style>body {{ margin: 0; padding: 0; overflow: hidden; background-color: transparent; }}</style></head>
             <body>
-                <svg viewBox="0 0 400 380" width="100%" height="100%" style="max-height: 230px;">
-                    {svg_lines}
-                    {svg_particles}
-                    {svg_inverter}
-                    {svg_nodes}
-                </svg>
+                <div style="background:#ffffff; border-radius:8px; padding:10px; border:1px solid #eaeaea; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: center; height: 260px; box-sizing: border-box; margin-bottom: 10px;">
+                    <svg viewBox="0 0 400 380" width="100%" height="100%" style="max-height: 240px;">
+                        {svg_lines}
+                        {svg_particles}
+                        {svg_inverter}
+                        {svg_nodes}
+                    </svg>
+                </div>
             </body>
             </html>
-            """, height=230)
-            st.markdown("</div>", unsafe_allow_html=True)
+            """
+            components.html(html_code, height=275)
             
             # Beneficios Ambientales (Justo debajo del flujo)
             st.markdown(f"""
