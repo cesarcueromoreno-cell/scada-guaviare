@@ -674,10 +674,10 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
     # PESTAÑAS PRINCIPALES DE LA PLANTA
     # ==========================================
     if st.session_state['rol'] == 'admin':
-        t_graf, t_disp, t_ctrl, t_rep, t_om = st.tabs(["📈 Panel Gráfico", "🔌 Dispositivos", "⚙️ Control Remoto", "📄 Reportes PDF", "🛠️ O&M"])
+        t_graf, t_disp, t_ctrl, t_rep, t_om, t_auth = st.tabs(["📈 Panel Gráfico", "🔌 Dispositivos", "⚙️ Control Remoto", "📄 Reportes PDF", "🛠️ O&M", "🛡️ Autorizaciones"])
     else:
         t_graf, t_disp, t_rep = st.tabs(["📈 Panel Gráfico", "🔌 Dispositivos", "📄 Reportes PDF"])
-        t_ctrl, t_om = None, None
+        t_ctrl, t_om, t_auth = None, None, None
     
     with t_graf:
         st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
@@ -903,7 +903,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                         <button style="border:1px solid #1890ff; background:#e6f7ff; color:#1890ff; padding:3px 10px; border-radius:4px 0 0 4px; font-size:12px; cursor:pointer; font-family:sans-serif;">Año</button>
                         <button style="border:1px solid #eaeaea; border-left:none; background:white; color:#7f8c8d; padding:3px 10px; border-radius:0 4px 4px 0; font-size:12px; cursor:pointer; font-family:sans-serif;">Total</button>
                     </div>
-                    <button style="border:none; background:#1890ff; color:white; padding:3px 12px; border-radius:4px; font-size:12px; margin-left:5px; cursor:pointer; font-family:sans-serif;">Exportar</button>
+                    <button style="border:1px solid #eaeaea; background:white; color:#7f8c8d; padding:3px 15px; border-radius:4px; font-size:12px; margin-left:5px; cursor:pointer; font-family:sans-serif;">Exportar</button>
                     <span style="color:#7f8c8d; margin-left:15px; cursor:pointer; font-size:14px; font-weight:bold;">&lt;</span>
                     <span style="border:1px solid #eaeaea; padding:3px 12px; border-radius:4px; font-size:12px; color:#2c3e50; display:flex; align-items:center; gap:8px; font-family:sans-serif;">2025 <img src="https://img.icons8.com/material-outlined/24/7f8c8d/calendar--v1.png" width="14"/></span>
                     <span style="color:#7f8c8d; cursor:pointer; font-size:14px; font-weight:bold;">&gt;</span>
@@ -1447,115 +1447,6 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
 </table>
 </div>"""
                 st.markdown(table_html, unsafe_allow_html=True)
-
-        elif st.session_state["ver_detalle_bateria"]:
-            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-            if st.button("⬅ Volver a la lista de dispositivos", type="secondary"):
-                st.session_state["ver_detalle_bateria"] = False
-                st.rerun()
-            
-            st.markdown(f"""
-            <div style='display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px; margin-top:10px;'>
-                <div>
-                    <h2 style='margin-bottom:0; font-size: 24px;'>Batería:{sn_logger}M01</h2>
-                    <span style='color:#27ae60; font-weight:bold; font-size:14px;'>🟢 En línea</span>
-                </div>
-                <span style='color:#7f8c8d; font-size:13px;'>{datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')}</span>
-            </div>
-            <hr style='margin-top:0px; border-color:#eaeaea;'>
-            """, unsafe_allow_html=True)
-            
-            t_bat_1, t_bat_2, t_bat_3, t_bat_4 = st.tabs(["Detalles", "Alerta", "Arquitectura", "Datos históricos"])
-            
-            with t_bat_1:
-                st.markdown("<div style='height:15px;'></div>", unsafe_allow_html=True)
-                with st.expander("Información básica", expanded=True):
-                    st.markdown(f"""
-                    <div class='diag-grid'>
-                        <div><span class='diag-lbl'>NS dispositivo conectado:</span> {sn_logger}M01</div>
-                        <div><span class='diag-lbl'>Número paquete:</span> 6</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with st.expander("Información clave", expanded=True):
-                    st.markdown(f"""
-                    <div class='diag-grid'>
-                        <div><span class='diag-lbl'>Voltaje batería:</span> 323 V</div>
-                        <div><span class='diag-lbl'>Corriente batería:</span> 0.00 A</div>
-                        <div><span class='diag-lbl'>SOC batería:</span> 100 %</div>
-                        <div><span class='diag-lbl'>SOH batería:</span> 100 %</div>
-                        <div><span class='diag-lbl'>Temp batería:</span> 36.00 °C</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with st.expander("Límite de carga y descarga", expanded=True):
-                    st.markdown("""
-                    <div class='diag-grid'>
-                        <div><span class='diag-lbl'>Voltaje final carga:</span> 345 V</div>
-                        <div><span class='diag-lbl'>Voltaje final descarga:</span> 0.00 V</div>
-                        <div><span class='diag-lbl'>Corriente límite carga:</span> 0 A</div>
-                        <div><span class='diag-lbl'>Corriente límite descarga:</span> 100 A</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with st.expander("Otro", expanded=True):
-                    st.markdown("""
-                    <div class='diag-grid'>
-                        <div><span class='diag-lbl'>Bandera carga forzada:</span> 0000</div>
-                        <div><span class='diag-lbl'>Comprobar bandera SOC:</span> 0000</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with t_bat_2:
-                st.markdown("""
-                <div style='text-align:center; padding: 60px 0;'>
-                    <img src="https://img.icons8.com/ios/100/ced6e0/document--v1.png" width="60"/>
-                    <p style='color:#7f8c8d; margin-top:10px; font-size:14px;'>Datos no disponibles</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with t_bat_3:
-                st.markdown("""
-                <div style='display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;'>
-                    <div style='color:#3498db; font-weight:bold; font-size:16px; border-bottom: 3px solid #3498db; padding-bottom: 8px; margin-bottom: -12px;'>Relación de comunicación</div>
-                    <button style='background-color:#3498db; color:white; border:none; border-radius:4px; padding:6px 15px; font-weight:bold; cursor:pointer;'>Exportar</button>
-                </div>
-                <p style='color:#7f8c8d; font-size:13px; margin-top:15px;'>La topología de red real reflejada cuando el dispositivo está cargando datos.</p>
-                """, unsafe_allow_html=True)
-
-                time_str = datetime.now().strftime('%Y/%m/%d %H:%M:%S UTC-05:00')
-                fake_logger_sn = sn_logger
-                
-                battery_html = f"""<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 80px;'><span style='color:#7f8c8d;'>▼</span> <span style='color:#3498db;'>Batería</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>{sn_logger}M01</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
-<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-</tr>
-<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 110px;'>Batería<br><span style='color:#7f8c8d; font-size:12px;'>03601000D2080004</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
-<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-</tr>"""
-
-                table_html = f"""<div style='background:white; border:1px solid #eaeaea; border-radius:8px; overflow:hidden;'>
-<table style='width:100%; text-align:left; font-size:14px; border-collapse:collapse;'>
-<tr style='background-color:#f8f9fa; border-bottom:1px solid #eaeaea; color:#2c3e50;'>
-<th style='padding:12px 20px;'>Tipo/SN</th><th style='padding:12px;'>Estado</th><th style='padding:12px;'>Actualizado</th>
-</tr>
-<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left:20px;'><span style='color:#7f8c8d;'>▼</span> Registrador<br><span style='color:#7f8c8d; font-size:12px; margin-left: 15px;'>{fake_logger_sn}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
-<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-</tr>
-<tr style='border-bottom:1px solid #f8f9fa;'>
-<td style='padding:12px; padding-left: 50px;'><span style='color:#3498db; font-weight:bold;'>▼ Inversor</span><br><span style='color:#3498db; font-size:12px; margin-left: 15px;'>INV-{sn_logger}</span></td>
-<td style='padding:12px;'><img src="https://img.icons8.com/ios/24/576574/transmission-tower.png" width="16" /></td>
-<td style='padding:12px; color:#2c3e50; font-size:13px;'>{time_str}</td>
-</tr>
-{battery_html}
-</table>
-</div>"""
-                st.markdown(table_html, unsafe_allow_html=True)
                 
             with t_bat_4:
                 st.markdown("""
@@ -1757,6 +1648,94 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                     if c_btn2.button("🗑️", key=f"del_{real_idx}"):
                         eliminar_mantenimiento(p['nombre'], real_idx)
                         st.rerun()
+                        
+    if st.session_state['rol'] == 'admin' and t_auth:
+        with t_auth:
+            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+            
+            # --- TARJETA DE GERENTE DE PLANTA ---
+            st.markdown(f"""
+            <div style="background:white; border-radius:8px; padding:20px; border:1px solid #eaeaea; margin-bottom: 20px;">
+                <p style="color:#7f8c8d; font-size:14px; margin-top:0;">Información del gerente de planta <span style="color:#bdc3c7; cursor:pointer;">❔</span></p>
+                <div style="display:flex; align-items:center; margin-top:15px;">
+                    <div style="background:#f0f0f0; border-radius:50%; width:60px; height:60px; display:flex; justify-content:center; align-items:center; margin-right:15px; color:#bdc3c7; font-weight:bold; font-size:12px;">LOGO</div>
+                    <div>
+                        <h3 style="margin:0; color:#2c3e50; font-size: 18px; font-weight:normal;">{p['nombre'].lower()}</h3>
+                        <p style="margin:0; color:#7f8c8d; font-size:14px;">Negocios</p>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # --- TRES COLUMNAS DE AUTORIZACIONES ---
+            col_a1, col_a2, col_a3 = st.columns(3)
+            
+            with col_a1:
+                st.markdown(f"""
+                <div style="background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea; height: 380px; display:flex; flex-direction:column;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0f0f0; padding-bottom:10px; margin-bottom:15px;">
+                        <h4 style="margin:0; color:#2c3e50; font-size:15px; font-weight:normal;">Usuarios autorizados</h4>
+                        <button style="background:white; border:1px solid #eaeaea; color:#7f8c8d; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer;">Ir a autorizar</button>
+                    </div>
+                    <div style="display:flex; align-items:flex-start; flex-grow:1;">
+                        <img src="https://img.icons8.com/color/48/circled-user-male-skin-type-1--v1.png" style="width:40px; margin-right:10px;"/>
+                        <div style="flex-grow:1; padding-top:5px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="color:#2c3e50; font-size:14px;">{p['nombre'].upper()}</span>
+                                <div><span style="color:#bdc3c7; cursor:pointer; margin-right:5px; font-size:14px;">✏️</span> <span style="color:#bdc3c7; cursor:pointer; font-size:14px;">🗑️</span></div>
+                            </div>
+                            <div style="color:#7f8c8d; font-size:12px; margin-top:5px;">Autorizar: &nbsp;&nbsp;Ver rol solo de planta</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:10px; align-items:center; color:#bdc3c7; font-size:12px; margin-top:15px;">
+                        <span style="cursor:pointer;">&lt;</span> <button style="background:#1890ff; border:none; color:white; padding:2px 8px; border-radius:4px; font-size:12px;">1</button> <span style="cursor:pointer;">&gt;</span>
+                        <span style="border:1px solid #eaeaea; padding:2px 8px; border-radius:4px; cursor:pointer;">50/página <span style="font-size:10px;">^</span></span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_a2:
+                st.markdown("""
+                <div style="background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea; height: 380px; display:flex; flex-direction:column;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0f0f0; padding-bottom:10px; margin-bottom:15px;">
+                        <h4 style="margin:0; color:#2c3e50; font-size:15px; font-weight:normal;">Unidades de negocio autorizadas</h4>
+                        <button style="background:white; border:1px solid #eaeaea; color:#7f8c8d; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer;">Ir a autorizar</button>
+                    </div>
+                    <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#bdc3c7;">
+                        <img src="https://img.icons8.com/ios/100/ced6e0/document--v1.png" style="width:60px; margin-bottom:10px; opacity:0.6;"/>
+                        <span style="font-size:13px;">Datos no disponibles</span>
+                        <button style="background:#1890ff; border:none; color:white; padding:8px 15px; border-radius:4px; font-size:13px; margin-top:20px; cursor:pointer; font-weight:bold;">Haga clic aquí para autorizar unidades de negocio</button>
+                    </div>
+                     <div style="display:flex; justify-content:flex-end; gap:10px; align-items:center; color:#bdc3c7; font-size:12px; margin-top:15px;">
+                        <span style="cursor:pointer;">&lt;</span> <button style="background:#f0f0f0; border:none; color:#bdc3c7; padding:2px 8px; border-radius:4px; font-size:12px;">1</button> <span style="cursor:pointer;">&gt;</span>
+                        <span style="border:1px solid #eaeaea; padding:2px 8px; border-radius:4px; cursor:pointer;">50/página <span style="font-size:10px;">^</span></span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_a3:
+                st.markdown("""
+                <div style="background:white; border-radius:8px; padding:15px; border:1px solid #eaeaea; height: 380px; display:flex; flex-direction:column;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0f0f0; padding-bottom:10px; margin-bottom:15px;">
+                        <h4 style="margin:0; color:#2c3e50; font-size:15px; font-weight:normal;">Miembros internos autorizados</h4>
+                        <button style="background:white; border:1px solid #eaeaea; color:#7f8c8d; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer;">Ir a autorizar</button>
+                    </div>
+                    <div style="display:flex; align-items:flex-start; flex-grow:1;">
+                        <img src="https://img.icons8.com/color/48/circled-user-male-skin-type-1--v1.png" style="width:40px; margin-right:10px;"/>
+                        <div style="flex-grow:1; padding-top:5px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="color:#2c3e50; font-size:14px;">energiasolar01</span>
+                                <span style="color:#bdc3c7; cursor:pointer; font-size:14px;">🗑️</span>
+                            </div>
+                            <div style="color:#7f8c8d; font-size:12px; margin-top:5px;">Role: &nbsp;&nbsp;Súper administrador</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:10px; align-items:center; color:#bdc3c7; font-size:12px; margin-top:15px;">
+                        <span style="cursor:pointer;">&lt;</span> <button style="background:#1890ff; border:none; color:white; padding:2px 8px; border-radius:4px; font-size:12px;">1</button> <span style="cursor:pointer;">&gt;</span>
+                        <span style="border:1px solid #eaeaea; padding:2px 8px; border-radius:4px; cursor:pointer;">50/página <span style="font-size:10px;">^</span></span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 elif menu == "🚨 Centro de Alertas":
     st.title("🚨 CENTRO DE ALERTAS")
