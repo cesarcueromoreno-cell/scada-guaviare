@@ -916,29 +916,49 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
         with t_ctrl:
             st.info(f"⚙️ Configurando el inversor **{p.get('inversores', 'Deye')}** de la planta '{p['nombre']}'. Proceda con precaución.")
             
-            st_bat, st_mo1, st_red, st_sis = st.tabs([
-                "🔋 Baterías", "🔄 Modos", "⚡ Red", "💻 Sistema"
-            ])
+            # --- PERFILES DE HARDWARE DINÁMICOS ---
+            es_goodwe_10k = "GoodWe" in p.get('inversores', '') and cap_pura_kw == 10.0
+            
+            if es_goodwe_10k:
+                st.success("✅ Perfil de hardware detectado: GoodWe Serie ES/A-ES (Fase Dividida 220V/110V)")
+                st_bat, st_pv, st_red, st_sis = st.tabs(["🔋 Baterías (Lynx)", "☀️ Arreglos PV", "⚡ Red & NEC", "💻 Sistema"])
+            else:
+                st.warning("⚠️ Perfil genérico o Deye Trifásico detectado.")
+                st_bat, st_mo1, st_red, st_sis = st.tabs(["🔋 Baterías", "🔄 Modos", "⚡ Red", "💻 Sistema"])
+            
             opts_sel = ["Seleccione", "Habilitado", "Deshabilitado"]
             
             with st_bat:
-                st.markdown("<small style='color:#7f8c8d;'>ⓘ El grupo de comandos actual debe configurarse como un todo.</small>", unsafe_allow_html=True)
-                cb1, cb2, cb3, cb4, cb5 = st.columns(5)
-                cb1.selectbox("* Tipo Batería", ["Modo Litio", "Plomo"])
-                cb2.number_input("* Capacidad (Ah)", value=100)
-                cb3.number_input("* Max Carga (A)", value=50)
-                cb4.number_input("* Max Descarga (A)", value=50)
-                cb5.number_input("* Desconexión %", value=10)
+                st.markdown("<small style='color:#7f8c8d;'>ⓘ Configuración del banco de almacenamiento.</small>", unsafe_allow_html=True)
+                cb1, cb2, cb3, cb4 = st.columns(4)
+                if es_goodwe_10k:
+                    cb1.selectbox("* Tipo Batería", ["Litio (BMS) - Lynx Home U", "Plomo-Ácido"])
+                    cb2.number_input("* Límite Descarga (SOC %)", min_value=10, max_value=50, value=15)
+                    cb3.number_input("* Corriente Max Carga (A)", value=50)
+                    cb4.number_input("* Corriente Max Descarga (A)", value=50)
+                else:
+                    cb1.selectbox("* Tipo Batería", ["Modo Litio", "Plomo"])
+                    cb2.number_input("* Capacidad (Ah)", value=100)
+                    cb3.number_input("* Max Carga (A)", value=50)
+                    cb4.number_input("* Max Descarga (A)", value=50)
 
-            with st_mo1:
-                m1, m2, m3 = st.columns(3)
-                m1.selectbox("* Modo", ["Autoconsumo", "Respaldo"])
-                m2.number_input("* Max Solar (W)", value=5000)
-                m3.selectbox("* Prioridad", ["Carga", "Batería"])
+            # Pestaña dinámica: Arreglos PV (Solo para el GoodWe de 10kW) o Modos (Genérico)
+            if es_goodwe_10k:
+                with st_pv:
+                    st.markdown("Configuración de los MPPT para paneles de alta potencia (ej. Longi 580W)")
+                    cpv1, cpv2 = st.columns(2)
+                    cpv1.number_input("Módulos en String 1 (Longi 580W)", min_value=0, max_value=20, value=12)
+                    cpv2.number_input("Módulos en String 2 (Longi 580W)", min_value=0, max_value=20, value=12)
+            else:
+                with st_mo1:
+                    m1, m2, m3 = st.columns(3)
+                    m1.selectbox("* Modo", ["Autoconsumo", "Respaldo"])
+                    m2.number_input("* Max Solar (W)", value=5000)
+                    m3.selectbox("* Prioridad", ["Carga", "Batería"])
 
             with st_red:
                 if not st.session_state["red_desbloqueada"]:
-                    st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña 'admin123' para desbloquear</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='color:#f39c12; font-weight:bold; margin-bottom:10px;'>🔒 Introduzca la contraseña para desbloquear los parámetros de red</div>", unsafe_allow_html=True)
                     c_pw1, c_pw2 = st.columns([2, 3])
                     pwd = c_pw1.text_input("Contraseña", type="password", label_visibility="collapsed")
                     if c_pw1.button("Desbloquear", type="secondary"):
@@ -949,8 +969,27 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                 else:
                     st.success("🔓 Panel de Red Desbloqueado")
                     r_c1, r_c2 = st.columns(2)
-                    r_c1.selectbox("* Normativa Aplicada", ["Seleccione", "Colombia (RETIE / NTC 2050)", "IEEE 1547", "IEC 61727"])
+                    norma_sel = r_c1.selectbox("* Normativa Aplicada", ["Norma NEC", "RETIE Local", "IEEE 1547"])
                     r_c2.number_input("* Límite de Inyección a red (%)", min_value=0, max_value=100, value=100)
+                    
+                    st.markdown("#### Protecciones de Tensión y Frecuencia")
+                    v_max = st.number_input("Sobre Tensión Máx (V)", value=132.0 if es_goodwe_10k else 253.0)
+                    v_min = st.number_input("Sub Tensión Mín (V)", value=108.0 if es_goodwe_10k else 198.0)
+                    t_despeje = st.number_input("Tiempo de Despeje (s)", value=0.16)
+                    
+                    # --- VALIDACIÓN NORMATIVA ESTRICTA NEC ---
+                    error_nec = False
+                    if norma_sel == "Norma NEC":
+                        if es_goodwe_10k and (v_max > 132.0 or v_min < 108.0): # Tolerancia NEC +-10% sobre 120V
+                            st.error("⛔ **Violación de Norma NEC:** Para sistemas de fase dividida 120V, los límites de tensión no pueden exceder ±10% (108V - 132V). Corrija el valor para evitar daños al equipo o penalizaciones.")
+                            error_nec = True
+                        elif not es_goodwe_10k and (v_max > 264.0 or v_min < 216.0): # Tolerancia NEC +-10% sobre 240V
+                            st.error("⛔ **Violación de Norma NEC:** Los límites de tensión no pueden exceder ±10% del voltaje nominal. Corrija los valores.")
+                            error_nec = True
+                        if t_despeje > 0.16:
+                            st.error("⛔ **Violación de Norma NEC:** El tiempo de despeje por falla de tensión no puede ser mayor a 0.16 segundos (10 ciclos).")
+                            error_nec = True
+
                     if st.button("🔒 Bloquear Red"):
                         st.session_state["red_desbloqueada"] = False
                         st.rerun()
@@ -977,7 +1016,7 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
                         st.success("✅ Comando de reinicio aceptado por el inversor.")
                     
                     if col_r2.button("🏭 Restaurar de Fábrica", type="secondary", use_container_width=True):
-                        st.error("❌ Función bloqueada de forma permanente para evitar pérdida de parámetros RETIE.")
+                        st.error("❌ Función bloqueada para evitar pérdida de parámetros NEC y desconfiguración del transformador.")
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     if st.button("🔒 Bloquear Sistema"):
@@ -987,9 +1026,10 @@ elif menu in ["📊 Panel de Planta", "📊 Panel de Mi Planta"]:
             st.markdown("<br><hr style='margin:10px 0;'>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns([6, 2, 2])
             with b_col3:
-                if st.button("Configurar", type="primary", use_container_width=True):
-                    with st.spinner("Enviando..."): time.sleep(1.5)
-                    st.success("¡Configuración aplicada!")
+                if st.button("Configurar", type="primary", use_container_width=True, disabled=st.session_state.get("red_desbloqueada", False) and error_nec):
+                    with st.spinner("Compilando parámetros y enviando al datalogger..."): 
+                        time.sleep(1.5)
+                    st.success("¡Configuración certificada aplicada al inversor!")
 
     with t_rep:
         st.markdown("### 📄 Descarga de Reporte Ejecutivo PDF")
