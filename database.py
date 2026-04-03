@@ -18,6 +18,8 @@ supabase, db_estado = init_db()
 def get_db_estado():
     return db_estado
 
+# --- 🚀 AQUI EMPIEZA LA MAGIA DEL CACHÉ ---
+@st.cache_data(ttl=60) # Guarda en memoria por 60 segundos
 def cargar_usuarios():
     if not supabase: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin", "planta_asignada": "Todas"}}
     try:
@@ -28,69 +30,14 @@ def cargar_usuarios():
         return {r["usuario"]: {"pwd": r["pwd"], "status": r["estado"], "role": r["rol"], "planta_asignada": r["planta_asignada"]} for r in res.data}
     except: return {"admin": {"pwd": "solar123", "status": "active", "role": "admin", "planta_asignada": "Todas"}}
 
-def solicitar_usuario(usuario, contrasena):
-    db = cargar_usuarios()
-    if usuario in db: return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
-    if supabase:
-        try:
-            supabase.table("usuarios").insert({"usuario": str(usuario), "pwd": str(contrasena), "estado": "pending", "rol": "viewer", "planta_asignada": "Pendiente Asignar"}).execute()
-            return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
-        except: pass
-    return False, f"❌ {db_estado}"
-
-def crear_usuario_admin(correo, pwd, planta):
-    if not supabase: return False, db_estado
-    db = cargar_usuarios()
-    if correo in db: return False, "⚠️ El usuario o correo electrónico ya existe en el sistema."
-    try:
-        supabase.table("usuarios").insert({
-            "usuario": str(correo), "pwd": str(pwd), "estado": "active", "rol": "viewer", "planta_asignada": str(planta)
-        }).execute()
-        return True, "OK"
-    except Exception as e:
-        return False, str(e)
-
-def actualizar_usuario_bd(usuario_id, nuevo_estado, nuevo_rol, nueva_planta, nueva_pwd=None):
-    if supabase:
-        datos = {"estado": str(nuevo_estado), "rol": str(nuevo_rol), "planta_asignada": str(nueva_planta)}
-        if nueva_pwd: datos["pwd"] = str(nueva_pwd)
-        try: supabase.table("usuarios").update(datos).eq("usuario", str(usuario_id)).execute()
-        except: pass
-
-def eliminar_usuario_bd(usuario_id):
-    if supabase:
-        try: supabase.table("usuarios").delete().eq("usuario", str(usuario_id)).execute()
-        except: pass
-
+@st.cache_data(ttl=60) # Guarda en memoria por 60 segundos
 def cargar_plantas():
     if supabase:
         try: return supabase.table("plantas").select("*").order("id").execute().data
         except: return []
     return []
 
-def guardar_planta(nueva):
-    if not supabase: return False, db_estado
-    try: 
-        supabase.table("plantas").insert(nueva).execute()
-        return True, ""
-    except Exception as e: 
-        return False, str(e)
-
-def actualizar_planta(idx_planta, p_edit):
-    if not supabase: return False, db_estado
-    try:
-        datos = {k: str(v) for k, v in p_edit.items() if k not in ["id", "creado_en"]}
-        supabase.table("plantas").update(datos).eq("id", p_edit["id"]).execute()
-        return True, ""
-    except Exception as e:
-        return False, str(e)
-
-def eliminar_planta(id_planta):
-    if supabase:
-        try:
-            supabase.table("plantas").delete().eq("id", id_planta).execute()
-        except: pass
-
+@st.cache_data(ttl=60)
 def cargar_mantenimientos():
     if supabase:
         try:
@@ -103,6 +50,73 @@ def cargar_mantenimientos():
             return mants
         except: return {}
     return {}
+# ------------------------------------------
+
+def solicitar_usuario(usuario, contrasena):
+    db = cargar_usuarios()
+    if usuario in db: return False, "⚠️ Este usuario ya existe o tiene una solicitud pendiente."
+    if supabase:
+        try:
+            supabase.table("usuarios").insert({"usuario": str(usuario), "pwd": str(contrasena), "estado": "pending", "rol": "viewer", "planta_asignada": "Pendiente Asignar"}).execute()
+            cargar_usuarios.clear() # Limpia la memoria
+            return True, "✅ Solicitud enviada. Espere a que el Administrador apruebe su cuenta."
+        except: pass
+    return False, f"❌ {db_estado}"
+
+def crear_usuario_admin(correo, pwd, planta):
+    if not supabase: return False, db_estado
+    db = cargar_usuarios()
+    if correo in db: return False, "⚠️ El usuario o correo electrónico ya existe en el sistema."
+    try:
+        supabase.table("usuarios").insert({
+            "usuario": str(correo), "pwd": str(pwd), "estado": "active", "rol": "viewer", "planta_asignada": str(planta)
+        }).execute()
+        cargar_usuarios.clear() # Limpia la memoria
+        return True, "OK"
+    except Exception as e:
+        return False, str(e)
+
+def actualizar_usuario_bd(usuario_id, nuevo_estado, nuevo_rol, nueva_planta, nueva_pwd=None):
+    if supabase:
+        datos = {"estado": str(nuevo_estado), "rol": str(nuevo_rol), "planta_asignada": str(nueva_planta)}
+        if nueva_pwd: datos["pwd"] = str(nueva_pwd)
+        try: 
+            supabase.table("usuarios").update(datos).eq("usuario", str(usuario_id)).execute()
+            cargar_usuarios.clear() # Limpia la memoria
+        except: pass
+
+def eliminar_usuario_bd(usuario_id):
+    if supabase:
+        try: 
+            supabase.table("usuarios").delete().eq("usuario", str(usuario_id)).execute()
+            cargar_usuarios.clear() # Limpia la memoria
+        except: pass
+
+def guardar_planta(nueva):
+    if not supabase: return False, db_estado
+    try: 
+        supabase.table("plantas").insert(nueva).execute()
+        cargar_plantas.clear() # Limpia la memoria
+        return True, ""
+    except Exception as e: 
+        return False, str(e)
+
+def actualizar_planta(idx_planta, p_edit):
+    if not supabase: return False, db_estado
+    try:
+        datos = {k: str(v) for k, v in p_edit.items() if k not in ["id", "creado_en"]}
+        supabase.table("plantas").update(datos).eq("id", p_edit["id"]).execute()
+        cargar_plantas.clear() # Limpia la memoria
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+def eliminar_planta(id_planta):
+    if supabase:
+        try:
+            supabase.table("plantas").delete().eq("id", id_planta).execute()
+            cargar_plantas.clear() # Limpia la memoria
+        except: pass
 
 def guardar_mantenimiento(planta, datos_mant):
     if supabase:
@@ -111,16 +125,19 @@ def guardar_mantenimiento(planta, datos_mant):
                 "planta_nombre": str(planta), "fecha": str(datos_mant["fecha"]), "tipo_tarea": str(datos_mant["tipo"]),
                 "tecnico": str(datos_mant["resp"]), "notas": str(datos_mant["notas"]), "estado": str(datos_mant["estado"])
             }).execute()
+            cargar_mantenimientos.clear() # Limpia la memoria
         except: pass
 
 def actualizar_estado_mantenimiento(id_mant, nuevo_estado):
     if supabase:
         try:
             supabase.table("mantenimientos").update({"estado": str(nuevo_estado)}).eq("id", id_mant).execute()
+            cargar_mantenimientos.clear() # Limpia la memoria
         except: pass
 
 def eliminar_mantenimiento(id_mant):
     if supabase:
         try:
             supabase.table("mantenimientos").delete().eq("id", id_mant).execute()
+            cargar_mantenimientos.clear() # Limpia la memoria
         except: pass
