@@ -1,4 +1,3 @@
-# utils.py
 import random
 import math
 import pandas as pd
@@ -7,6 +6,10 @@ from datetime import datetime, timedelta
 from fpdf import FPDF
 import tempfile
 import time
+import streamlit as st
+
+# Importamos tu motor de conexión hackeado a Solarman
+from solarman_api import MotorSolarmanAPI
 
 def subir_imagen_simulado(uploaded_file):
     if uploaded_file is not None:
@@ -15,12 +18,44 @@ def subir_imagen_simulado(uploaded_file):
     return ""
 
 def get_data(pl):
+    """
+    Intenta obtener telemetría mediante Web Scraping (MotorSolarmanAPI). 
+    Si falla, usa simulación como respaldo.
+    """
+    # 1. INTENTO DE CONEXIÓN HACK
+    try:
+        email = st.secrets.get("SOLARMAN_EMAIL")
+        password = st.secrets.get("SOLARMAN_PASSWORD")
+
+        if email and password:
+            # La clase solo pide email y password
+            api = MotorSolarmanAPI(email, password)
+            station_id = pl.get("datalogger", "") 
+            
+            if station_id:
+                datos_reales = api.obtener_datos_planta(station_id)
+                if datos_reales:
+                    print(f"✅ Datos reales obtenidos para: {pl.get('nombre')}")
+                    return datos_reales
+    except Exception as e:
+        print(f"⚠️ Aviso: Falló el Web Scraping. Usando simulación. Error: {e}")
+
+    # 2. FALLBACK: SIMULACIÓN DE DATOS
     cap_val = pl.get("capacidad", "5")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
     p_sol = int(cap * random.uniform(0.1, 0.8))
     e_dia = round((p_sol * random.uniform(3.5, 5.0)) / 1000, 1)
     soc = random.randint(15, 99) 
-    return {"solar": p_sol, "casa": int(p_sol*0.4) + random.randint(500, 1500), "soc": soc, "hoy": e_dia, "alertas": []}
+    
+    return {
+        "solar": p_sol, 
+        "casa": int(p_sol*0.4) + random.randint(500, 1500), 
+        "red": 0, 
+        "bateria": 0, 
+        "soc": soc, 
+        "hoy": e_dia, 
+        "alertas": []
+    }
 
 def simular_historico_24h_avanzado(planta):
     cap_val = planta.get("capacidad", "30")
@@ -91,20 +126,20 @@ def generar_pdf(planta, datos):
     pdf.cell(80, 10, "Energia Solar Generada:")
     pdf.set_text_color(39, 174, 96) 
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f"{datos['hoy']} kWh", ln=True)
+    pdf.cell(0, 10, f"{datos.get('hoy', 0)} kWh", ln=True)
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", '', 12)
     pdf.cell(80, 10, "Consumo Aproximado:")
     pdf.set_text_color(230, 126, 34) 
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f"{round(datos['hoy']*0.45,1)} kWh", ln=True)
+    pdf.cell(0, 10, f"{round(datos.get('casa', 0)/1000, 1)} kWh", ln=True)
     pdf.set_text_color(0, 0, 0)
     
     if planta.get('tipo_sistema', 'Híbrido') in ['Híbrido', 'Off-Grid']:
         pdf.set_font("Arial", '', 12)
         pdf.cell(80, 10, "Nivel de Baterias (SOC):")
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(0, 10, f"{datos['soc']} %", ln=True)
+        pdf.cell(0, 10, f"{datos.get('soc', 0)} %", ln=True)
         
     pdf.ln(20)
     pdf.set_font("Arial", 'I', 10)
