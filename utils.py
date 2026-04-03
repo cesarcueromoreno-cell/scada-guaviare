@@ -20,7 +20,7 @@ def subir_imagen_simulado(uploaded_file):
 def get_data(pl):
     """
     Intenta obtener telemetría mediante Web Scraping. 
-    Si falla, muestra el error en pantalla y usa los datos reales estáticos o simulación.
+    Si falla, muestra el error en pantalla y usa simulación.
     """
     station_id = str(pl.get("datalogger", "")).strip()
 
@@ -33,7 +33,7 @@ def get_data(pl):
             st.warning("⚠️ Faltan el correo o la contraseña en la caja de Secrets de Streamlit.")
         else:
             if station_id:
-                st.info(f"🔄 Intentando conectar a Solarman (ID: {station_id})...")
+                st.info(f"🔄 Intentando conectar a Solarman (ID de Planta: {station_id})...")
                 api = MotorSolarmanAPI(email, password)
                 datos_reales = api.obtener_datos_planta(station_id)
                 
@@ -41,26 +41,14 @@ def get_data(pl):
                     st.success(f"✅ ¡Conexión exitosa! Datos vivos de {pl.get('nombre')}.")
                     return datos_reales
                 else:
-                    st.error("❌ Solarman Business rechazó la conexión no oficial. Esperando llaves APP_ID por correo.")
+                    st.error("❌ Solarman rechazó la conexión. Es posible que hayan bloqueado el acceso no oficial.")
             else:
                 st.warning("⚠️ No has puesto el Station ID en el campo de SN Datalogger.")
                 
     except Exception as e:
         st.error(f"🛑 Error de sistema al conectar: {e}")
 
-    # 2. FALLBACK INTELIGENTE (Datos de tu captura real para Cancha La Playta)
-    if station_id == "65624305":
-        st.success("✅ Mostrando última telemetría conocida (Respaldo) para CANCHA LA PLAYTA.")
-        return {
-            "solar": 140,       # 140 W (Flujo en tiempo real)
-            "casa": 140,        # Consumo actual equilibrado
-            "red": 0,           # 0 W hacia la red
-            "bateria": 0,       # 0 W de la batería
-            "soc": 100,         # 100 % de carga
-            "hoy": 13.2         # 13.2 kWh producidos hoy
-        }
-
-    # 3. FALLBACK GENÉRICO (Para otras plantas nuevas)
+    # 2. FALLBACK: SIMULACIÓN DE DATOS (Si la API falla)
     cap_val = pl.get("capacidad", "5")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
     p_sol = int(cap * random.uniform(0.1, 0.8))
