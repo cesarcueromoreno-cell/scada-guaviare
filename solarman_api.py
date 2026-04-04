@@ -1,4 +1,3 @@
-# solarman_api.py
 import hashlib
 import time
 import requests
@@ -6,30 +5,25 @@ import requests
 class MotorSolarmanAPI:
     def __init__(self, email, password):
         self.email = email
-        # Encriptamos la clave como lo hace la página web internamente
         self.password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
-        
-        # Usamos la URL pública de la API global (la misma que usa la App del celular)
         self.base_url = "https://globalapi.solarmanpv.com" 
         self.token = None
         
-        # Simulamos ser un navegador web (Google Chrome en Windows)
+        # Simulamos ser la aplicación móvil Solarman Smart (No la Business)
         self.headers = {
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "User-Agent": "SolarmanSmart/1.0.0 (Android)"
         }
         
-        # Usamos las credenciales genéricas (Open Source) de la App móvil de Solarman 
-        # para engañar al sistema y no pagar la cuota de empresa.
-        self.app_id = "1000000000000000"
-        self.app_secret = "1234567890abcdef1234567890abcdef"
+        # App ID y Secret públicos de la aplicación residencial
+        self.app_id = "1227361424750919680"
+        self.app_secret = "29b82fc2d2aa93e7f9f2509192ce26e3"
 
     def _generar_firma(self, timestamp):
         token_str = f"{self.app_id}{self.app_secret}{timestamp}"
         return hashlib.sha256(token_str.encode('utf-8')).hexdigest()
 
     def autenticar(self):
-        """Finge ser la aplicación iniciando sesión para robar el token de acceso"""
         timestamp = str(int(time.time() * 1000))
         url = f"{self.base_url}/account/v1.0/token"
         
@@ -46,17 +40,15 @@ class MotorSolarmanAPI:
             if response.status_code == 200 and response.json().get("success"):
                 self.token = response.json().get("access_token")
                 self.headers["Authorization"] = f"bearer {self.token}"
-                print("✅ [API HACK] Autenticación web exitosa. Token capturado.")
+                print("✅ [API SMART] Autenticación exitosa.")
                 return True
             else:
-                print(f"❌ [API HACK] Bloqueado por el servidor: {response.text}")
+                print(f"❌ [API SMART] Rechazado: {response.text}")
                 return False
         except Exception as e:
-            print(f"❌ [API HACK] Error de red: {e}")
             return False
 
     def obtener_datos_planta(self, station_id):
-        """Extrae la telemetría en tiempo real"""
         if not self.token:
             if not self.autenticar(): return None
 
@@ -77,5 +69,4 @@ class MotorSolarmanAPI:
                 }
             return None
         except Exception as e:
-            print(f"❌ [API HACK] Error obteniendo datos: {e}")
             return None
