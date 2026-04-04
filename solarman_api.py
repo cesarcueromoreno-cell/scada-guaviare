@@ -1,6 +1,7 @@
 import hashlib
 import time
 import requests
+import streamlit as st
 
 class MotorSolarmanAPI:
     def __init__(self, email, password):
@@ -9,7 +10,6 @@ class MotorSolarmanAPI:
         self.base_url = "https://globalapi.solarmanpv.com" 
         self.token = None
         
-        # Simulamos ser la aplicación móvil Solarman Smart (No la Business)
         self.headers = {
             "Content-Type": "application/json",
             "User-Agent": "SolarmanSmart/1.0.0 (Android)"
@@ -40,12 +40,13 @@ class MotorSolarmanAPI:
             if response.status_code == 200 and response.json().get("success"):
                 self.token = response.json().get("access_token")
                 self.headers["Authorization"] = f"bearer {self.token}"
-                print("✅ [API SMART] Autenticación exitosa.")
                 return True
             else:
-                print(f"❌ [API SMART] Rechazado: {response.text}")
+                # AQUÍ ESTÁ LA MAGIA: Imprime la respuesta real del servidor en rojo
+                st.error(f"🛑 Error interno de Solarman: {response.text}")
                 return False
         except Exception as e:
+            st.error(f"🛑 Error de red: {str(e)}")
             return False
 
     def obtener_datos_planta(self, station_id):
@@ -59,14 +60,18 @@ class MotorSolarmanAPI:
             response = requests.post(url, json=payload, headers=self.headers)
             if response.status_code == 200:
                 data = response.json()
-                return {
-                    "solar": data.get("generationPower", 0), 
-                    "casa": data.get("consumptionPower", 0), 
-                    "red": data.get("gridPower", 0),         
-                    "bateria": data.get("batteryPower", 0),  
-                    "soc": data.get("soc", 0),               
-                    "hoy": data.get("dailyGeneration", 0)    
-                }
+                if data.get("success"):
+                    return {
+                        "solar": data.get("generationPower", 0), 
+                        "casa": data.get("consumptionPower", 0), 
+                        "red": data.get("gridPower", 0),         
+                        "bateria": data.get("batteryPower", 0),  
+                        "soc": data.get("soc", 0),               
+                        "hoy": data.get("dailyGeneration", 0)    
+                    }
+                else:
+                    st.error(f"🛑 Error al pedir datos de la planta: {response.text}")
+                    return None
             return None
         except Exception as e:
             return None
