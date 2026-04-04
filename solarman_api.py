@@ -5,8 +5,9 @@ import streamlit as st
 
 class MotorSolarmanAPI:
     def __init__(self, email, password):
-        self.email = email
-        self.password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        # El .strip() elimina espacios accidentales al inicio o al final
+        self.email = str(email).strip()
+        self.password_hash = hashlib.sha256(str(password).strip().encode('utf-8')).hexdigest()
         self.base_url = "https://globalapi.solarmanpv.com" 
         self.token = None
         
@@ -15,9 +16,9 @@ class MotorSolarmanAPI:
             "User-Agent": "SolarmanSmart/1.0.0 (Android)"
         }
         
-        # App ID y Secret públicos de la aplicación residencial
-        self.app_id = "1227361424750919680"
-        self.app_secret = "29b82fc2d2aa93e7f9f2509192ce26e3"
+        # App ID universal de la comunidad Home Assistant (muy estable)
+        self.app_id = "1789785894395813340"
+        self.app_secret = "04820123565842880812903422031383"
 
     def _generar_firma(self, timestamp):
         token_str = f"{self.app_id}{self.app_secret}{timestamp}"
@@ -32,7 +33,8 @@ class MotorSolarmanAPI:
             "signature": self._generar_firma(timestamp),
             "timestamp": timestamp,
             "email": self.email,
-            "password": self.password_hash
+            "password": self.password_hash,
+            "orgId": ""  # <-- El parámetro que a veces bloquea si no está
         }
         
         try:
@@ -42,7 +44,6 @@ class MotorSolarmanAPI:
                 self.headers["Authorization"] = f"bearer {self.token}"
                 return True
             else:
-                # AQUÍ ESTÁ LA MAGIA: Imprime la respuesta real del servidor en rojo
                 st.error(f"🛑 Error interno de Solarman: {response.text}")
                 return False
         except Exception as e:
@@ -54,7 +55,7 @@ class MotorSolarmanAPI:
             if not self.autenticar(): return None
 
         url = f"{self.base_url}/station/v1.0/realTime"
-        payload = {"stationId": station_id}
+        payload = {"stationId": str(station_id).strip()}
         
         try:
             response = requests.post(url, json=payload, headers=self.headers)
