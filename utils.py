@@ -8,7 +8,6 @@ import tempfile
 import time
 import streamlit as st
 
-# Importamos tu motor de conexión a Solarman
 from solarman_api import MotorSolarmanAPI
 
 def subir_imagen_simulado(uploaded_file):
@@ -18,64 +17,37 @@ def subir_imagen_simulado(uploaded_file):
     return ""
 
 def get_data(pl):
-    """
-    Intenta conectar a la API. Si falla, usa los datos fijos reales para Cancha La Playta o simulación para otras.
-    """
     station_id = str(pl.get("datalogger", "")).strip()
 
-    # 1. INTENTO DE CONEXIÓN A LA API
     try:
         email = st.secrets.get("SOLARMAN_EMAIL")
         password = st.secrets.get("SOLARMAN_PASSWORD")
 
-        if not email or not password:
-            pass # Faltan credenciales, pasamos al fallback silenciosamente
-        else:
-            if station_id:
-                api = MotorSolarmanAPI(email, password)
-                datos_reales = api.obtener_datos_planta(station_id)
-                
-                if datos_reales:
-                    return datos_reales
-                
+        if email and password and station_id:
+            st.info(f"🔄 Conectando a Solarman Smart (ID: {station_id})...")
+            api = MotorSolarmanAPI(email, password)
+            datos_reales = api.obtener_datos_planta(station_id)
+            
+            if datos_reales:
+                st.success(f"✅ ¡Conexión exitosa! Datos vivos de {pl.get('nombre')}.")
+                return datos_reales
+            else:
+                st.error("❌ Falló la conexión con la cuenta Smart. Verificando...")
     except Exception as e:
-        pass # Error de conexión, pasamos al fallback
+        pass
 
-    # 2. FALLBACK INTELIGENTE (Datos de tu captura real para Cancha La Playta)
-    if station_id == "65624305":
-        st.info("ℹ️ Mostrando última telemetría conocida para CANCHA LA PLAYTA mientras se activan llaves API.")
-        return {
-            "solar": 140,       # 140 W (Flujo en tiempo real)
-            "casa": 140,        # Consumo actual equilibrado
-            "red": 0,           # 0 W hacia la red
-            "bateria": 0,       # 0 W de la batería
-            "soc": 100,         # 100 % de carga
-            "hoy": 13.2         # 13.2 kWh producidos hoy
-        }
-
-    # 3. FALLBACK GENÉRICO (Para otras plantas nuevas)
+    # FALLBACK GENÉRICO
     cap_val = pl.get("capacidad", "5")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) * 1000 if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 5000
     p_sol = int(cap * random.uniform(0.1, 0.8))
     e_dia = round((p_sol * random.uniform(3.5, 5.0)) / 1000, 1)
-    soc = random.randint(15, 99) 
-    
-    return {
-        "solar": p_sol, 
-        "casa": int(p_sol*0.4) + random.randint(500, 1500), 
-        "red": 0, 
-        "bateria": 0, 
-        "soc": soc, 
-        "hoy": e_dia, 
-        "alertas": []
-    }
+    return {"solar": p_sol, "casa": int(p_sol*0.4) + random.randint(500, 1500), "red": 0, "bateria": 0, "soc": random.randint(15, 99), "hoy": e_dia, "alertas": []}
 
 def simular_historico_24h_avanzado(planta):
     cap_val = planta.get("capacidad", "30")
     cap = float(re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val))[0]) if re.findall(r"[-+]?\d*\.\d+|\d+", str(cap_val)) else 30.0
     inicio_dia = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     datos = []
-    
     for m in range(0, 24 * 60, 15):
         t = inicio_dia + timedelta(minutes=m)
         h = t.hour + t.minute/60.0
@@ -83,13 +55,7 @@ def simular_historico_24h_avanzado(planta):
         con = max(cap * 0.15, cap * 0.3 * math.exp(-0.5 * ((h - 8) / 2)**2) + cap * 0.4 * math.exp(-0.5 * ((h - 19) / 2.5)**2)) * random.uniform(0.9, 1.1)
         diff = gen - con
         grid_purchase = max(0, -diff) if planta.get('tipo_sistema', 'Híbrido') != 'Off-Grid' else 0
-        
-        datos.append({
-            "timestamp": t,
-            "Potencia solar": round(gen * 1000, 2),
-            "Consumo": round(con * 1000, 2),
-            "Red": round(grid_purchase * 1000, 2)
-        })
+        datos.append({"timestamp": t, "Potencia solar": round(gen * 1000, 2), "Consumo": round(con * 1000, 2), "Red": round(grid_purchase * 1000, 2)})
     return pd.DataFrame(datos)
 
 def simular_produccion_mensual(planta):
